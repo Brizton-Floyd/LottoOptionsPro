@@ -1,0 +1,50 @@
+/* Style for the MenuBar */
+.menu-bar {
+    -fx-background-color: #DAD3BE;
+    -fx-text-fill: #254336;
+}
+
+/* Style for the Menu */
+.menu {
+    -fx-background-color: transparent;
+}
+
+.menu .label {
+    -fx-text-fill: #254336; /* Change text color */
+}
+
+/* Style for the MenuItem */
+.menu-item {
+    /*-fx-background-color: #B7B597;*/
+    -fx-text-fill: #6B8A7A;
+}
+
+/* Style for the MenuItem when hovered */
+.menu-item:hover {
+    /*-fx-background-color: #B7B597;*/
+    -fx-text-fill: #6B8A7A;
+}
+
+/* Style for the MenuItem when selected */
+.menu-item:selected {
+    /*-fx-background-color: #B7B597;*/
+    -fx-text-fill: #6B8A7A;
+}
+
+.vbox-background {
+    -fx-background-color: #254336;
+}
+
+.button {
+    -fx-max-width: 175px; /* Make the button fill the width of its parent */
+    -fx-pref-width: 175px; /* Set the preferred width to 100% */
+}
+
+/* Set the background color and text alignment for the Label */
+#selectedStateAndGame {
+    -fx-background-color: #DAD3BE;
+    -fx-text-alignment: center;
+    -fx-text-fill: #254336;
+    -fx-alignment: center; /* Center the text within the label */
+    -fx-padding: 5px; /* Add some padding for better appearance */
+}
