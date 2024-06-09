@@ -62,7 +62,6 @@ nbdist/
 
 # JavaFX specific
 *.jfx
-*.fxml
 
 # OS-specific files
 .DS_Store

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+
+<?import java.net.URL?>
+<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.example.lottooptionspro.controller.MainController">
+    <!-- Top section for the application title or menu bar -->
+    <stylesheets>
+        <URL value="@style.css" />
+    </stylesheets>
+
+    <top>
+        <HBox>
+            <MenuBar HBox.hgrow="ALWAYS">
+                <Menu text="File">
+                    <MenuItem text="Exit" onAction="#handleExit"/>
+                </Menu>
+                <Menu text="Help">
+                    <MenuItem text="About" onAction="#handleAbout"/>
+                </Menu>
+                <Menu text="Game State">
+                    <Menu text="California" fx:id="stateOneMenu">
+                        <MenuItem text="Game 1" onAction="#selectGame"/>
+                        <MenuItem text="Game 2" onAction="#selectGame"/>
+                        <!-- Add more games for State 1 -->
+                    </Menu>
+                    <Menu text="Texas" fx:id="stateTwoMenu">
+                        <MenuItem text="Game 1" onAction="#selectGame"/>
+                        <MenuItem text="Game 2" onAction="#selectGame"/>
+                        <!-- Add more games for State 1 -->
+                    </Menu>
+                    <!-- Add more game states as needed -->
+                </Menu>
+            </MenuBar>
+            <Label fx:id="selectedStateAndGame" text="Select a game"/>
+        </HBox>
+    </top>
+
+    <!-- Left section for the navigation pane -->
+    <left>
+        <VBox spacing="10" styleClass="vbox-background">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <Button text="Random Number Generator" onAction="#showRandomNumberGenerator"/>
+            <Button text="Pattern Analysis" onAction="#showPatternAnalysis"/>
+            <Button text="Lottery Wheeling System" onAction="#showLotteryWheelingSystem"/>
+            <Button text="Ticket Printing" onAction="#showTicketPrinting"/>
+            <Button text="Statistical Analysis Tools" onAction="#showStatisticalAnalysisTools"/>
+            <Button text="Historical Data and Trends" onAction="#showHistoricalDataAndTrends"/>
+            <Button text="User Account Management" onAction="#showUserAccountManagement"/>
+            <Button text="Real-Time Notifications" onAction="#showRealTimeNotifications"/>
+        </VBox>
+    </left>
+
+    <!-- Center section for the main content area -->
+    <center>
+        <StackPane fx:id="mainContentArea">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <!-- Placeholder for dynamic content -->
+            <Label text="Welcome to the Lottery Application" />
+        </StackPane>
+    </center>
+</BorderPane>
