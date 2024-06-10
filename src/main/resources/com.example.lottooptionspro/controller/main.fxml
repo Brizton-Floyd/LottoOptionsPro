@@ -21,17 +21,17 @@
                 <Menu text="Help">
                     <MenuItem text="About" onAction="#handleAbout"/>
                 </Menu>
-                <Menu text="Game State">
-                    <Menu text="California" fx:id="stateOneMenu">
-                        <MenuItem text="Game 1" onAction="#selectGame"/>
-                        <MenuItem text="Game 2" onAction="#selectGame"/>
-                        <!-- Add more games for State 1 -->
-                    </Menu>
-                    <Menu text="Texas" fx:id="stateTwoMenu">
-                        <MenuItem text="Game 1" onAction="#selectGame"/>
-                        <MenuItem text="Game 2" onAction="#selectGame"/>
-                        <!-- Add more games for State 1 -->
-                    </Menu>
+                <Menu fx:id="lotteryState" text="Lottery State">
+<!--                    <Menu text="California" fx:id="stateOneMenu">-->
+<!--                        <MenuItem text="Game 1" onAction="#selectGame"/>-->
+<!--                        <MenuItem text="Game 2" onAction="#selectGame"/>-->
+<!--                        &lt;!&ndash; Add more games for State 1 &ndash;&gt;-->
+<!--                    </Menu>-->
+<!--                    <Menu text="Texas" fx:id="stateTwoMenu">-->
+<!--                        <MenuItem text="Game 1" onAction="#selectGame"/>-->
+<!--                        <MenuItem text="Game 2" onAction="#selectGame"/>-->
+<!--                        &lt;!&ndash; Add more games for State 1 &ndash;&gt;-->
+<!--                    </Menu>-->
                     <!-- Add more game states as needed -->
                 </Menu>
             </MenuBar>

@@ -24,13 +24,10 @@ public class MainController {
     private StackPane mainContentArea;
 
     @FXML
-    private Menu stateOneMenu;
-
-    @FXML
-    private Menu stateTwoMenu;
-
-    @FXML
     private MenuBar menuBar;
+
+    @FXML
+    private Menu lotteryState;
 
     @FXML
     private Label selectedStateAndGame;
@@ -45,24 +42,9 @@ public class MainController {
 
     @FXML
     private void initialize() {
-        Flux<LotteryState> stateFlux = mainControllerService.fetchStateGames();
-        stateFlux.subscribe(
-                state -> Platform.runLater(() -> {
-                    // Update the UI with the state data
-                    selectedStateAndGame.setText("State: " + state.getStateRegion() + ", Games: " + state.getStateLotteryGames().size());
-                    // You can also update other parts of the UI with the state data
-                }),
-                error -> Platform.runLater(() -> {
-                    // Handle the error
-                    error.printStackTrace();
-                    selectedStateAndGame.setText("Error: " + error.getMessage());
-                }),
-                () -> Platform.runLater(() -> {
-                    // Handle the completion
-                    System.out.println("Completed fetching state games");
-                })
-        );
+        setupLotteryStatesAndGamesMenuOptions();
     }
+
 
     @FXML
     private void showRandomNumberGenerator() {
@@ -118,13 +100,34 @@ public class MainController {
         // Show about dialog
     }
 
-    @FXML
-    private void selectGame(ActionEvent event) {
-        MenuItem selectedItem = (MenuItem) event.getSource();
-        String selectedGame = selectedItem.getText();
-        Menu parentMenu = (Menu) selectedItem.getParentMenu();
-        String selectedState = parentMenu.getText();
-        selectedStateAndGame.setText(selectedState + ": " + selectedGame);
-        // Perform additional actions based on the selected game
+    private void setupLotteryStatesAndGamesMenuOptions() {
+        Flux<LotteryState> stateFlux = mainControllerService.fetchStateGames();
+        stateFlux.subscribe(
+                state -> Platform.runLater(() -> {
+                    // Update the UI with the state data
+                    selectedStateAndGame.setText("State: " + state.getStateRegion() + ", Games: " + state.getStateLotteryGames().size());
+                    Menu stateMenu = new Menu(state.getStateRegion());
+                    state.getStateLotteryGames().forEach(lotteryGame -> {
+                        MenuItem item = new MenuItem(lotteryGame.getFullName());
+                        item.setOnAction((actionEvent) -> {
+                            selectedStateAndGame.setText(state.getStateRegion() + ": " + lotteryGame.getFullName());
+                        });
+                        stateMenu.getItems().add(item);
+                    });
+                    lotteryState.getItems().addAll(stateMenu);
+//                    menuBar.getMenus().add(lotteryMenu);
+                    // You can also update other parts of the UI with the state data
+                }),
+                error -> Platform.runLater(() -> {
+                    // Handle the error
+                    error.printStackTrace();
+                    selectedStateAndGame.setText("Error: " + error.getMessage());
+                }),
+                () -> Platform.runLater(() -> {
+                    // Handle the completion
+                    System.out.println("Completed fetching state games");
+                })
+        );
     }
+
 }

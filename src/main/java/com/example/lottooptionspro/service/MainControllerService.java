@@ -5,8 +5,13 @@ import com.example.lottooptionspro.models.LotteryState;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
+import reactor.util.retry.Retry;
 
+import javax.naming.ServiceUnavailableException;
+import java.net.ConnectException;
+import java.time.Duration;
 import java.util.List;
 
 @Service
@@ -18,12 +23,6 @@ public class MainControllerService {
     }
 
     public Flux<LotteryState> fetchStateGames() {
-        StateResponse stateResponse1 = webClient.get()
-                .uri("/states")
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .bodyToFlux(StateResponse.class).blockFirst();
-        System.out.println();
         return webClient.get()
                 .uri("/states")
                 .accept(MediaType.APPLICATION_JSON)
@@ -32,7 +31,13 @@ public class MainControllerService {
                 .flatMap(stateResponse -> Flux.fromIterable(stateResponse.getData()))
                 .flatMap(stateData -> fetchGamesForState(stateData)
                         .collectList()
-                        .map(games -> new LotteryState(stateData.getStateRegion(), games)));
+                        .map(games -> new LotteryState(stateData.getStateRegion(), games)))
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
+                        .doBeforeRetry(retrySignal -> System.out.println("Retry attempt #" + (retrySignal.totalRetries() + 1)))
+                        .filter(throwable ->
+                                throwable instanceof ConnectException)
+                        .onRetryExhaustedThrow((retryBackoffSpec, retrySignal) ->
+                                new RuntimeException("Failed after max retries", retrySignal.failure())));
     }
 
     private Flux<LotteryGame> fetchGamesForState(StateResponse.StateData stateData) {

@@ -1,29 +1,19 @@
 package com.example.lottooptionspro.models;
 
 public class LotteryGame {
-    private String name;
-    private String description;
+    private String fullName;
 
     // Getters and setters
-    public String getName() {
-        return name;
+    public String getFullName() {
+        return fullName;
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
     }
 
     // Constructor
-    public LotteryGame(String name, String description) {
-        this.name = name;
-        this.description = description;
+    public LotteryGame(String fullName, String description) {
+        this.fullName = fullName;
     }
 }
