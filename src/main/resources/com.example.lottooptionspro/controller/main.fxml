@@ -9,12 +9,12 @@
 <BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.example.lottooptionspro.controller.MainController">
     <!-- Top section for the application title or menu bar -->
     <stylesheets>
-        <URL value="@style.css" />
+        <URL value="@styling/style.css" />
     </stylesheets>
 
     <top>
         <HBox>
-            <MenuBar HBox.hgrow="ALWAYS">
+            <MenuBar fx:id="menuBar" HBox.hgrow="ALWAYS">
                 <Menu text="File">
                     <MenuItem text="Exit" onAction="#handleExit"/>
                 </Menu>
@@ -45,6 +45,7 @@
             <padding>
                 <Insets top="10" right="10" bottom="10" left="10"/>
             </padding>
+            <Button text="Dashboard" onAction="#showDashboard"/>
             <Button text="Random Number Generator" onAction="#showRandomNumberGenerator"/>
             <Button text="Pattern Analysis" onAction="#showPatternAnalysis"/>
             <Button text="Lottery Wheeling System" onAction="#showLotteryWheelingSystem"/>
@@ -60,9 +61,8 @@
     <center>
         <StackPane fx:id="mainContentArea">
             <padding>
-                <Insets top="10" right="10" bottom="10" left="10"/>
+                <Insets top="5" right="5" bottom="5" left="5"/>
             </padding>
-            <!-- Placeholder for dynamic content -->
             <Label text="Welcome to the Lottery Application" />
         </StackPane>
     </center>
