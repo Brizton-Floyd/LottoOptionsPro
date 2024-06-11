@@ -35,9 +35,15 @@
     -fx-background-color: #254336;
 }
 
-.button {
+.toggle-button {
     -fx-max-width: 175px; /* Make the button fill the width of its parent */
     -fx-pref-width: 175px; /* Set the preferred width to 100% */
+}
+
+.toggle-button:disabled {
+    /*background-color: #F1F3F5; !* Example: set background color for disabled state *!*/
+    -fx-text-fill: #254336; /* Example: set text color for disabled state */
+    -fx-font-weight: bold;
 }
 
 /* Set the background color and text alignment for the Label */

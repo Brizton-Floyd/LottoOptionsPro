@@ -29,15 +29,11 @@ public class MainControllerService {
                 .retrieve()
                 .bodyToFlux(StateResponse.class)
                 .flatMap(stateResponse -> Flux.fromIterable(stateResponse.getData()))
+//                .delayElements(Duration.ofSeconds(1)) // Add delay here
                 .flatMap(stateData -> fetchGamesForState(stateData)
                         .collectList()
-                        .map(games -> new LotteryState(stateData.getStateRegion(), games)))
-                .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
-                        .doBeforeRetry(retrySignal -> System.out.println("Retry attempt #" + (retrySignal.totalRetries() + 1)))
-                        .filter(throwable ->
-                                throwable instanceof ConnectException)
-                        .onRetryExhaustedThrow((retryBackoffSpec, retrySignal) ->
-                                new RuntimeException("Failed after max retries", retrySignal.failure())));
+                        .map(games -> new LotteryState(stateData.getStateRegion(), games)));
+
     }
 
     private Flux<LotteryGame> fetchGamesForState(StateResponse.StateData stateData) {

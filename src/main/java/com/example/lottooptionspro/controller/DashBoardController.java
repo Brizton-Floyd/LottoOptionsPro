@@ -1,13 +1,10 @@
 package com.example.lottooptionspro.controller;
 
-import com.example.lottooptionspro.ScreenManager;
+import com.example.lottooptionspro.util.ScreenManager;
 import javafx.fxml.FXML;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.BorderPane;
 import net.rgielen.fxweaver.core.FxmlView;
 import org.springframework.stereotype.Component;
 

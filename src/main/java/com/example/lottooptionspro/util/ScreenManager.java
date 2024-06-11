@@ -1,7 +1,6 @@
-package com.example.lottooptionspro;
+package com.example.lottooptionspro.util;
 
 import javafx.scene.Node;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import net.rgielen.fxweaver.core.FxWeaver;
 import org.springframework.stereotype.Component;

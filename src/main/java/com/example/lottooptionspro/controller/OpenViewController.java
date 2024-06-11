@@ -1,13 +1,10 @@
 package com.example.lottooptionspro.controller;
 
-import com.example.lottooptionspro.ScreenManager;
+import com.example.lottooptionspro.util.ScreenManager;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
-import javafx.scene.layout.AnchorPane;
 import net.rgielen.fxweaver.core.FxmlView;
 import org.springframework.stereotype.Component;
-
-import java.awt.event.ActionEvent;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/open.fxml")

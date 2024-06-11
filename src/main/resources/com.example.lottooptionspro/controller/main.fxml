@@ -45,15 +45,18 @@
             <padding>
                 <Insets top="10" right="10" bottom="10" left="10"/>
             </padding>
-            <Button text="Dashboard" onAction="#showDashboard"/>
-            <Button text="Random Number Generator" onAction="#showRandomNumberGenerator"/>
-            <Button text="Pattern Analysis" onAction="#showPatternAnalysis"/>
-            <Button text="Lottery Wheeling System" onAction="#showLotteryWheelingSystem"/>
-            <Button text="Ticket Printing" onAction="#showTicketPrinting"/>
-            <Button text="Statistical Analysis Tools" onAction="#showStatisticalAnalysisTools"/>
-            <Button text="Historical Data and Trends" onAction="#showHistoricalDataAndTrends"/>
-            <Button text="User Account Management" onAction="#showUserAccountManagement"/>
-            <Button text="Real-Time Notifications" onAction="#showRealTimeNotifications"/>
+            <fx:define>
+                <ToggleGroup fx:id="toggleGroup"/>
+            </fx:define>
+            <ToggleButton text="Dashboard" onAction="#showDashboard" toggleGroup="$toggleGroup" fx:id="btnDashboard"/>
+            <ToggleButton text="Random Number Generator" onAction="#showRandomNumberGenerator" toggleGroup="$toggleGroup" fx:id="btnRandomNumberGenerator"/>
+            <ToggleButton text="Pattern Analysis" onAction="#showPatternAnalysis" toggleGroup="$toggleGroup" fx:id="btnPatternAnalysis"/>
+            <ToggleButton text="Lottery Wheeling System" onAction="#showLotteryWheelingSystem" toggleGroup="$toggleGroup" fx:id="btnLotteryWheelingSystem"/>
+            <ToggleButton text="Ticket Printing" onAction="#showTicketPrinting" toggleGroup="$toggleGroup" fx:id="btnTicketPrinting"/>
+            <ToggleButton text="Statistical Analysis Tools" onAction="#showStatisticalAnalysisTools" toggleGroup="$toggleGroup" fx:id="btnStatisticalAnalysisTools"/>
+            <ToggleButton text="Historical Data and Trends" onAction="#showHistoricalDataAndTrends" toggleGroup="$toggleGroup" fx:id="btnHistoricalDataAndTrends"/>
+            <ToggleButton text="User Account Management" onAction="#showUserAccountManagement" toggleGroup="$toggleGroup" fx:id="btnUserAccountManagement"/>
+            <ToggleButton text="Real-Time Notifications" onAction="#showRealTimeNotifications" toggleGroup="$toggleGroup" fx:id="btnRealTimeNotifications"/>
         </VBox>
     </left>
 
