@@ -4,6 +4,7 @@ import com.example.lottooptionspro.util.ScreenManager;
 import com.example.lottooptionspro.models.LotteryState;
 import com.example.lottooptionspro.service.MainControllerService;
 import javafx.application.Platform;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -20,6 +21,9 @@ import java.util.Comparator;
 public class MainController {
     @FXML
     private StackPane mainContentArea;
+
+    @FXML
+    private ToggleGroup toggleGroup;
 
     @FXML
     private MenuBar menuBar;
@@ -103,6 +107,7 @@ public class MainController {
 
     @FXML
     private void handleExit() {
+        Platform.exit();
         System.exit(0);
     }
 
@@ -124,7 +129,6 @@ public class MainController {
         Flux<LotteryState> stateFlux = mainControllerService.fetchStateGames();
         stateFlux.subscribe(
                 state -> Platform.runLater(() -> {
-
                     // Update the UI with the state data
                     selectedStateAndGame.setText("Make Game Selection");
                     Menu stateMenu = new Menu(state.getStateRegion());
@@ -138,6 +142,14 @@ public class MainController {
                     stateMenu.getItems()
                             .sort((Comparator.comparing(MenuItem::getText)));
                     lotteryState.getItems().addAll(stateMenu);
+
+                    ObservableList<Toggle> toggles = toggleGroup.getToggles();
+                    toggles.forEach(toggle -> {
+                        ToggleButton toggleButton = (ToggleButton) toggle;
+                        if (toggleButton.getText().equals("Dashboard")) {
+                            toggleButton.fire();
+                        }
+                    });
                 }),
                 error -> Platform.runLater(() -> {
                     // Handle the error

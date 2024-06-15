@@ -9,6 +9,10 @@
     -fx-background-color: #B7B597; /* Header background color */
 }
 
+/* General text color for table cells */
+.table-view .table-cell {
+    -fx-text-fill: #DAD3BE;; /* Change to desired color */
+}
 
 .table-view .column-header .label {
     -fx-text-fill: #6B8A7A; /* Header text color */
@@ -34,8 +38,27 @@
     -fx-background-color: #6B8A7A;
 }
 
-/* Style for selected rows */
-.table-row-cell:selected {
-    -fx-background-color: #005797; /* You can customize this color as needed */
-    -fx-text-fill: #DAD3BE; /* Ensure text color remains consistent */
+.button:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-border-color: transparent; /* removes the border when focused */
+    -fx-background-insets: 0;
+
+}
+
+/*!* Style for selected rows *!*/
+/*.table-row-cell:selected {*/
+/*    -fx-background-color: pink; !* You can customize this color as needed *!*/
+/*    -fx-text-fill: #DAD3BE; !* Ensure text color remains consistent *!*/
+/*}*/
+
+.table-view .scroll-bar:vertical {
+    -fx-opacity: 0;
+    -fx-max-width: 0;
+    -fx-pref-width: 0;
+}
+
+.chart-pane {
+    /*-fx-background-color: black;*/
+    -fx-padding: 10;
 }

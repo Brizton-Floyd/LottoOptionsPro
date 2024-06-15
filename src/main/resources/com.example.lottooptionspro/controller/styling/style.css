@@ -46,6 +46,12 @@
     -fx-font-weight: bold;
 }
 
+.toggle-button:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-border-color: transparent; /* removes the border when focused */
+}
+
 /* Set the background color and text alignment for the Label */
 #selectedStateAndGame {
     -fx-background-color: #DAD3BE;

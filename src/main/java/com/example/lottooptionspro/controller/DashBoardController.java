@@ -1,10 +1,20 @@
 package com.example.lottooptionspro.controller;
 
 import com.example.lottooptionspro.util.ScreenManager;
+import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.scene.chart.BarChart;
+import javafx.scene.chart.CategoryAxis;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import net.rgielen.fxweaver.core.FxmlView;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +24,9 @@ public class DashBoardController {
     @FXML
     private TableView<MyData> dynamicTable;
 
+    @FXML
+    private HBox dynamicPanesContainer;
+
     private ScreenManager screenManager;
 
     public DashBoardController(ScreenManager screenManager) {
@@ -22,8 +35,37 @@ public class DashBoardController {
 
     @FXML
     public void initialize() {
+        setUpDrawPatternTable();
+
+        for (int i = 0; i < 6; i++) {
+            Pane pane = createBarChartPane();
+            pane.getStyleClass().add("chart-pane");
+            dynamicPanesContainer.getChildren().add(pane);
+        }
+//        dynamicTable.getItems().add(new MyData("Data1", "Data2", "Data3"));
+    }
+
+    private Pane createBarChartPane() {
+        CategoryAxis xAxis = new CategoryAxis();
+        NumberAxis yAxis = new NumberAxis();
+        BarChart<String, Number> barChart = new BarChart<>(xAxis, yAxis);
+
+        XYChart.Series<String, Number> series1 = new XYChart.Series<>();
+        series1.setName("Data Series 1");
+        series1.getData().add(new XYChart.Data<>("Category 1", 50));
+        series1.getData().add(new XYChart.Data<>("Category 2", 80));
+        series1.getData().add(new XYChart.Data<>("Category 3", 30));
+
+        barChart.getData().add(series1);
+
+        Pane pane = new Pane(barChart);
+        return pane;
+    }
+    private void setUpDrawPatternTable() {
         // Example data
         String[] columnNames = {"Column1", "Column2", "Column3"};
+        ObservableList<MyData> items = FXCollections.observableArrayList();
+        dynamicTable.setItems(items);
 
         // Create columns dynamically
         for (int i = 0; i < 6; i++) {
@@ -37,8 +79,29 @@ public class DashBoardController {
         }
 
 
+        // Add listener to items list
+        items.addListener((ListChangeListener<MyData>) change -> {
+            while (change.next()) {
+                if (change.wasAdded()) {
+                    dynamicTable.scrollTo(items.size());
+                }
+            }
+        });
+
         // Add data to the table (example)
-        dynamicTable.getItems().add(new MyData("Data1", "Data2", "Data3"));
+        for (int i = 0; i < 100; i++) {
+            items.add(new MyData("Data1", "Data2", "Data3"));
+        }
+    }
+
+    @FXML
+    public void handleAddRow(ActionEvent event) {
+
+    }
+
+    @FXML
+    public void handleRemoveRow(ActionEvent event) {
+
     }
     // Example data class
     public static class MyData {

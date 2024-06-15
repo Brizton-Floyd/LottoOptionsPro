@@ -5,6 +5,7 @@ import com.example.lottooptionspro.models.LotteryState;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.util.retry.Retry;
@@ -29,10 +30,17 @@ public class MainControllerService {
                 .retrieve()
                 .bodyToFlux(StateResponse.class)
                 .flatMap(stateResponse -> Flux.fromIterable(stateResponse.getData()))
-//                .delayElements(Duration.ofSeconds(1)) // Add delay here
                 .flatMap(stateData -> fetchGamesForState(stateData)
                         .collectList()
-                        .map(games -> new LotteryState(stateData.getStateRegion(), games)));
+                        .map(games -> new LotteryState(stateData.getStateRegion(), games)))
+                .retryWhen(Retry.backoff(10, Duration.ofSeconds(2))
+                        .filter(throwable -> {
+                            System.out.println("Retrying due to: " + throwable.getClass().getName());
+                            return throwable instanceof ConnectException ||
+                                    throwable instanceof WebClientResponseException ||
+                                    throwable instanceof WebClientRequestException;
+                        })
+                        .onRetryExhaustedThrow((retryBackoffSpec, retrySignal) -> retrySignal.failure()));
 
     }
 
