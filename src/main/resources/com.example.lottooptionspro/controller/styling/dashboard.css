@@ -28,6 +28,10 @@
     -fx-text-fill: #DAD3BE; /* Text color for all rows */
 }
 
+.table-view .table-cell {
+    -fx-alignment: center;
+}
+
 /* Style for even rows */
 .table-row-cell:even {
     -fx-background-color: #254336;

@@ -6,6 +6,7 @@
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.Tooltip?>
 
 <?import java.net.URL?>
 <?import javafx.geometry.Insets?>
@@ -24,10 +25,18 @@
         <AnchorPane.leftAnchor>5.0</AnchorPane.leftAnchor>
         <AnchorPane.rightAnchor>5.0</AnchorPane.rightAnchor>
         <AnchorPane.bottomAnchor>5.0</AnchorPane.bottomAnchor>
-        <HBox spacing="10">
+        <HBox spacing="5">
             <Region HBox.hgrow="ALWAYS" />
-            <Button text="&lt;" onAction="#handleAddRow" minWidth="30" prefWidth="30" prefHeight="30" minHeight="30"/>
-            <Button text=">" onAction="#handleRemoveRow" minWidth="30" prefWidth="30" prefHeight="30" minHeight="30"/>
+            <Button text="&lt;" onAction="#handleAddRow" minWidth="30" prefWidth="30" prefHeight="30" minHeight="30">
+                    <tooltip>
+                        <Tooltip text="Back in time"/>
+                    </tooltip>
+            </Button>
+            <Button text=">" onAction="#handleRemoveRow" minWidth="30" prefWidth="30" prefHeight="30" minHeight="30">
+                <tooltip>
+                    <Tooltip text="Forward in time"/>
+                </tooltip>
+            </Button>
         </HBox>
 
         <!-- Scrollable TableView -->
