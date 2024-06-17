@@ -15,6 +15,8 @@ import javafx.scene.layout.StackPane;
 import reactor.core.publisher.Flux;
 
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/main.fxml")
@@ -34,10 +36,14 @@ public class MainController {
     @FXML
     private Label selectedStateAndGame;
 
+    private Map<String, ToggleButton> toggleButtonMap = new HashMap<>();
     private final ScreenManager screenManager;
     private final MainControllerService mainControllerService;
     private ToggleButton lastClickedButton = null;
     private ProgressIndicator progressIndicator = new ProgressIndicator();
+    private String stateName = "TEXAS";
+    private String gameName = "Cash Five";
+    private String activeToggleButton;
 
     public MainController(ScreenManager screenManager, MainControllerService mainControllerService) {
         this.screenManager = screenManager;
@@ -49,6 +55,8 @@ public class MainController {
         progressIndicator.setVisible(true);
         mainContentArea.getChildren().add(progressIndicator);
         setupLotteryStatesAndGamesMenuOptions();
+
+
     }
 
 
@@ -60,7 +68,7 @@ public class MainController {
     @FXML
     private void showDashboard(ActionEvent actionEvent) {
         reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(DashBoardController.class, mainContentArea);
+        this.screenManager.loadView(DashBoardController.class, mainContentArea, stateName, gameName);
     }
 
     @FXML
@@ -131,11 +139,17 @@ public class MainController {
                 state -> Platform.runLater(() -> {
                     // Update the UI with the state data
                     selectedStateAndGame.setText("Make Game Selection");
+
                     Menu stateMenu = new Menu(state.getStateRegion());
                     state.getStateLotteryGames().forEach(lotteryGame -> {
                         MenuItem item = new MenuItem(lotteryGame.getFullName());
                         item.setOnAction((actionEvent) -> {
                             selectedStateAndGame.setText(state.getStateRegion() + ": " + lotteryGame.getFullName());
+                            stateName = state.getStateRegion();
+                            gameName = lotteryGame.getFullName();
+                            ToggleButton toggleButton = toggleButtonMap.get(activeToggleButton);
+                            toggleButton.setDisable(false);
+                            toggleButtonMap.get(activeToggleButton).fire();
                         });
                         stateMenu.getItems().add(item);
                     });
@@ -146,7 +160,9 @@ public class MainController {
                     ObservableList<Toggle> toggles = toggleGroup.getToggles();
                     toggles.forEach(toggle -> {
                         ToggleButton toggleButton = (ToggleButton) toggle;
+                        toggleButtonMap.put(toggleButton.getText(), toggleButton);
                         if (toggleButton.getText().equals("Dashboard")) {
+                            activeToggleButton = toggleButton.getText();
                             toggleButton.fire();
                         }
                     });

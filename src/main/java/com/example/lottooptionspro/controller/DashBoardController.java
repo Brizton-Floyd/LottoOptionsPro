@@ -1,5 +1,6 @@
 package com.example.lottooptionspro.controller;
 
+import com.example.lottooptionspro.GameInformation;
 import com.example.lottooptionspro.util.ScreenManager;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/dashboard.fxml")
-public class DashBoardController {
+public class DashBoardController implements GameInformation  {
     @FXML
     private TableView<MyData> dynamicTable;
 
@@ -35,6 +36,7 @@ public class DashBoardController {
 
     @FXML
     public void initialize() {
+        System.out.println("Im in initializer method");
         setUpDrawPatternTable();
 
         for (int i = 0; i < 6; i++) {
@@ -43,6 +45,12 @@ public class DashBoardController {
             dynamicPanesContainer.getChildren().add(pane);
         }
 //        dynamicTable.getItems().add(new MyData("Data1", "Data2", "Data3"));
+    }
+
+    @Override
+    public void setGameInformation(String stateName, String gameName) {
+        System.out.println(stateName);
+        System.out.println(gameName);
     }
 
     private Pane createBarChartPane() {
