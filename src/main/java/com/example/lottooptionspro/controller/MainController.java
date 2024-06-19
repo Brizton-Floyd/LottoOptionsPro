@@ -1,5 +1,7 @@
 package com.example.lottooptionspro.controller;
 
+import com.example.lottooptionspro.GameInformation;
+import com.example.lottooptionspro.models.LotteryGame;
 import com.example.lottooptionspro.util.ScreenManager;
 import com.example.lottooptionspro.models.LotteryState;
 import com.example.lottooptionspro.service.MainControllerService;
@@ -52,11 +54,10 @@ public class MainController {
 
     @FXML
     private void initialize() {
+        screenManager.setContentArea(mainContentArea);
         progressIndicator.setVisible(true);
         mainContentArea.getChildren().add(progressIndicator);
         setupLotteryStatesAndGamesMenuOptions();
-
-
     }
 
 
@@ -67,13 +68,15 @@ public class MainController {
     }
     @FXML
     private void showDashboard(ActionEvent actionEvent) {
+        progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(DashBoardController.class, mainContentArea, stateName, gameName);
+        this.screenManager.loadView(DashBoardController.class, mainContentArea, stateName, gameName, progressIndicator);
     }
 
     @FXML
     private void showPatternAnalysis(ActionEvent actionEvent) {
         reEnableDisableButton(actionEvent);
+
         mainContentArea.getChildren().setAll(new Label("Pattern Analysis UI"));
     }
 
@@ -133,51 +136,113 @@ public class MainController {
         lastClickedButton = clickedButton;
     }
 
+    /**
+     * Sets up the lottery states and games menu options.
+     * Fetches the state games from the main controller service and updates the UI accordingly.
+     */
     private void setupLotteryStatesAndGamesMenuOptions() {
         Flux<LotteryState> stateFlux = mainControllerService.fetchStateGames();
         stateFlux.subscribe(
-                state -> Platform.runLater(() -> {
-                    // Update the UI with the state data
-                    selectedStateAndGame.setText("Make Game Selection");
-
-                    Menu stateMenu = new Menu(state.getStateRegion());
-                    state.getStateLotteryGames().forEach(lotteryGame -> {
-                        MenuItem item = new MenuItem(lotteryGame.getFullName());
-                        item.setOnAction((actionEvent) -> {
-                            selectedStateAndGame.setText(state.getStateRegion() + ": " + lotteryGame.getFullName());
-                            stateName = state.getStateRegion();
-                            gameName = lotteryGame.getFullName();
-                            ToggleButton toggleButton = toggleButtonMap.get(activeToggleButton);
-                            toggleButton.setDisable(false);
-                            toggleButtonMap.get(activeToggleButton).fire();
-                        });
-                        stateMenu.getItems().add(item);
-                    });
-                    stateMenu.getItems()
-                            .sort((Comparator.comparing(MenuItem::getText)));
-                    lotteryState.getItems().addAll(stateMenu);
-
-                    ObservableList<Toggle> toggles = toggleGroup.getToggles();
-                    toggles.forEach(toggle -> {
-                        ToggleButton toggleButton = (ToggleButton) toggle;
-                        toggleButtonMap.put(toggleButton.getText(), toggleButton);
-                        if (toggleButton.getText().equals("Dashboard")) {
-                            activeToggleButton = toggleButton.getText();
-                            toggleButton.fire();
-                        }
-                    });
-                }),
-                error -> Platform.runLater(() -> {
-                    // Handle the error
-                    error.printStackTrace();
-                    selectedStateAndGame.setText("Error: " + error.getMessage());
-                }),
-                () -> Platform.runLater(() -> {
-                    // Handle the completion
-                    progressIndicator.setVisible(false);
-                    System.out.println("Completed fetching state games");
-                })
+                this::handleStateData,
+                this::handleError,
+                this::handleCompletion
         );
     }
 
+    /**
+     * Handles the state data received from the main controller service.
+     * Updates the UI with the state and game information.
+     *
+     * @param state The lottery state data.
+     */
+    private void handleStateData(LotteryState state) {
+        Platform.runLater(() -> {
+            selectedStateAndGame.setText("Make Game Selection");
+            Menu stateMenu = createStateMenu(state);
+            lotteryState.getItems().addAll(stateMenu);
+            setupToggleButtons();
+        });
+    }
+
+    /**
+     * Creates a menu for the given lottery state.
+     *
+     * @param state The lottery state data.
+     * @return The menu containing the state's lottery games.
+     */
+    private Menu createStateMenu(LotteryState state) {
+        Menu stateMenu = new Menu(state.getStateRegion());
+        state.getStateLotteryGames().forEach(lotteryGame -> {
+            MenuItem item = createGameMenuItem(state, lotteryGame);
+            stateMenu.getItems().add(item);
+        });
+        stateMenu.getItems().sort(Comparator.comparing(MenuItem::getText));
+        return stateMenu;
+    }
+
+    /**
+     * Creates a menu item for the given lottery game.
+     *
+     * @param state       The lottery state data.
+     * @param lotteryGame The lottery game data.
+     * @return The menu item representing the lottery game.
+     */
+    private MenuItem createGameMenuItem(LotteryState state, LotteryGame lotteryGame) {
+        MenuItem item = new MenuItem(lotteryGame.getFullName());
+        item.setOnAction(event -> handleGameSelection(state, lotteryGame));
+        return item;
+    }
+
+    /**
+     * Handles the selection of a lottery game.
+     *
+     * @param state       The selected lottery state.
+     * @param lotteryGame The selected lottery game.
+     */
+    private void handleGameSelection(LotteryState state, LotteryGame lotteryGame) {
+        selectedStateAndGame.setText(state.getStateRegion() + ": " + lotteryGame.getFullName());
+        stateName = state.getStateRegion();
+        gameName = lotteryGame.getFullName();
+        ToggleButton toggleButton = toggleButtonMap.get(activeToggleButton);
+        toggleButton.setDisable(false);
+        toggleButtonMap.get(activeToggleButton).fire();
+    }
+
+    /**
+     * Sets up the toggle buttons for the different views.
+     */
+    private void setupToggleButtons() {
+        ObservableList<Toggle> toggles = toggleGroup.getToggles();
+        toggles.forEach(toggle -> {
+            ToggleButton toggleButton = (ToggleButton) toggle;
+            toggleButtonMap.put(toggleButton.getText(), toggleButton);
+            if (toggleButton.getText().equals("Dashboard")) {
+                activeToggleButton = toggleButton.getText();
+                toggleButton.fire();
+            }
+        });
+    }
+
+    /**
+     * Handles any errors that occur during the state games fetching process.
+     *
+     * @param error The error that occurred.
+     */
+    private void handleError(Throwable error) {
+        Platform.runLater(() -> {
+            error.printStackTrace();
+            selectedStateAndGame.setText("Error: " + error.getMessage());
+        });
+    }
+
+    /**
+     * Handles the completion of the state games fetching process.
+     */
+    private void handleCompletion() {
+        Platform.runLater(() -> {
+            progressIndicator.setVisible(false);
+            selectedStateAndGame.setText(stateName + ": " + gameName);
+            System.out.println("Completed fetching state games");
+        });
+    }
 }

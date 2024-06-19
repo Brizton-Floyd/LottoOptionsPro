@@ -27,12 +27,12 @@
         <AnchorPane.bottomAnchor>5.0</AnchorPane.bottomAnchor>
         <HBox spacing="5">
             <Region HBox.hgrow="ALWAYS" />
-            <Button text="&lt;" onAction="#handleAddRow" minWidth="30" prefWidth="30" prefHeight="30" minHeight="30">
+            <Button fx:id="removeBtn" text="&lt;" onAction="#handleRemoveRow" minWidth="30" prefWidth="30" prefHeight="30" minHeight="30">
                     <tooltip>
                         <Tooltip text="Back in time"/>
                     </tooltip>
             </Button>
-            <Button text=">" onAction="#handleRemoveRow" minWidth="30" prefWidth="30" prefHeight="30" minHeight="30">
+            <Button fx:id="addBtn" text=">" onAction="#handleAddRow" minWidth="30" prefWidth="30" prefHeight="30" minHeight="30">
                 <tooltip>
                     <Tooltip text="Forward in time"/>
                 </tooltip>

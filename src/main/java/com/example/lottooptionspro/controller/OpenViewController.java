@@ -6,6 +6,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import net.rgielen.fxweaver.core.FxmlView;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/open.fxml")
@@ -24,6 +25,7 @@ public class OpenViewController implements GameInformation {
     }
 
     @Override
-    public void setGameInformation(String stateName, String gameName) {
+    public Mono<Void> setUpUi(String stateName, String gameName) {
+        return null;
     }
 }
