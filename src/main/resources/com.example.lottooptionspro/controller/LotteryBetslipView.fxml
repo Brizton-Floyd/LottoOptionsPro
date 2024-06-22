@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+
+<HBox fx:id="root" fx:controller="com.example.lottooptionspro.controller.LotteryBetslipController" xmlns:fx="http://javafx.com/fxml/1" spacing="10">
+    <ScrollPane fx:id="scrollPane" fitToWidth="true" fitToHeight="true" pannable="true" focusTraversable="true" HBox.hgrow="ALWAYS">
+        <ImageView fx:id="imageView" preserveRatio="true"/>
+    </ScrollPane>
+
+    <ScrollPane fitToWidth="true" fitToHeight="true" HBox.hgrow="ALWAYS">
+        <VBox spacing="10" alignment="TOP_LEFT">
+            <GridPane hgap="10" vgap="10">
+                <columnConstraints>
+                    <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES"/>
+                    <ColumnConstraints halignment="LEFT" hgrow="ALWAYS"/>
+                </columnConstraints>
+
+                <Label text="State" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                <TextField fx:id="stateField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                <Label text="Game" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                <TextField fx:id="gameField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                <Label text="Panel Count" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                <TextField fx:id="panelCountField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                <Label text="Main Ball Rows" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                <TextField fx:id="mainBallRowsField" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+
+                <Label text="Main Ball Columns" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                <TextField fx:id="mainBallColumnsField" GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+
+                <Label text="X Offsets (comma-separated)" GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+                <TextField fx:id="xOffsetsField" GridPane.columnIndex="1" GridPane.rowIndex="5"/>
+
+                <Label text="Y Offsets (comma-separated)" GridPane.columnIndex="0" GridPane.rowIndex="6"/>
+                <TextField fx:id="yOffsetsField" GridPane.columnIndex="1" GridPane.rowIndex="6"/>
+
+                <CheckBox fx:id="bonusGameCheckBox" text="Bonus Game" onAction="#toggleBonusFields" GridPane.columnIndex="0" GridPane.rowIndex="7" GridPane.columnSpan="2"/>
+            </GridPane>
+
+            <VBox fx:id="bonusFields" spacing="10" visible="false" managed="false" alignment="TOP_LEFT">
+                <GridPane hgap="10" vgap="10">
+                    <columnConstraints>
+                        <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES"/>
+                        <ColumnConstraints halignment="LEFT" hgrow="ALWAYS"/>
+                    </columnConstraints>
+
+                    <Label text="Bonus Ball Rows" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <TextField fx:id="bonusBallRowsField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                    <Label text="Bonus Ball Columns" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                    <TextField fx:id="bonusBallColumnsField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+                    <Label text="Bonus X Offsets (comma-separated)" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                    <TextField fx:id="bonusXOffsetsField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+
+                    <Label text="Bonus Y Offsets (comma-separated)" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                    <TextField fx:id="bonusYOffsetsField" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+
+                    <Label text="Bonus Ball Horizontal Spacing" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+                    <HBox spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="4">
+                        <Slider fx:id="bonusBallHorizontalSlider" min="10" max="200" value="30" blockIncrement="10"/>
+                        <TextField fx:id="bonusBallHorizontalSpacingField" prefWidth="50"/>
+                    </HBox>
+                </GridPane>
+            </VBox>
+
+            <Button fx:id="loadImage" text="Load Image" onAction="#loadImage"/>
+
+            <Label text="Main Ball Horizontal Spacing"/>
+            <HBox spacing="10">
+                <Slider fx:id="mainBallHorizontalSlider" min="10" max="200" value="30" blockIncrement="10"/>
+                <TextField fx:id="mainBallHorizontalSpacingField" prefWidth="50"/>
+            </HBox>
+
+            <Label text="Vertical Spacing"/>
+            <HBox spacing="10">
+                <Slider fx:id="verticalSlider" min="10" max="200" value="30" blockIncrement="10"/>
+                <TextField fx:id="verticalSpacingField" prefWidth="50"/>
+            </HBox>
+
+            <Label text="Marking Size"/>
+            <HBox spacing="10">
+                <Slider fx:id="sizeSlider" min="5" max="50" value="10" blockIncrement="1"/>
+                <TextField fx:id="markingSizeField" prefWidth="50"/>
+            </HBox>
+
+            <Label text="Offset X"/>
+            <HBox spacing="10">
+                <Slider fx:id="offsetXSlider" min="-100" max="100" value="0" blockIncrement="1"/>
+                <TextField fx:id="offsetXField" prefWidth="50"/>
+            </HBox>
+
+            <Label text="Offset Y"/>
+            <HBox spacing="10">
+                <Slider fx:id="offsetYSlider" min="-100" max="100" value="0" blockIncrement="1"/>
+                <TextField fx:id="offsetYField" prefWidth="50"/>
+            </HBox>
+
+            <Button text="Save Coordinates" onAction="#saveImage"/>
+        </VBox>
+    </ScrollPane>
+</HBox>

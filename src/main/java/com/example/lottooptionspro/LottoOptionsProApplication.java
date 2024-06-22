@@ -8,6 +8,7 @@ import org.springframework.context.annotation.ComponentScan;
 public class LottoOptionsProApplication {
 
 	public static void main(String[] args) {
+		System.setProperty("java.awt.headless", "false");
 		Application.launch(JavaFxApplication.class, args);
 	}
 

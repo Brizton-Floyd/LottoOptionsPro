@@ -2,6 +2,7 @@ package com.example.lottooptionspro.controller;
 
 import com.example.lottooptionspro.GameInformation;
 import com.example.lottooptionspro.models.LotteryGame;
+import com.example.lottooptionspro.util.LotteryBetslipProcessor;
 import com.example.lottooptionspro.util.ScreenManager;
 import com.example.lottooptionspro.models.LotteryState;
 import com.example.lottooptionspro.service.MainControllerService;
@@ -74,10 +75,10 @@ public class MainController {
     }
 
     @FXML
-    private void showPatternAnalysis(ActionEvent actionEvent) {
+    private void showBetlipPrccessor(ActionEvent actionEvent) {
+        progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-
-        mainContentArea.getChildren().setAll(new Label("Pattern Analysis UI"));
+        this.screenManager.loadView(LotteryBetslipController.class, mainContentArea, stateName, gameName, progressIndicator);
     }
 
     @FXML

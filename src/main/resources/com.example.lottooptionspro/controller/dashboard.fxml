@@ -54,13 +54,8 @@
         </ScrollPane>
 
         <!-- Scrollable area for dynamically created panes -->
-        <HBox>
-            <ScrollPane fitToHeight="true" hbarPolicy="ALWAYS" pannable="true" HBox.hgrow="ALWAYS"
-                        prefHeight="300.0">
-                <content >
-                    <HBox fx:id="dynamicPanesContainer" spacing="10"/>
-                </content>
-            </ScrollPane>
+        <HBox fx:id="dynamicPanesContainer" spacing="10" prefHeight="300">
+
         </HBox>
     </VBox>
 </AnchorPane>
