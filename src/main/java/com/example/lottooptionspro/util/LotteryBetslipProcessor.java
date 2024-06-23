@@ -1,5 +1,7 @@
 package com.example.lottooptionspro.util;
 
+import com.example.lottooptionspro.models.LotteryGameBetSlipCoordinates;
+
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -27,17 +29,21 @@ public class LotteryBetslipProcessor implements Serializable {
     private int[] bonusYOffsets;
     private Map<String, Point> mainBallCoordinates;
     private Map<String, Point> bonusBallCoordinates;
+    private Point jackpotOptionCoordinate;
+
 
     public LotteryBetslipProcessor(String imagePath, int panelCount, int mainBallRows, int mainBallColumns, int[] xOffsets, int[] yOffsets) throws IOException {
-        this(imagePath, panelCount, mainBallRows, 0, mainBallColumns, 0, xOffsets, yOffsets, null, null);
+        this(imagePath, panelCount, mainBallRows, 0, mainBallColumns, 0, xOffsets, yOffsets, null, null, null);
     }
 
-    public LotteryBetslipProcessor(String imagePath, int panelCount, int mainBallRows, int bonusBallRows, int mainBallColumns, int bonusBallColumns, int[] xOffsets, int[] yOffsets, int[] bonusXOffsets, int[] bonusYOffsets) throws IOException {
+    public LotteryBetslipProcessor(String imagePath, int panelCount, int mainBallRows, int bonusBallRows,
+                                   int mainBallColumns, int bonusBallColumns, int[] xOffsets, int[] yOffsets,
+                                   int[] bonusXOffsets, int[] bonusYOffsets, Point jackpotOptionCoordinate) throws IOException {
         File imageFile = new File(imagePath);
         if (!imageFile.exists()) {
             throw new IOException("File not found: " + imagePath);
         }
-        this.betslip = ImageIO.read(imageFile);
+        this.betslip = ImageResizer.resizeImageBasedOnTrueSize(ImageIO.read(imageFile), 8.5, 3.5);
         this.panelCount = panelCount;
         this.mainBallRows = mainBallRows;
         this.bonusBallRows = bonusBallRows;
@@ -47,6 +53,7 @@ public class LotteryBetslipProcessor implements Serializable {
         this.yOffsets = yOffsets;
         this.bonusXOffsets = bonusXOffsets;
         this.bonusYOffsets = bonusYOffsets;
+        this.jackpotOptionCoordinate = jackpotOptionCoordinate;
 
         this.panelWidth = betslip.getWidth();
         this.panelHeight = betslip.getHeight() / panelCount;
@@ -107,17 +114,23 @@ public class LotteryBetslipProcessor implements Serializable {
             }
         }
 
+        // Plot jackpot option if present
+        if (jackpotOptionCoordinate != null) {
+            int x = jackpotOptionCoordinate.x;
+            int y = jackpotOptionCoordinate.y;
+            g2d.fillRect(x, y, markingSize, markingSize);
+        }
+
         g2d.dispose();
         return markedImage;
     }
 
     public void saveCoordinatesToFile(String filePath) throws IOException {
+        LotteryGameBetSlipCoordinates coordinates =
+                new LotteryGameBetSlipCoordinates(mainBallCoordinates, bonusBallCoordinates, jackpotOptionCoordinate);
         try (FileOutputStream fos = new FileOutputStream(filePath);
              ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-            oos.writeObject(mainBallCoordinates);
-            if (bonusBallRows > 0 && bonusBallColumns > 0) {
-                oos.writeObject(bonusBallCoordinates);
-            }
+            oos.writeObject(coordinates);
         }
     }
 }

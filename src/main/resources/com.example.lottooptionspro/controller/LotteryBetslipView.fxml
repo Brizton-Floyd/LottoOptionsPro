@@ -4,12 +4,16 @@
 <?import javafx.scene.image.*?>
 <?import javafx.scene.layout.*?>
 
+<?import javafx.geometry.Insets?>
 <HBox fx:id="root" fx:controller="com.example.lottooptionspro.controller.LotteryBetslipController" xmlns:fx="http://javafx.com/fxml/1" spacing="10">
     <ScrollPane fx:id="scrollPane" fitToWidth="true" fitToHeight="true" pannable="true" focusTraversable="true" HBox.hgrow="ALWAYS">
         <ImageView fx:id="imageView" preserveRatio="true"/>
     </ScrollPane>
 
-    <ScrollPane fitToWidth="true" fitToHeight="true" HBox.hgrow="ALWAYS">
+    <ScrollPane fitToWidth="true" fitToHeight="true" HBox.hgrow="ALWAYS" >
+        <padding>
+            <Insets top="10" right="10" bottom="10" left="10"/>
+        </padding>
         <VBox spacing="10" alignment="TOP_LEFT">
             <GridPane hgap="10" vgap="10">
                 <columnConstraints>
@@ -38,7 +42,13 @@
                 <Label text="Y Offsets (comma-separated)" GridPane.columnIndex="0" GridPane.rowIndex="6"/>
                 <TextField fx:id="yOffsetsField" GridPane.columnIndex="1" GridPane.rowIndex="6"/>
 
-                <CheckBox fx:id="bonusGameCheckBox" text="Bonus Game" onAction="#toggleBonusFields" GridPane.columnIndex="0" GridPane.rowIndex="7" GridPane.columnSpan="2"/>
+                <CheckBox fx:id="bonusGameCheckBox" text="Bonus Game"
+                          onAction="#toggleBonusFields"
+                          GridPane.columnIndex="0" GridPane.rowIndex="7" GridPane.columnSpan="2"/>
+
+                <CheckBox fx:id="jackpotOptionCheckBox" text="Jackpot Option"
+                          onAction="#toggleJackpotOptionFields"
+                          GridPane.columnIndex="0" GridPane.rowIndex="8" GridPane.columnSpan="2"/>
             </GridPane>
 
             <VBox fx:id="bonusFields" spacing="10" visible="false" managed="false" alignment="TOP_LEFT">
@@ -68,6 +78,21 @@
                 </GridPane>
             </VBox>
 
+            <VBox fx:id="jackpotOptionFields" spacing="10" visible="false" managed="false" alignment="TOP_LEFT">
+                <GridPane hgap="10" vgap="10">
+                    <columnConstraints>
+                        <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES"/>
+                        <ColumnConstraints halignment="LEFT" hgrow="ALWAYS"/>
+                    </columnConstraints>
+
+                    <Label text="Jackpot Option X Coordinate" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <TextField fx:id="jackpotOptionXField" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+
+                    <Label text="Jackpot Option Y Coordinate" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                    <TextField fx:id="jackpotOptionYField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                </GridPane>
+            </VBox>
+
             <Button fx:id="loadImage" text="Load Image" onAction="#loadImage"/>
 
             <Label text="Main Ball Horizontal Spacing"/>
@@ -88,19 +113,7 @@
                 <TextField fx:id="markingSizeField" prefWidth="50"/>
             </HBox>
 
-            <Label text="Offset X"/>
-            <HBox spacing="10">
-                <Slider fx:id="offsetXSlider" min="-100" max="100" value="0" blockIncrement="1"/>
-                <TextField fx:id="offsetXField" prefWidth="50"/>
-            </HBox>
-
-            <Label text="Offset Y"/>
-            <HBox spacing="10">
-                <Slider fx:id="offsetYSlider" min="-100" max="100" value="0" blockIncrement="1"/>
-                <TextField fx:id="offsetYField" prefWidth="50"/>
-            </HBox>
-
-            <Button text="Save Coordinates" onAction="#saveImage"/>
+            <Button fx:id="saveCoordinates" text="Save Coordinates" onAction="#saveImage"/>
         </VBox>
     </ScrollPane>
 </HBox>

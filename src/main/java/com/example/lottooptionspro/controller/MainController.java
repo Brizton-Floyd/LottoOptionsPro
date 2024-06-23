@@ -11,6 +11,7 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import org.apache.commons.text.WordUtils;
 import org.springframework.stereotype.Component;
 import net.rgielen.fxweaver.core.FxmlView;
 import javafx.scene.control.Label;
@@ -172,7 +173,7 @@ public class MainController {
      * @return The menu containing the state's lottery games.
      */
     private Menu createStateMenu(LotteryState state) {
-        Menu stateMenu = new Menu(state.getStateRegion());
+        Menu stateMenu = new Menu(WordUtils.capitalizeFully(state.getStateRegion()));
         state.getStateLotteryGames().forEach(lotteryGame -> {
             MenuItem item = createGameMenuItem(state, lotteryGame);
             stateMenu.getItems().add(item);
@@ -201,7 +202,7 @@ public class MainController {
      * @param lotteryGame The selected lottery game.
      */
     private void handleGameSelection(LotteryState state, LotteryGame lotteryGame) {
-        selectedStateAndGame.setText(state.getStateRegion() + ": " + lotteryGame.getFullName());
+        selectedStateAndGame.setText(WordUtils.capitalizeFully(state.getStateRegion()) + ": " + lotteryGame.getFullName());
         stateName = state.getStateRegion();
         gameName = lotteryGame.getFullName();
         ToggleButton toggleButton = toggleButtonMap.get(activeToggleButton);
@@ -242,7 +243,7 @@ public class MainController {
     private void handleCompletion() {
         Platform.runLater(() -> {
             progressIndicator.setVisible(false);
-            selectedStateAndGame.setText(stateName + ": " + gameName);
+            selectedStateAndGame.setText(WordUtils.capitalizeFully(stateName) + ": " + gameName);
             System.out.println("Completed fetching state games");
         });
     }

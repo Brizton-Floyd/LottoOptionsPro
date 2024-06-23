@@ -62,7 +62,7 @@ public class DashBoardController implements GameInformation  {
     @Override
     public Mono<Void> setUpUi(String stateName, String gameName) {
         this.gameName = gameName;
-        return dashboardService.getDashboardData(stateName, gameName)
+        return dashboardService.getDashboardData(stateName.toUpperCase(), gameName)
                 .flatMap(this::updateUiWithDashboardData)
                 .doOnError(this::handleDashboardDataError)
                 .doFinally(this::handleDashboardDataCompletion)

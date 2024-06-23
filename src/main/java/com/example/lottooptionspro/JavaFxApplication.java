@@ -1,6 +1,7 @@
 package com.example.lottooptionspro;
 
 import com.example.lottooptionspro.controller.MainController;
+import com.example.lottooptionspro.models.LotteryGameBetSlipCoordinates;
 import javafx.application.Application;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -25,7 +26,9 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -47,6 +50,8 @@ public class JavaFxApplication extends Application {
 
     @Override
     public void start(Stage stage) {
+        String filePath = "Serialized Files/Texas/Powerball.ser";
+        loadImageProgrammatically(filePath);
         FxWeaver fxWeaver = applicationContext.getBean(FxWeaver.class);
         Parent root = fxWeaver.loadView(MainController.class);
         Scene scene = new Scene(root);
@@ -64,5 +69,26 @@ public class JavaFxApplication extends Application {
     @Override
     public void stop() {
         this.applicationContext.close();
+    }
+
+    // New method to load the image programmatically
+    public void loadImageProgrammatically(String filePath) {
+        try {
+            LotteryGameBetSlipCoordinates coordinates = readCoordinatesFromFile(filePath);
+            // Process the coordinates as needed
+            System.out.println("Main Ball Coordinates: " + coordinates.getMainBallCoordinates());
+            System.out.println("Bonus Ball Coordinates: " + coordinates.getBonusBallCoordinates());
+            System.out.println("JackPot Coordinate: " + coordinates.getJackpotOptionCoordinate());
+//            showAlert("Success", "Coordinates loaded successfully.");
+        } catch (IOException | ClassNotFoundException e) {
+//            showAlert("Error", "Cannot load coordinates: " + e.getMessage());
+        }
+    }
+
+    public LotteryGameBetSlipCoordinates readCoordinatesFromFile(String filePath) throws IOException, ClassNotFoundException {
+        try (FileInputStream fis = new FileInputStream(filePath);
+             ObjectInputStream ois = new ObjectInputStream(fis)) {
+            return (LotteryGameBetSlipCoordinates) ois.readObject();
+        }
     }
 }

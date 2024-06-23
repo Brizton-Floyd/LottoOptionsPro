@@ -6,6 +6,9 @@ import com.example.lottooptionspro.util.LotteryBetslipProcessor;
 import javafx.beans.binding.Bindings;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.ScrollEvent;
@@ -17,7 +20,7 @@ import net.rgielen.fxweaver.core.FxmlView;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import javax.imageio.ImageIO;
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 
@@ -31,8 +34,6 @@ public class LotteryBetslipController implements GameInformation {
     @FXML private Slider bonusBallHorizontalSlider;
     @FXML private Slider verticalSlider;
     @FXML private Slider sizeSlider;
-    @FXML private Slider offsetXSlider;
-    @FXML private Slider offsetYSlider;
     @FXML private TextField stateField;
     @FXML private TextField gameField;
     @FXML private TextField panelCountField;
@@ -44,8 +45,6 @@ public class LotteryBetslipController implements GameInformation {
     @FXML private TextField bonusBallHorizontalSpacingField;
     @FXML private TextField verticalSpacingField;
     @FXML private TextField markingSizeField;
-    @FXML private TextField offsetXField;
-    @FXML private TextField offsetYField;
     @FXML private TextField xOffsetsField;
     @FXML private TextField yOffsetsField;
     @FXML private TextField bonusXOffsetsField;
@@ -53,7 +52,13 @@ public class LotteryBetslipController implements GameInformation {
     @FXML private CheckBox bonusGameCheckBox;
     @FXML private VBox bonusFields;
     @FXML private Button loadImage;
+    @FXML private Button saveCoordinates;
     @FXML private HBox root;
+    @FXML private CheckBox jackpotOptionCheckBox;
+    @FXML private VBox jackpotOptionFields;
+    @FXML private TextField jackpotOptionXField;
+    @FXML private TextField jackpotOptionYField;
+
     private LotteryBetslipProcessor processor;
 
     public void initialize() {
@@ -67,21 +72,29 @@ public class LotteryBetslipController implements GameInformation {
         bindSliderToTextField(bonusBallHorizontalSlider, bonusBallHorizontalSpacingField);
         bindSliderToTextField(verticalSlider, verticalSpacingField);
         bindSliderToTextField(sizeSlider, markingSizeField);
-        bindSliderToTextField(offsetXSlider, offsetXField);
-        bindSliderToTextField(offsetYSlider, offsetYField);
+
 
         mainBallHorizontalSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateProcessor());
         bonusBallHorizontalSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateProcessor());
         verticalSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateProcessor());
         sizeSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateProcessor());
-        offsetXSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateProcessor());
-        offsetYSlider.valueProperty().addListener((obs, oldVal, newVal) -> updateProcessor());
 
         // Add listeners to xOffsetsField, yOffsetsField, bonusXOffsetsField, and bonusYOffsetsField
         xOffsetsField.textProperty().addListener((observable, oldValue, newValue) -> validateAndUpdateProcessor());
         yOffsetsField.textProperty().addListener((observable, oldValue, newValue) -> validateAndUpdateProcessor());
         bonusXOffsetsField.textProperty().addListener((observable, oldValue, newValue) -> validateAndUpdateProcessor());
         bonusYOffsetsField.textProperty().addListener((observable, oldValue, newValue) -> validateAndUpdateProcessor());
+        jackpotOptionXField.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (isNumeric(newValue) && isNumeric(jackpotOptionYField.getText())) {
+                updateProcessor();
+            }
+        });
+
+        jackpotOptionYField.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (isNumeric(newValue) && isNumeric(jackpotOptionXField.getText())) {
+                updateProcessor();
+            }
+        });
 
 
         // Add zooming functionality for mouse scroll
@@ -103,6 +116,9 @@ public class LotteryBetslipController implements GameInformation {
                 }
             }
         });
+
+        saveCoordinates.disableProperty()
+                .bind(loadImage.disabledProperty());
 
         // Bind the loadImage button's disable property to the required fields
         loadImage.disableProperty().bind(
@@ -132,6 +148,16 @@ public class LotteryBetslipController implements GameInformation {
                             }
                         }, panelCountField.textProperty(), xOffsetsField.textProperty(), yOffsetsField.textProperty(), bonusXOffsetsField.textProperty(), bonusYOffsetsField.textProperty()))
         );
+
+        jackpotOptionCheckBox.setOnAction(event -> toggleJackpotOptionFields());
+    }
+
+    // Helper method to check if a string is numeric
+    private boolean isNumeric(String str) {
+        if (str == null || str.isEmpty()) {
+            return false;
+        }
+        return str.matches("-?\\d+(\\.\\d+)?");
     }
 
     private void validateAndUpdateProcessor() {
@@ -176,6 +202,12 @@ public class LotteryBetslipController implements GameInformation {
     }
 
     @FXML
+    private void toggleJackpotOptionFields() {
+        jackpotOptionFields.setVisible(jackpotOptionCheckBox.isSelected());
+        jackpotOptionFields.setManaged(jackpotOptionCheckBox.isSelected());
+    }
+
+    @FXML
     private void loadImage() {
         updateProcessor();
     }
@@ -215,6 +247,13 @@ public class LotteryBetslipController implements GameInformation {
             return;
         }
 
+        Point jackpotOptionCoordinate = null;
+        if (jackpotOptionCheckBox.isSelected()) {
+            int x = Integer.parseInt(jackpotOptionXField.getText());
+            int y = Integer.parseInt(jackpotOptionYField.getText());
+            jackpotOptionCoordinate = new Point(x, y);
+        }
+
         int[] xOffsets = parseOffsets(xOffsetsText, panelCount);
         int[] yOffsets = parseOffsets(yOffsetsText, panelCount);
         int[] bonusXOffsets = bonusGameCheckBox.isSelected() ? parseOffsets(bonusXOffsetsText, panelCount) : new int[panelCount];
@@ -228,7 +267,9 @@ public class LotteryBetslipController implements GameInformation {
         String imagePath = "src/main/resources/images/" + state + "/" + game + ".jpg";
 
         try {
-            processor = new LotteryBetslipProcessor(imagePath, panelCount, mainBallRows, bonusBallRows, mainBallColumns, bonusBallColumns, xOffsets, yOffsets, bonusXOffsets, bonusYOffsets);
+            processor = new LotteryBetslipProcessor(imagePath, panelCount, mainBallRows,
+                    bonusBallRows, mainBallColumns, bonusBallColumns, xOffsets, yOffsets, bonusXOffsets,
+                    bonusYOffsets, jackpotOptionCoordinate);
             processor.setSpacing((int) mainBallHorizontalSlider.getValue(), (int) bonusBallHorizontalSlider.getValue(), (int) verticalSlider.getValue());
             processor.setMarkingProperties((int) sizeSlider.getValue());
             updateImage();
@@ -262,9 +303,22 @@ public class LotteryBetslipController implements GameInformation {
     @FXML
     private void saveImage() {
         if (processor != null) {
+            // Define the directory path
+            String directoryPath = "Serialized Files/" + stateField.getText();
+            File directory = new File(directoryPath);
+
+            // Ensure the directory exists
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
+
+            // Configure the FileChooser
             FileChooser fileChooser = new FileChooser();
             fileChooser.setTitle("Save Coordinates");
             fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Serialized Files", "*.ser"));
+            fileChooser.setInitialDirectory(directory);
+
+            // Show the save dialog
             File file = fileChooser.showSaveDialog(null);
             if (file != null) {
                 try {
