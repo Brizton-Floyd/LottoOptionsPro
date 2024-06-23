@@ -3,8 +3,8 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.image.*?>
 <?import javafx.scene.layout.*?>
-
 <?import javafx.geometry.Insets?>
+
 <HBox fx:id="root" fx:controller="com.example.lottooptionspro.controller.LotteryBetslipController" xmlns:fx="http://javafx.com/fxml/1" spacing="10">
     <ScrollPane fx:id="scrollPane" fitToWidth="true" fitToHeight="true" pannable="true" focusTraversable="true" HBox.hgrow="ALWAYS">
         <ImageView fx:id="imageView" preserveRatio="true"/>
@@ -49,6 +49,12 @@
                 <CheckBox fx:id="jackpotOptionCheckBox" text="Jackpot Option"
                           onAction="#toggleJackpotOptionFields"
                           GridPane.columnIndex="0" GridPane.rowIndex="8" GridPane.columnSpan="2"/>
+
+                <CheckBox fx:id="verticalOrientationCheckBox" text="Number Orientation Vertical"
+                          GridPane.columnIndex="0" GridPane.rowIndex="9" GridPane.columnSpan="2"/>
+
+                <CheckBox fx:id="bottomToTopCheckBox" text="Start from Bottom"
+                          GridPane.columnIndex="0" GridPane.rowIndex="10" GridPane.columnSpan="2"/>
             </GridPane>
 
             <VBox fx:id="bonusFields" spacing="10" visible="false" managed="false" alignment="TOP_LEFT">

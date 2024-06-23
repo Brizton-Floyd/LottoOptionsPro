@@ -111,8 +111,8 @@ public class DashBoardController implements GameInformation  {
         Label subHeaderLabel = new Label(subHeader);
 
         // Style the labels (optional)
-        mainHeaderLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-alignment: center; -fx-background-color: pink;");
-        subHeaderLabel.setStyle("-fx-font-size: 12px; -fx-font-style: italic; -fx-text-alignment: center; -fx-background-color: pink;");
+        mainHeaderLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-alignment: center;");
+        subHeaderLabel.setStyle("-fx-font-size: 12px; -fx-font-style: italic; -fx-text-alignment: center;");
 
         // Create a VBox to hold the labels
         VBox vbox = new VBox(5); // 10 is the spacing between elements
@@ -120,7 +120,7 @@ public class DashBoardController implements GameInformation  {
         vbox.setAlignment(Pos.CENTER);
         vbox.setFillWidth(true);
 
-        vbox.setStyle("-fx-background-color: yellow;");
+        vbox.setStyle("-fx-background-color: #B7B597;");
 
 
         AnchorPane.setTopAnchor(vbox, 0.0);

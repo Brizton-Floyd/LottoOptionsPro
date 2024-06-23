@@ -1,6 +1,7 @@
 package com.example.lottooptionspro.controller;
 
 import com.example.lottooptionspro.GameInformation;
+import com.example.lottooptionspro.models.LotteryGameBetSlipCoordinates;
 import com.example.lottooptionspro.util.ImageUtils;
 import com.example.lottooptionspro.util.LotteryBetslipProcessor;
 import javafx.beans.binding.Bindings;
@@ -23,6 +24,7 @@ import reactor.core.publisher.Mono;
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/LotteryBetslipView.fxml")
@@ -58,6 +60,8 @@ public class LotteryBetslipController implements GameInformation {
     @FXML private VBox jackpotOptionFields;
     @FXML private TextField jackpotOptionXField;
     @FXML private TextField jackpotOptionYField;
+    @FXML private CheckBox verticalOrientationCheckBox;
+    @FXML private CheckBox bottomToTopCheckBox; // New CheckBox for bottom-to-top orientation
 
     private LotteryBetslipProcessor processor;
 
@@ -150,6 +154,8 @@ public class LotteryBetslipController implements GameInformation {
         );
 
         jackpotOptionCheckBox.setOnAction(event -> toggleJackpotOptionFields());
+        verticalOrientationCheckBox.setOnAction(event -> updateProcessor());
+
     }
 
     // Helper method to check if a string is numeric
@@ -264,12 +270,19 @@ public class LotteryBetslipController implements GameInformation {
             return;
         }
 
+        boolean isVerticalOrientation = verticalOrientationCheckBox.isSelected();
+        boolean isBottomToTop = bottomToTopCheckBox.isSelected();
+
         String imagePath = "src/main/resources/images/" + state + "/" + game + ".jpg";
 
         try {
+            LotteryGameBetSlipCoordinates gameCoordinates = new LotteryGameBetSlipCoordinates(
+                    new HashMap<>(), new HashMap<>(), jackpotOptionCoordinate, isVerticalOrientation
+            );
+
             processor = new LotteryBetslipProcessor(imagePath, panelCount, mainBallRows,
                     bonusBallRows, mainBallColumns, bonusBallColumns, xOffsets, yOffsets, bonusXOffsets,
-                    bonusYOffsets, jackpotOptionCoordinate);
+                    bonusYOffsets, jackpotOptionCoordinate, gameCoordinates, isVerticalOrientation, isBottomToTop);
             processor.setSpacing((int) mainBallHorizontalSlider.getValue(), (int) bonusBallHorizontalSlider.getValue(), (int) verticalSlider.getValue());
             processor.setMarkingProperties((int) sizeSlider.getValue());
             updateImage();

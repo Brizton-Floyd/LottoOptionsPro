@@ -27,18 +27,18 @@ public class LotteryBetslipProcessor implements Serializable {
     private int[] yOffsets;
     private int[] bonusXOffsets;
     private int[] bonusYOffsets;
-    private Map<String, Point> mainBallCoordinates;
-    private Map<String, Point> bonusBallCoordinates;
+    private Map<Integer, Map<String, Point>> mainBallCoordinates;
+    private Map<Integer, Map<String, Point>> bonusBallCoordinates;
     private Point jackpotOptionCoordinate;
-
-
-    public LotteryBetslipProcessor(String imagePath, int panelCount, int mainBallRows, int mainBallColumns, int[] xOffsets, int[] yOffsets) throws IOException {
-        this(imagePath, panelCount, mainBallRows, 0, mainBallColumns, 0, xOffsets, yOffsets, null, null, null);
-    }
+    private Boolean isNumbersOrientedVertically;
+    private LotteryGameBetSlipCoordinates gameCoordinates;
+    private boolean isBottomToTop;
 
     public LotteryBetslipProcessor(String imagePath, int panelCount, int mainBallRows, int bonusBallRows,
                                    int mainBallColumns, int bonusBallColumns, int[] xOffsets, int[] yOffsets,
-                                   int[] bonusXOffsets, int[] bonusYOffsets, Point jackpotOptionCoordinate) throws IOException {
+                                   int[] bonusXOffsets, int[] bonusYOffsets, Point jackpotOptionCoordinate,
+                                   LotteryGameBetSlipCoordinates gameCoordinates,
+                                   boolean isNumbersOrientedVertically, boolean isBottomToTop) throws IOException {
         File imageFile = new File(imagePath);
         if (!imageFile.exists()) {
             throw new IOException("File not found: " + imagePath);
@@ -54,6 +54,9 @@ public class LotteryBetslipProcessor implements Serializable {
         this.bonusXOffsets = bonusXOffsets;
         this.bonusYOffsets = bonusYOffsets;
         this.jackpotOptionCoordinate = jackpotOptionCoordinate;
+        this.gameCoordinates = gameCoordinates;
+        this.isNumbersOrientedVertically = isNumbersOrientedVertically;
+        this.isBottomToTop = isBottomToTop;
 
         this.panelWidth = betslip.getWidth();
         this.panelHeight = betslip.getHeight() / panelCount;
@@ -79,55 +82,63 @@ public class LotteryBetslipProcessor implements Serializable {
         BufferedImage markedImage = new BufferedImage(betslip.getWidth(), betslip.getHeight(), betslip.getType());
         Graphics2D g2d = markedImage.createGraphics();
         g2d.drawImage(betslip, 0, 0, null);
-        g2d.setColor(Color.BLACK);
+        g2d.setColor(isNumbersOrientedVertically ? Color.BLACK : Color.RED);
 
         for (int panel = 0; panel < panelCount; panel++) {
             int startX = xOffsets[panel];
             int startY = panel * panelHeight + yOffsets[panel];
 
             // Plot main ball coordinates
-            for (int row = 0; row < mainBallRows; row++) {
-                for (int col = 0; col < mainBallColumns; col++) {
-                    int x = startX + col * mainBallHorizontalSpacing;
-                    int y = startY + row * verticalSpacing;
-                    String lotteryNumber = "Panel " + (panel + 1) + " Main Ball " + (row * mainBallColumns + col + 1);
-                    System.out.println(lotteryNumber);
-                    mainBallCoordinates.put(lotteryNumber, new Point(x, y));
-                    g2d.fillRect(x, y, markingSize, markingSize);
-                }
-            }
+            plotBallCoordinates(g2d, startX, startY, mainBallRows, mainBallColumns, mainBallHorizontalSpacing, verticalSpacing, true, panel);
 
             // Plot bonus ball coordinates if they exist
             if (bonusBallRows > 0 && bonusBallColumns > 0) {
                 int bonusStartX = bonusXOffsets[panel];
                 int bonusStartY = startY + mainBallRows * verticalSpacing + bonusYOffsets[panel];
-                for (int row = 0; row < bonusBallRows; row++) {
-                    for (int col = 0; col < bonusBallColumns; col++) {
-                        int x = bonusStartX + col * bonusBallHorizontalSpacing;
-                        int y = bonusStartY + row * verticalSpacing;
-                        String lotteryNumber = "Panel " + (panel + 1) + " Bonus Ball " + (row * bonusBallColumns + col + 1);
-                        System.out.println(lotteryNumber);
-                        bonusBallCoordinates.put(lotteryNumber, new Point(x, y));
-                        g2d.fillRect(x, y, markingSize, markingSize);
-                    }
-                }
+                plotBallCoordinates(g2d, bonusStartX, bonusStartY, bonusBallRows, bonusBallColumns, bonusBallHorizontalSpacing, verticalSpacing, false, panel);
             }
         }
 
         // Plot jackpot option if present
         if (jackpotOptionCoordinate != null) {
-            int x = jackpotOptionCoordinate.x;
-            int y = jackpotOptionCoordinate.y;
-            g2d.fillRect(x, y, markingSize, markingSize);
+            g2d.fillRect(jackpotOptionCoordinate.x, jackpotOptionCoordinate.y, markingSize, markingSize);
         }
 
         g2d.dispose();
         return markedImage;
     }
 
+    private void plotBallCoordinates(Graphics2D g2d, int startX, int startY, int rows, int columns,
+                                     int horizontalSpacing, int verticalSpacing, boolean isMainBall, int panel) {
+        Map<String, Point> panelCoordinates = new HashMap<>();
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < columns; col++) {
+                int x = startX + col * horizontalSpacing;
+                int y = isBottomToTop ? startY + (rows - 1 - row) * verticalSpacing : startY + row * verticalSpacing;
+
+                int lotteryNumber;
+                if (isNumbersOrientedVertically) {
+                    lotteryNumber = isBottomToTop ? (col * rows + row + 1) : (col * rows + (rows - row));
+                } else {
+                    lotteryNumber = isBottomToTop ? ((rows - 1 - row) * columns + col + 1) : (row * columns + col + 1);
+                }
+
+                Point point = new Point(x, y);
+                panelCoordinates.put(String.valueOf(lotteryNumber), point);
+                g2d.fillRect(x, y, markingSize, markingSize);
+            }
+        }
+        if (isMainBall) {
+            mainBallCoordinates.put(panel, panelCoordinates);
+        } else {
+            bonusBallCoordinates.put(panel, panelCoordinates);
+        }
+    }
+
+
     public void saveCoordinatesToFile(String filePath) throws IOException {
         LotteryGameBetSlipCoordinates coordinates =
-                new LotteryGameBetSlipCoordinates(mainBallCoordinates, bonusBallCoordinates, jackpotOptionCoordinate);
+                new LotteryGameBetSlipCoordinates(mainBallCoordinates, bonusBallCoordinates, jackpotOptionCoordinate, isNumbersOrientedVertically);
         try (FileOutputStream fos = new FileOutputStream(filePath);
              ObjectOutputStream oos = new ObjectOutputStream(fos)) {
             oos.writeObject(coordinates);

@@ -2,6 +2,7 @@ package com.example.lottooptionspro;
 
 import com.example.lottooptionspro.controller.MainController;
 import com.example.lottooptionspro.models.LotteryGameBetSlipCoordinates;
+import com.example.lottooptionspro.util.ImageResizer;
 import javafx.application.Application;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -23,6 +24,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.File;
@@ -31,7 +33,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.URL;
 import java.nio.file.Paths;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -74,7 +76,37 @@ public class JavaFxApplication extends Application {
     // New method to load the image programmatically
     public void loadImageProgrammatically(String filePath) {
         try {
+            List<List<Integer>> drawResults = generateLotteryDraws(5);
             LotteryGameBetSlipCoordinates coordinates = readCoordinatesFromFile(filePath);
+            String imagePath = "src/main/resources/images/Texas/Powerball.jpg";
+
+            File imageFile = new File(imagePath);
+            if (!imageFile.exists()) {
+                throw new IOException("File not found: " + imagePath);
+            }
+
+            BufferedImage bufferedImage = ImageResizer.resizeImageBasedOnTrueSize(ImageIO.read(imageFile), 8.5, 3.5);
+            Graphics2D graphics = bufferedImage.createGraphics();
+            graphics.setColor(Color.BLACK);
+
+
+            int idx = 0;
+            for (List<Integer> drawResult : drawResults) {
+                System.out.println(drawResult);
+                for (Integer num : drawResult) {
+                    Map<String, Point> dataPoints = coordinates.getMainBallCoordinates().get(idx);
+                    Point point = dataPoints.get(String.valueOf(num));
+                    int x = point.x;
+                    int y = point.y;
+                    graphics.fillRect(x, y, 14, 14);
+                }
+                idx++;
+            }
+
+            // Dispose the graphics context and release resources
+            graphics.dispose();
+            ImageIO.write(bufferedImage, "jpg", new File("src/main/resources/images/Texas/marked_image.jpg"));
+
             // Process the coordinates as needed
             System.out.println("Main Ball Coordinates: " + coordinates.getMainBallCoordinates());
             System.out.println("Bonus Ball Coordinates: " + coordinates.getBonusBallCoordinates());
@@ -83,6 +115,25 @@ public class JavaFxApplication extends Application {
         } catch (IOException | ClassNotFoundException e) {
 //            showAlert("Error", "Cannot load coordinates: " + e.getMessage());
         }
+    }
+
+    public static List<List<Integer>> generateLotteryDraws(int numberOfDraws) {
+        List<List<Integer>> allDraws = new ArrayList<>();
+        Random random = new Random();
+
+        for (int i = 0; i < numberOfDraws; i++) {
+            Set<Integer> drawSet = new HashSet<>();
+            while (drawSet.size() < 5) {
+                int number = random.nextInt(69) + 1;
+                drawSet.add(number);
+            }
+            ArrayList<Integer> integers = new ArrayList<>(drawSet);
+            Collections.sort(integers);
+            allDraws.add(integers);
+        }
+
+
+        return allDraws;
     }
 
     public LotteryGameBetSlipCoordinates readCoordinatesFromFile(String filePath) throws IOException, ClassNotFoundException {
