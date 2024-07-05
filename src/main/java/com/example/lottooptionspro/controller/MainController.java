@@ -1,8 +1,6 @@
 package com.example.lottooptionspro.controller;
 
-import com.example.lottooptionspro.GameInformation;
 import com.example.lottooptionspro.models.LotteryGame;
-import com.example.lottooptionspro.util.LotteryBetslipProcessor;
 import com.example.lottooptionspro.util.ScreenManager;
 import com.example.lottooptionspro.models.LotteryState;
 import com.example.lottooptionspro.service.MainControllerService;
@@ -65,8 +63,9 @@ public class MainController {
 
     @FXML
     private void showRandomNumberGenerator(ActionEvent actionEvent) {
+        progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        mainContentArea.getChildren().setAll(new Label("Random Number Generator UI"));
+        this.screenManager.loadView(RandomNumberGeneratorController.class, mainContentArea, stateName, gameName, progressIndicator);
     }
     @FXML
     private void showDashboard(ActionEvent actionEvent) {
@@ -79,7 +78,7 @@ public class MainController {
     private void showBetlipPrccessor(ActionEvent actionEvent) {
         progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(LotteryBetslipController.class, mainContentArea, stateName, gameName, progressIndicator);
+        this.screenManager.loadView(LotteryBetslipCoordinateController.class, mainContentArea, stateName, gameName, progressIndicator);
     }
 
     @FXML

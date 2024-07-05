@@ -5,7 +5,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
 
-<HBox fx:id="root" fx:controller="com.example.lottooptionspro.controller.LotteryBetslipController" xmlns:fx="http://javafx.com/fxml/1" spacing="10">
+<HBox fx:id="root" fx:controller="com.example.lottooptionspro.controller.LotteryBetslipCoordinateController" xmlns:fx="http://javafx.com/fxml/1" spacing="10">
     <ScrollPane fx:id="scrollPane" fitToWidth="true" fitToHeight="true" pannable="true" focusTraversable="true" HBox.hgrow="ALWAYS">
         <ImageView fx:id="imageView" preserveRatio="true"/>
     </ScrollPane>

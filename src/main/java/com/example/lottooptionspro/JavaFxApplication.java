@@ -52,7 +52,7 @@ public class JavaFxApplication extends Application {
 
     @Override
     public void start(Stage stage) {
-        String filePath = "Serialized Files/Texas/Powerball.ser";
+        String filePath = "Serialized Files/Texas/CashFive.ser";
         loadImageProgrammatically(filePath);
         FxWeaver fxWeaver = applicationContext.getBean(FxWeaver.class);
         Parent root = fxWeaver.loadView(MainController.class);
@@ -78,7 +78,7 @@ public class JavaFxApplication extends Application {
         try {
             List<List<Integer>> drawResults = generateLotteryDraws(5);
             LotteryGameBetSlipCoordinates coordinates = readCoordinatesFromFile(filePath);
-            String imagePath = "src/main/resources/images/Texas/Powerball.jpg";
+            String imagePath = "src/main/resources/images/Texas/Cash Five.jpg";
 
             File imageFile = new File(imagePath);
             if (!imageFile.exists()) {
@@ -91,6 +91,7 @@ public class JavaFxApplication extends Application {
 
 
             int idx = 0;
+            int[] bonusNumbers = {23,1,5,10,7};
             for (List<Integer> drawResult : drawResults) {
                 System.out.println(drawResult);
                 for (Integer num : drawResult) {
@@ -98,20 +99,16 @@ public class JavaFxApplication extends Application {
                     Point point = dataPoints.get(String.valueOf(num));
                     int x = point.x;
                     int y = point.y;
-                    graphics.fillRect(x, y, 14, 14);
+                    graphics.fillRect(x, y, 13, 13);
                 }
+
                 idx++;
             }
 
-            // Dispose the graphics context and release resources
-            graphics.dispose();
-            ImageIO.write(bufferedImage, "jpg", new File("src/main/resources/images/Texas/marked_image.jpg"));
 
-            // Process the coordinates as needed
-            System.out.println("Main Ball Coordinates: " + coordinates.getMainBallCoordinates());
-            System.out.println("Bonus Ball Coordinates: " + coordinates.getBonusBallCoordinates());
-            System.out.println("JackPot Coordinate: " + coordinates.getJackpotOptionCoordinate());
-//            showAlert("Success", "Coordinates loaded successfully.");
+            graphics.dispose();
+            ImageIO.write(bufferedImage, "jpg", new File("src/main/resources/images/Texas/cash_five_marked_image.jpg"));
+
         } catch (IOException | ClassNotFoundException e) {
 //            showAlert("Error", "Cannot load coordinates: " + e.getMessage());
         }
@@ -124,7 +121,7 @@ public class JavaFxApplication extends Application {
         for (int i = 0; i < numberOfDraws; i++) {
             Set<Integer> drawSet = new HashSet<>();
             while (drawSet.size() < 5) {
-                int number = random.nextInt(69) + 1;
+                int number = random.nextInt(35) + 1;
                 drawSet.add(number);
             }
             ArrayList<Integer> integers = new ArrayList<>(drawSet);

@@ -27,8 +27,8 @@ import java.io.IOException;
 import java.util.HashMap;
 
 @Component
-@FxmlView("/com.example.lottooptionspro/controller/LotteryBetslipView.fxml")
-public class LotteryBetslipController implements GameInformation {
+@FxmlView("/com.example.lottooptionspro/controller/LotteryBetslipCoordinateView.fxml")
+public class LotteryBetslipCoordinateController implements GameInformation {
 
     @FXML private ImageView imageView;
     @FXML private ScrollPane scrollPane;
@@ -254,12 +254,16 @@ public class LotteryBetslipController implements GameInformation {
         }
 
         Point jackpotOptionCoordinate = null;
-        if (jackpotOptionCheckBox.isSelected()) {
-            int x = Integer.parseInt(jackpotOptionXField.getText());
-            int y = Integer.parseInt(jackpotOptionYField.getText());
-            jackpotOptionCoordinate = new Point(x, y);
+        if (jackpotOptionXField != null && jackpotOptionYField != null) {
+            try {
+                int x = Integer.parseInt(jackpotOptionXField.getText());
+                int y = Integer.parseInt(jackpotOptionYField.getText());
+                jackpotOptionCoordinate = new Point(x, y);
+            } catch (NumberFormatException e) {
+                // Handle the case where the text is not a valid integer
+//                showAlert("Error", "Invalid coordinates entered.");
+            }
         }
-
         int[] xOffsets = parseOffsets(xOffsetsText, panelCount);
         int[] yOffsets = parseOffsets(yOffsetsText, panelCount);
         int[] bonusXOffsets = bonusGameCheckBox.isSelected() ? parseOffsets(bonusXOffsetsText, panelCount) : new int[panelCount];

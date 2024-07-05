@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.example.lottooptionspro.controller.RandomNumberGeneratorController">
+    <VBox fx:id="contentHolder">
+        <padding>
+            <Insets top="10" right="10" bottom="10" left="10"/>
+        </padding>
+        <HBox spacing="10">
+            <VBox spacing="5">
+                <Label text="RNG Type:"/>
+                <ComboBox fx:id="rngComboBox" promptText="Select RNG Type"/>
+            </VBox>
+            <VBox spacing="5">
+                <Label text="Number Set Per Pattern:"/>
+                <TextField fx:id="numberSetPerPatternField" promptText="Enter number"/>
+            </VBox>
+            <VBox spacing="5">
+                <Label text="Targeted Prize Level:"/>
+                <TextField fx:id="targetedPrizeLevelField" promptText="Enter level"/>
+            </VBox>
+            <VBox spacing="5">
+                <Label text="Draw Days Per Week:"/>
+                <TextField fx:id="drawDaysPerWeekField" promptText="Enter days"/>
+            </VBox>
+            <VBox spacing="5">
+                <Label text=""/>
+                <Button text="Generate Numbers" onAction="#generateNumbers"/>
+                <Button fx:id="generateBetslipsButton" text="Generate Betslips" onAction="#generateBetslips"/>
+            </VBox>
+
+
+        </HBox>
+        <TableView fx:id="generatedNumbersTable">
+            <columns>
+                <TableColumn fx:id="numberSetColumn" text="Number Set"/>
+            </columns>
+        </TableView>
+
+        <TableView fx:id="prizeLevelResultsTable">
+            <columns>
+                <TableColumn fx:id="correctNumbersColumn" text="Prize Level"/>
+                <TableColumn fx:id="hitsColumn" text="Hits"/>
+                <TableColumn fx:id="gamesOutColumn" text="Games Out"/>
+            </columns>
+        </TableView>
+
+        <HBox spacing="10">
+            <Label text="Total Tickets:"/>
+            <Label fx:id="totalTicketsLabel"/>
+        </HBox>
+
+        <HBox spacing="10">
+            <Label text="Estimated Days for Win:"/>
+            <Label fx:id="estimatedDaysLabel"/>
+        </HBox>
+
+        <Button text="Save Numbers" onAction="#saveNumbers"/>
+    </VBox>
+    <ProgressIndicator fx:id="progressIndicator" visible="false" StackPane.alignment="CENTER"/>
+</StackPane>
