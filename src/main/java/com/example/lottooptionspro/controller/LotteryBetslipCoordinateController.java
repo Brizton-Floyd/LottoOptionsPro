@@ -72,6 +72,21 @@ public class LotteryBetslipCoordinateController implements GameInformation {
         // Ensure the VBox takes the remaining 60% of the width
         HBox.setHgrow(scrollPane, Priority.NEVER);
 
+        mainBallHorizontalSlider.setMin(0.0);
+        mainBallHorizontalSlider.setMax(100.0);
+        mainBallHorizontalSlider.setValue(0.0);
+        mainBallHorizontalSlider.setBlockIncrement(0.1);
+
+        verticalSlider.setMin(0.0);
+        verticalSlider.setMax(100.0);
+        verticalSlider.setValue(0.0);
+        verticalSlider.setBlockIncrement(0.1);
+
+        sizeSlider.setMin(0.0);
+        sizeSlider.setMax(100.0);
+        sizeSlider.setValue(0.0);
+        sizeSlider.setBlockIncrement(0.1);
+
         bindSliderToTextField(mainBallHorizontalSlider, mainBallHorizontalSpacingField);
         bindSliderToTextField(bonusBallHorizontalSlider, bonusBallHorizontalSpacingField);
         bindSliderToTextField(verticalSlider, verticalSpacingField);
@@ -183,7 +198,7 @@ public class LotteryBetslipCoordinateController implements GameInformation {
 
     private void bindSliderToTextField(Slider slider, TextField textField) {
         slider.valueProperty().addListener((observable, oldValue, newValue) -> {
-            textField.setText(String.format("%.0f", newValue));
+            textField.setText(String.format("%.1f", newValue.doubleValue()));
         });
 
         textField.setOnAction(event -> {
@@ -191,7 +206,7 @@ public class LotteryBetslipCoordinateController implements GameInformation {
                 double value = Double.parseDouble(textField.getText());
                 slider.setValue(value);
             } catch (NumberFormatException e) {
-                textField.setText(String.format("%.0f", slider.getValue()));
+                textField.setText(String.format("%.1f", slider.getValue()));
             }
         });
     }
@@ -281,14 +296,14 @@ public class LotteryBetslipCoordinateController implements GameInformation {
 
         try {
             LotteryGameBetSlipCoordinates gameCoordinates = new LotteryGameBetSlipCoordinates(
-                    new HashMap<>(), new HashMap<>(), jackpotOptionCoordinate, isVerticalOrientation
+                    new HashMap<>(), new HashMap<>(), jackpotOptionCoordinate, isVerticalOrientation, 0.0
             );
 
             processor = new LotteryBetslipProcessor(imagePath, panelCount, mainBallRows,
                     bonusBallRows, mainBallColumns, bonusBallColumns, xOffsets, yOffsets, bonusXOffsets,
                     bonusYOffsets, jackpotOptionCoordinate, gameCoordinates, isVerticalOrientation, isBottomToTop);
-            processor.setSpacing((int) mainBallHorizontalSlider.getValue(), (int) bonusBallHorizontalSlider.getValue(), (int) verticalSlider.getValue());
-            processor.setMarkingProperties((int) sizeSlider.getValue());
+            processor.setSpacing(mainBallHorizontalSlider.getValue(), bonusBallHorizontalSlider.getValue(), verticalSlider.getValue());
+            processor.setMarkingProperties(sizeSlider.getValue());
             updateImage();
         } catch (IOException e) {
             showAlert("Error", "Cannot load image: " + e.getMessage());

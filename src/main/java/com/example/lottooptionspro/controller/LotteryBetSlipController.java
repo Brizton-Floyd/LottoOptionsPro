@@ -28,15 +28,17 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.*;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/BetSlipView.fxml")
@@ -50,7 +52,6 @@ public class LotteryBetSlipController {
     private VBox mainContainer;
     @FXML
     private VBox betslipsContainer;
-
     @FXML
     private Button printButton;
     @FXML
@@ -82,16 +83,22 @@ public class LotteryBetSlipController {
             if (!imageFile.exists()) {
                 throw new IOException("File not found: " + imagePath);
             }
+            BufferedImage originalImage = ImageResizer.resizeImageBasedOnTrueSize(ImageIO.read(imageFile), 8.5, 3.5);
 
             Map<Integer, Map<String, Point>> mainBallCoordinates = coordinates.getMainBallCoordinates();
             Map<Integer, Map<String, Point>> bonusBallCoordinates = coordinates.getBonusBallCoordinates();
+            // Use CompletableFuture for parallel processing
+            List<CompletableFuture<BufferedImage>> futures = numbers.stream()
+                    .map(numberList -> CompletableFuture.supplyAsync(() ->
+                            processImage(originalImage, numberList, mainBallCoordinates, bonusBallCoordinates,
+                                    coordinates.getJackpotOptionCoordinate(), coordinates.getMarkingSize())
+                    ))
+                    .collect(Collectors.toList());
 
-            List<BufferedImage> bufferedImages = new ArrayList<>();
-
-            for (List<int[]> numberList : numbers) {
-                BufferedImage processedImage = processImage(imageFile, numberList, mainBallCoordinates, bonusBallCoordinates, coordinates.getJackpotOptionCoordinate());
-                bufferedImages.add(processedImage);
-            }
+            // Wait for all futures to complete and collect results
+            List<BufferedImage> bufferedImages = futures.stream()
+                    .map(CompletableFuture::join)
+                    .collect(Collectors.toList());
 
             saveImagesToPDF(bufferedImages, stateName, gameName);
 
@@ -99,47 +106,53 @@ public class LotteryBetSlipController {
             e.printStackTrace();
         }
     }
-    private BufferedImage processImage(File imageFile, List<int[]> numberList, Map<Integer, Map<String, Point>> mainBallCoordinates, Map<Integer, Map<String, Point>> bonusBallCoordinates, Point jackpotOptionCoordinate) throws IOException {
-        BufferedImage bufferedImage = ImageResizer.resizeImageBasedOnTrueSize(ImageIO.read(imageFile), 8.5, 3.5);
-        Graphics2D graphics = bufferedImage.createGraphics();
-        graphics.setColor(Color.BLACK);
+    private BufferedImage processImage(BufferedImage originalImage, List<int[]> numberList,
+                                       Map<Integer, Map<String, Point>> mainBallCoordinates,
+                                       Map<Integer, Map<String, Point>> bonusBallCoordinates,
+                                       Point jackpotOptionCoordinate, double markingSize) {
+        try {
+            BufferedImage bufferedImage = new BufferedImage(originalImage.getWidth(), originalImage.getHeight(), originalImage.getType());
+            synchronized (bufferedImage) {
+                Graphics2D graphics = bufferedImage.createGraphics();
+                graphics.drawImage(originalImage, 0, 0, null);
+                graphics.setColor(Color.BLACK);
 
-        if (bonusBallCoordinates != null && !bonusBallCoordinates.isEmpty()) {
-            graphics.fillRect(jackpotOptionCoordinate.x, jackpotOptionCoordinate.y, 13, 13);
-        }
+                if (bonusBallCoordinates != null && !bonusBallCoordinates.isEmpty()) {
+                    graphics.fill(new Rectangle2D.Double(jackpotOptionCoordinate.x, jackpotOptionCoordinate.y, markingSize, markingSize));
+                }
 
-        int maxBonusNumber = getMaxBonusNumber(bonusBallCoordinates.get(0).keySet());
+                IntStream.range(0, numberList.size()).forEach(panel -> {
+                    int[] numbers = numberList.get(panel);
+                    for (int number : numbers) {
+                        int x = mainBallCoordinates.get(panel).get(String.valueOf(number)).x;
+                        int y = mainBallCoordinates.get(panel).get(String.valueOf(number)).y;
+                        graphics.fill(new Rectangle2D.Double(x, y, markingSize, markingSize));
+                    }
 
-        int panel = 0;
-        for (int[] numbers : numberList) {
-            for (int number : numbers) {
-                int x = mainBallCoordinates.get(panel).get(String.valueOf(number)).x;
-                int y = mainBallCoordinates.get(panel).get(String.valueOf(number)).y;
-                graphics.fillRect(x, y, 13, 13);
+                    if (bonusBallCoordinates != null && !bonusBallCoordinates.isEmpty()) {
+                        int maxBonusNumber = getMaxBonusNumber(bonusBallCoordinates.get(0).keySet());
+                        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+                        int bonusNumber = rnd.nextInt(maxBonusNumber) + 1;
+                        int x = bonusBallCoordinates.get(panel).get(String.valueOf(bonusNumber)).x;
+                        int y = bonusBallCoordinates.get(panel).get(String.valueOf(bonusNumber)).y;
+                        graphics.fill(new Rectangle2D.Double(x, y, markingSize, markingSize));
+                    }
+                });
+
+                graphics.dispose();
             }
-
-            if (!bonusBallCoordinates.isEmpty()) {
-                Random rnd = new Random();
-                int bonusNumber = rnd.nextInt(maxBonusNumber) + 1;
-                int x = bonusBallCoordinates.get(panel).get(String.valueOf(bonusNumber)).x;
-                int y = bonusBallCoordinates.get(panel).get(String.valueOf(bonusNumber)).y;
-                graphics.fillRect(x, y, 13, 13);
-            }
-
-            panel++;
+            return bufferedImage;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
-
-        graphics.dispose();
-        return bufferedImage;
     }
 
     private int getMaxBonusNumber(Set<String> numbers) {
-        int max = Integer.MIN_VALUE;
-        for (String num : numbers) {
-            max = Math.max(max, Integer.parseInt(num));
-        }
-
-        return max;
+        return numbers.stream()
+                .mapToInt(Integer::parseInt)
+                .max()
+                .orElse(Integer.MIN_VALUE);
     }
 
 

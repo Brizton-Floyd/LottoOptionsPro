@@ -10,15 +10,17 @@ public class LotteryGameBetSlipCoordinates implements Serializable {
     private Map<Integer, Map<String, Point>> bonusBallCoordinates;
     private Point jackpotOptionCoordinate;
     private boolean isVerticalOrientation;
+    private double markingSize;
 
     public LotteryGameBetSlipCoordinates(Map<Integer, Map<String, Point>> mainBallCoordinates,
                                          Map<Integer, Map<String, Point>> bonusBallCoordinates,
                                          Point jackpotOptionCoordinate,
-                                         boolean isVerticalOrientation) {
+                                         boolean isVerticalOrientation, double markingSize) {
         this.mainBallCoordinates = mainBallCoordinates;
         this.bonusBallCoordinates = bonusBallCoordinates;
         this.jackpotOptionCoordinate = jackpotOptionCoordinate;
         this.isVerticalOrientation = isVerticalOrientation;
+        this.markingSize = markingSize;
     }
 
     /**
@@ -51,6 +53,10 @@ public class LotteryGameBetSlipCoordinates implements Serializable {
         int x = startX + col * horizontalSpacing;
         int y = isBottomToTop ? startY + (totalRows - 1 - row) * verticalSpacing : startY + row * verticalSpacing;
         return new Point(x, y);
+    }
+
+    public double getMarkingSize() {
+        return markingSize;
     }
 
     private Point getVerticalCoordinate(int row, int col, int startX, int startY,

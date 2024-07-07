@@ -4,6 +4,7 @@ import com.example.lottooptionspro.models.LotteryGameBetSlipCoordinates;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.HashMap;
@@ -19,10 +20,10 @@ public class LotteryBetslipProcessor implements Serializable {
     private int bonusBallColumns;
     private int panelWidth;
     private int panelHeight;
-    private int mainBallHorizontalSpacing;
-    private int bonusBallHorizontalSpacing;
-    private int verticalSpacing;
-    private int markingSize;
+    private double mainBallHorizontalSpacing;
+    private double bonusBallHorizontalSpacing;
+    private double verticalSpacing;
+    private double markingSize;
     private int[] xOffsets;
     private int[] yOffsets;
     private int[] bonusXOffsets;
@@ -63,18 +64,18 @@ public class LotteryBetslipProcessor implements Serializable {
         this.mainBallHorizontalSpacing = panelWidth / mainBallColumns;
         this.bonusBallHorizontalSpacing = bonusBallColumns > 0 ? panelWidth / bonusBallColumns : 0;
         this.verticalSpacing = panelHeight / (mainBallRows + bonusBallRows);
-        this.markingSize = 10;
+        this.markingSize = 10.0;
         this.mainBallCoordinates = new HashMap<>();
         this.bonusBallCoordinates = new HashMap<>();
     }
 
-    public void setSpacing(int mainBallHorizontalSpacing, int bonusBallHorizontalSpacing, int verticalSpacing) {
+    public void setSpacing(double mainBallHorizontalSpacing, double bonusBallHorizontalSpacing, double verticalSpacing) {
         this.mainBallHorizontalSpacing = mainBallHorizontalSpacing;
         this.bonusBallHorizontalSpacing = bonusBallHorizontalSpacing;
         this.verticalSpacing = verticalSpacing;
     }
 
-    public void setMarkingProperties(int size) {
+    public void setMarkingProperties(double size) {
         this.markingSize = size;
     }
 
@@ -91,17 +92,18 @@ public class LotteryBetslipProcessor implements Serializable {
             // Plot main ball coordinates
             plotBallCoordinates(g2d, startX, startY, mainBallRows, mainBallColumns, mainBallHorizontalSpacing, verticalSpacing, true, panel);
 
+
             // Plot bonus ball coordinates if they exist
             if (bonusBallRows > 0 && bonusBallColumns > 0) {
                 int bonusStartX = bonusXOffsets[panel];
-                int bonusStartY = startY + mainBallRows * verticalSpacing + bonusYOffsets[panel];
+                int bonusStartY = (int) (startY + mainBallRows * verticalSpacing + bonusYOffsets[panel]);
                 plotBallCoordinates(g2d, bonusStartX, bonusStartY, bonusBallRows, bonusBallColumns, bonusBallHorizontalSpacing, verticalSpacing, false, panel);
             }
         }
 
         // Plot jackpot option if present
         if (jackpotOptionCoordinate != null) {
-            g2d.fillRect(jackpotOptionCoordinate.x, jackpotOptionCoordinate.y, markingSize, markingSize);
+            g2d.fill(new Rectangle2D.Double(jackpotOptionCoordinate.x, jackpotOptionCoordinate.y, markingSize, markingSize));
         }
 
         g2d.dispose();
@@ -109,12 +111,12 @@ public class LotteryBetslipProcessor implements Serializable {
     }
 
     private void plotBallCoordinates(Graphics2D g2d, int startX, int startY, int rows, int columns,
-                                     int horizontalSpacing, int verticalSpacing, boolean isMainBall, int panel) {
+                                     double horizontalSpacing, double verticalSpacing, boolean isMainBall, int panel) {
         Map<String, Point> panelCoordinates = new HashMap<>();
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < columns; col++) {
-                int x = startX + col * horizontalSpacing;
-                int y = isBottomToTop ? startY + (rows - 1 - row) * verticalSpacing : startY + row * verticalSpacing;
+                int x = (int) (startX + col * horizontalSpacing);
+                int y = (int) (isBottomToTop ? startY + (rows - 1 - row) * verticalSpacing : startY + row * verticalSpacing);
 
                 int lotteryNumber;
                 if (isNumbersOrientedVertically) {
@@ -125,7 +127,7 @@ public class LotteryBetslipProcessor implements Serializable {
 
                 Point point = new Point(x, y);
                 panelCoordinates.put(String.valueOf(lotteryNumber), point);
-                g2d.fillRect(x, y, markingSize, markingSize);
+                g2d.fill(new Rectangle2D.Double(x, y, markingSize, markingSize));
             }
         }
         if (isMainBall) {
@@ -138,7 +140,7 @@ public class LotteryBetslipProcessor implements Serializable {
 
     public void saveCoordinatesToFile(String filePath) throws IOException {
         LotteryGameBetSlipCoordinates coordinates =
-                new LotteryGameBetSlipCoordinates(mainBallCoordinates, bonusBallCoordinates, jackpotOptionCoordinate, isNumbersOrientedVertically);
+                new LotteryGameBetSlipCoordinates(mainBallCoordinates, bonusBallCoordinates, jackpotOptionCoordinate, isNumbersOrientedVertically, markingSize);
         try (FileOutputStream fos = new FileOutputStream(filePath);
              ObjectOutputStream oos = new ObjectOutputStream(fos)) {
             oos.writeObject(coordinates);
