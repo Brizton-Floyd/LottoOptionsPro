@@ -31,20 +31,32 @@
                     <TextField fx:id="distanceFromBottomField"/>
                 </VBox>
             </HBox>
+            <HBox spacing="10" alignment="CENTER">
+                <VBox spacing="5">
+                    <Label text="Distance from Left:"/>
+                    <TextField fx:id="distanceFromLeftField"/>
+                </VBox>
+                <VBox spacing="5">
+                    <Label text="Distance from Right:"/>
+                    <TextField fx:id="distanceFromRightField"/>
+                </VBox>
+            </HBox>
         </VBox>
     </top>
 
     <center>
-        <HBox spacing="20" alignment="CENTER">
-            <ImageView fx:id="originalImageView" fitHeight="500" preserveRatio="true"/>
-            <ImageView fx:id="processedImageView" fitHeight="500" preserveRatio="true"/>
-        </HBox>
+        <VBox spacing="10" alignment="CENTER">
+            <HBox spacing="20" alignment="CENTER">
+                <ImageView fx:id="originalImageView" fitHeight="400" preserveRatio="true"/>
+                <ImageView fx:id="processedImageView" fitHeight="400" preserveRatio="true"/>
+            </HBox>
+            <HBox spacing="10" alignment="CENTER">
+                <Button text="Process Image" onAction="#processImage"/>
+                <HBox spacing="5" alignment="CENTER_LEFT">
+                    <Button text="Save Processed Image" onAction="#saveProcessedImage"/>
+                    <ImageView fx:id="saveConfirmationIcon" fitHeight="20" fitWidth="20" visible="false"/>
+                </HBox>
+            </HBox>
+        </VBox>
     </center>
-
-    <bottom>
-        <HBox spacing="10" alignment="CENTER" style="-fx-padding: 10;">
-            <Button text="Process Image" onAction="#processImage"/>
-            <Button text="Save Processed Image" onAction="#saveProcessedImage"/>
-        </HBox>
-    </bottom>
 </BorderPane>

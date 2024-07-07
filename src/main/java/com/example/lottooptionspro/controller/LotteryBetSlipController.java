@@ -31,9 +31,8 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -87,22 +86,12 @@ public class LotteryBetSlipController {
             Map<Integer, Map<String, Point>> mainBallCoordinates = coordinates.getMainBallCoordinates();
             Map<Integer, Map<String, Point>> bonusBallCoordinates = coordinates.getBonusBallCoordinates();
 
-            ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-            List<Future<BufferedImage>> futures = new ArrayList<>();
+            List<BufferedImage> bufferedImages = new ArrayList<>();
 
             for (List<int[]> numberList : numbers) {
-                futures.add(executor.submit(() -> processImage(imageFile, numberList, mainBallCoordinates, bonusBallCoordinates)));
+                BufferedImage processedImage = processImage(imageFile, numberList, mainBallCoordinates, bonusBallCoordinates, coordinates.getJackpotOptionCoordinate());
+                bufferedImages.add(processedImage);
             }
-
-            List<BufferedImage> bufferedImages = new ArrayList<>();
-            for (Future<BufferedImage> future : futures) {
-                try {
-                    bufferedImages.add(future.get());
-                } catch (InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
-                }
-            }
-            executor.shutdown();
 
             saveImagesToPDF(bufferedImages, stateName, gameName);
 
@@ -110,11 +99,16 @@ public class LotteryBetSlipController {
             e.printStackTrace();
         }
     }
-
-    private BufferedImage processImage(File imageFile, List<int[]> numberList, Map<Integer, Map<String, Point>> mainBallCoordinates, Map<Integer, Map<String, Point>> bonusBallCoordinates) throws IOException {
+    private BufferedImage processImage(File imageFile, List<int[]> numberList, Map<Integer, Map<String, Point>> mainBallCoordinates, Map<Integer, Map<String, Point>> bonusBallCoordinates, Point jackpotOptionCoordinate) throws IOException {
         BufferedImage bufferedImage = ImageResizer.resizeImageBasedOnTrueSize(ImageIO.read(imageFile), 8.5, 3.5);
         Graphics2D graphics = bufferedImage.createGraphics();
         graphics.setColor(Color.BLACK);
+
+        if (bonusBallCoordinates != null && !bonusBallCoordinates.isEmpty()) {
+            graphics.fillRect(jackpotOptionCoordinate.x, jackpotOptionCoordinate.y, 13, 13);
+        }
+
+        int maxBonusNumber = getMaxBonusNumber(bonusBallCoordinates.get(0).keySet());
 
         int panel = 0;
         for (int[] numbers : numberList) {
@@ -123,12 +117,31 @@ public class LotteryBetSlipController {
                 int y = mainBallCoordinates.get(panel).get(String.valueOf(number)).y;
                 graphics.fillRect(x, y, 13, 13);
             }
+
+            if (!bonusBallCoordinates.isEmpty()) {
+                Random rnd = new Random();
+                int bonusNumber = rnd.nextInt(maxBonusNumber) + 1;
+                int x = bonusBallCoordinates.get(panel).get(String.valueOf(bonusNumber)).x;
+                int y = bonusBallCoordinates.get(panel).get(String.valueOf(bonusNumber)).y;
+                graphics.fillRect(x, y, 13, 13);
+            }
+
             panel++;
         }
 
         graphics.dispose();
         return bufferedImage;
     }
+
+    private int getMaxBonusNumber(Set<String> numbers) {
+        int max = Integer.MIN_VALUE;
+        for (String num : numbers) {
+            max = Math.max(max, Integer.parseInt(num));
+        }
+
+        return max;
+    }
+
 
     public void saveImagesToPDF(List<BufferedImage> bufferedImages, String stateName, String gameName) throws IOException {
         String dest = String.format("output/%s_%s_betslips.pdf", stateName, gameName);
