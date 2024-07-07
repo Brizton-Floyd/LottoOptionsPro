@@ -77,7 +77,7 @@ public class LotteryBetSlipController {
             String filePath = "Serialized Files/" + stateName + "/" + gameNameNoWhiteSpace + ".ser"; // Update with actual path
 
             LotteryGameBetSlipCoordinates coordinates = readCoordinatesFromFile(filePath);
-            String imagePath = "src/main/resources/images/" + stateName + "/" + gameName + ".jpg";
+            String imagePath = "src/main/resources/images/" + stateName + "/Processed_" + gameName + ".jpg";
 
             File imageFile = new File(imagePath);
             if (!imageFile.exists()) {
@@ -139,14 +139,14 @@ public class LotteryBetSlipController {
 
         try (PdfWriter writer = new PdfWriter(dest);
              PdfDocument pdfDoc = new PdfDocument(writer);
-             Document document = new Document(pdfDoc, PageSize.A4.rotate())) {
+             Document document = new Document(pdfDoc, PageSize.LETTER.rotate())) {
 
             // Set margins to 0
-            document.setMargins(0, 60, 0, 60);
+            document.setMargins(0, 40, 0, 40);
 
             float pageWidth = pdfDoc.getDefaultPageSize().getWidth();
             float pageHeight = pdfDoc.getDefaultPageSize().getHeight();
-            float availableWidth = pageWidth - 120; // Subtract left and right margins
+            float availableWidth = pageWidth - 80; // Subtract left and right margins
             float imageWidth = availableWidth / 3;
             float imageHeight = pageHeight;
 
@@ -164,7 +164,7 @@ public class LotteryBetSlipController {
                 Image pdfImage = new Image(imageData);
 
                 // Calculate position for the image, accounting for left margin
-                float x = 60 + (imageCount % imagesPerPage) * imageWidth;
+                float x = 40 + (imageCount % imagesPerPage) * imageWidth;
                 float y = pageHeight - imageHeight;
 
                 pdfImage.setFixedPosition(x, y);
@@ -173,6 +173,12 @@ public class LotteryBetSlipController {
 
                 document.add(pdfImage);
 
+                // Add red dotted border around the image
+//                PdfCanvas canvas = new PdfCanvas(pdfDoc.getLastPage());
+//                canvas.setStrokeColor(ColorConstants.RED)
+//                        .setLineDash(3, 3)
+//                        .rectangle(x, y, imageWidth, imageHeight)
+//                        .stroke();
                 // Add vertical red dotted lines on the left and right side of each image
                 PdfCanvas canvas = new PdfCanvas(pdfDoc.getLastPage());
                 canvas.setStrokeColor(ColorConstants.RED)
@@ -224,23 +230,17 @@ public class LotteryBetSlipController {
                 return;
             }
 
-            try (FileInputStream fis = new FileInputStream(file);
-                 PDDocument document1 = PDDocument.load(fis)) {
+            try (FileInputStream fis = new FileInputStream(file)) {
+                document = PDDocument.load(fis);
 
                 // PDF loaded successfully
-                System.out.println("PDF loaded. Number of pages: " + document1.getNumberOfPages());
-                renderer = new PDFRenderer(document1);
+                System.out.println("PDF loaded. Number of pages: " + document.getNumberOfPages());
+                renderer = new PDFRenderer(document);
                 displayPDFPage(0);
             } catch (IOException e) {
                 System.err.println("Error loading PDF: " + e.getMessage());
                 e.printStackTrace();
             }
-//            document = PDDocument.load(new File(pdfPath));
-//            renderer = new PDFRenderer(document);
-//            displayPDFPage(0);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
     }
 
     private void displayPDFPage(int pageIndex) {

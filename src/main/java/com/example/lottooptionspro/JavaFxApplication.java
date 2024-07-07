@@ -53,7 +53,7 @@ public class JavaFxApplication extends Application {
     @Override
     public void start(Stage stage) {
         String filePath = "Serialized Files/Texas/CashFive.ser";
-        loadImageProgrammatically(filePath);
+//        loadImageProgrammatically(filePath);
         FxWeaver fxWeaver = applicationContext.getBean(FxWeaver.class);
         Parent root = fxWeaver.loadView(MainController.class);
         Scene scene = new Scene(root);
@@ -108,12 +108,11 @@ public class JavaFxApplication extends Application {
 
             graphics.dispose();
             ImageIO.write(bufferedImage, "jpg", new File("src/main/resources/images/Texas/cash_five_marked_image.jpg"));
-
+//            extractColor();
         } catch (IOException | ClassNotFoundException e) {
 //            showAlert("Error", "Cannot load coordinates: " + e.getMessage());
         }
     }
-
     public static List<List<Integer>> generateLotteryDraws(int numberOfDraws) {
         List<List<Integer>> allDraws = new ArrayList<>();
         Random random = new Random();

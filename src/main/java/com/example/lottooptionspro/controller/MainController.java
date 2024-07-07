@@ -82,9 +82,10 @@ public class MainController {
     }
 
     @FXML
-    private void showLotteryWheelingSystem(ActionEvent actionEvent) {
+    private void showPreBetSlipProcessor(ActionEvent actionEvent) {
+        progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        mainContentArea.getChildren().setAll(new Label("Lottery Wheeling System UI"));
+        this.screenManager.loadView(PreProcessBetSlipController.class, mainContentArea, stateName, gameName, progressIndicator);
     }
 
     @FXML
