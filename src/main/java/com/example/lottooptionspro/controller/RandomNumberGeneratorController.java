@@ -38,6 +38,7 @@ public class RandomNumberGeneratorController implements GameInformation {
     @FXML private TableColumn<PrizeLevelResult, Integer> correctNumbersColumn;
     @FXML private TableColumn<PrizeLevelResult, Integer> hitsColumn;
     @FXML private TableColumn<PrizeLevelResult, Integer> gamesOutColumn;
+    @FXML private TableColumn<PrizeLevelResult, Double> expectedElapsedDaysBeforeWinColumn;
     @FXML private VBox contentHolder;
     @FXML private Label totalTicketsLabel;
     @FXML private Label estimatedDaysLabel;
@@ -62,6 +63,7 @@ public class RandomNumberGeneratorController implements GameInformation {
         correctNumbersColumn.setCellValueFactory(new PropertyValueFactory<>("correctNumbers"));
         hitsColumn.setCellValueFactory(new PropertyValueFactory<>("hits"));
         gamesOutColumn.setCellValueFactory(new PropertyValueFactory<>("gamesOut"));
+        expectedElapsedDaysBeforeWinColumn.setCellValueFactory(new PropertyValueFactory<>("expectedElapsedDaysBeforeWin"));
     }
 
     @FXML

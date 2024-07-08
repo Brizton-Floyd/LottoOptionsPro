@@ -117,7 +117,7 @@ public class LotteryBetSlipController {
                 graphics.drawImage(originalImage, 0, 0, null);
                 graphics.setColor(Color.BLACK);
 
-                if (bonusBallCoordinates != null && !bonusBallCoordinates.isEmpty()) {
+                if (jackpotOptionCoordinate != null) {
                     graphics.fill(new Rectangle2D.Double(jackpotOptionCoordinate.x, jackpotOptionCoordinate.y, markingSize, markingSize));
                 }
 
@@ -168,11 +168,11 @@ public class LotteryBetSlipController {
              Document document = new Document(pdfDoc, PageSize.LETTER.rotate())) {
 
             // Set margins to 0
-            document.setMargins(0, 40, 0, 40);
+            document.setMargins(0, 50, 0, 50);
 
             float pageWidth = pdfDoc.getDefaultPageSize().getWidth();
             float pageHeight = pdfDoc.getDefaultPageSize().getHeight();
-            float availableWidth = pageWidth - 80; // Subtract left and right margins
+            float availableWidth = pageWidth - 100; // Subtract left and right margins
             float imageWidth = availableWidth / 3;
             float imageHeight = pageHeight;
 
@@ -190,7 +190,7 @@ public class LotteryBetSlipController {
                 Image pdfImage = new Image(imageData);
 
                 // Calculate position for the image, accounting for left margin
-                float x = 40 + (imageCount % imagesPerPage) * imageWidth;
+                float x = 50 + (imageCount % imagesPerPage) * imageWidth;
                 float y = pageHeight - imageHeight;
 
                 pdfImage.setFixedPosition(x, y);

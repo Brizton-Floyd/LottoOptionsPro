@@ -45,6 +45,7 @@
                 <TableColumn fx:id="correctNumbersColumn" text="Prize Level"/>
                 <TableColumn fx:id="hitsColumn" text="Hits"/>
                 <TableColumn fx:id="gamesOutColumn" text="Games Out"/>
+                <TableColumn fx:id="expectedElapsedDaysBeforeWinColumn" text="Expected Games Out"/>
             </columns>
         </TableView>
 
