@@ -82,6 +82,13 @@ public class MainController {
     }
 
     @FXML
+    private void showTemplateCreator(ActionEvent actionEvent) {
+        progressIndicator.setVisible(true);
+        reEnableDisableButton(actionEvent);
+        this.screenManager.loadView(TemplateCreatorController.class, mainContentArea, progressIndicator);
+    }
+
+    @FXML
     private void showPreBetSlipProcessor(ActionEvent actionEvent) {
         progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
