@@ -9,6 +9,8 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
 import org.apache.commons.text.WordUtils;
 import org.springframework.stereotype.Component;
 import net.rgielen.fxweaver.core.FxmlView;
@@ -75,10 +77,10 @@ public class MainController {
     }
 
     @FXML
-    private void showBetlipPrccessor(ActionEvent actionEvent) {
+    private void showTemplateCreator(ActionEvent actionEvent) {
         progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(LotteryBetslipCoordinateController.class, mainContentArea, stateName, gameName, progressIndicator);
+        this.screenManager.loadView(TemplateCreatorController.class, mainContentArea, progressIndicator);
     }
 
     @FXML
@@ -130,6 +132,53 @@ public class MainController {
         // Show about dialog
     }
 
+    @FXML
+    private void showTemplateCreatorHelp() {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Betslip Template Editor Guide");
+        alert.setHeaderText("How to Use the Betslip Template Editor");
+
+        String helpContent = "This tool allows you to create and edit a JSON template that maps the coordinates of numbers and options on a lottery betslip image.\n\n" +
+                "Step 1: Load Your Files\n" +
+                "- Load Image: Click this to open a betslip image file (PNG or JPG). This is the first step.\n" +
+                "- Load Template: Click this to open a previously saved JSON template file to continue editing.\n\n" +
+                "Step 2: Define the Template\n" +
+                "- Game Name & Jurisdiction: Fill these fields out first. They are used to suggest a filename when you save.\n\n" +
+                "Step 3: Map the Coordinates\n" +
+                "1. Select Panel: Choose the panel you are currently mapping (e.g., Panel A).\n" +
+                "2. Select Mapping Mode:\n" +
+                "    - Main/Bonus Number: Select this to map the numbered boxes. The \"Next Number\" field will auto-increment for you. You can type in a new starting number at any time.\n" +
+                "    - Quick Pick: Select this to map the \"QP\" or \"Quick Pick\" box for the current panel.\n" +
+                "    - Global Option: Select this for ticket-wide options like \"Power Play\" or \"Cash Value\". You must type a unique name for each one.\n" +
+                "3. Click to Map: Click on the image to place a mark.\n\n" +
+                "Step 4: Fine-Tune and Verify\n" +
+                "- Move a Mark: Click and drag any existing transparent rectangle to adjust its position.\n" +
+                "- Resize Marks: Use the \"Mark Width\" and \"Mark Height\" spinners to change the size of all marks in real-time.\n" +
+                "- Undo: Click \"Clear Last Marking\" to remove the last action you took (either creating or moving a mark).\n" +
+                "- Preview: Click this to test your work. A dialog will ask for numbers. Enter them (e.g., 5 10 15, 8) to see solid black marks appear at the mapped locations for the currently selected panel.\n\n" +
+                "Step 5: Save Your Work\n" +
+                "- Save: The first time you save, this will ask for a file location. After that, it will quickly overwrite the same file with your changes.\n" +
+                "- Save As...: This will always ask for a new file name, allowing you to create copies.";
+
+        TextArea textArea = new TextArea(helpContent);
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+
+        textArea.setMaxWidth(Double.MAX_VALUE);
+        textArea.setMaxHeight(Double.MAX_VALUE);
+        GridPane.setVgrow(textArea, Priority.ALWAYS);
+        GridPane.setHgrow(textArea, Priority.ALWAYS);
+
+        GridPane expandableContent = new GridPane();
+        expandableContent.setMaxWidth(Double.MAX_VALUE);
+        expandableContent.add(textArea, 0, 0);
+
+        alert.getDialogPane().setExpandableContent(expandableContent);
+        alert.getDialogPane().setExpanded(true);
+
+        alert.showAndWait();
+    }
+
     private void reEnableDisableButton(ActionEvent event) {
         ToggleButton clickedButton = (ToggleButton) event.getSource();
         if (lastClickedButton != null) {
@@ -139,10 +188,6 @@ public class MainController {
         lastClickedButton = clickedButton;
     }
 
-    /**
-     * Sets up the lottery states and games menu options.
-     * Fetches the state games from the main controller service and updates the UI accordingly.
-     */
     private void setupLotteryStatesAndGamesMenuOptions() {
         Flux<LotteryState> stateFlux = mainControllerService.fetchStateGames();
         stateFlux.subscribe(
@@ -152,12 +197,6 @@ public class MainController {
         );
     }
 
-    /**
-     * Handles the state data received from the main controller service.
-     * Updates the UI with the state and game information.
-     *
-     * @param state The lottery state data.
-     */
     private void handleStateData(LotteryState state) {
         Platform.runLater(() -> {
             selectedStateAndGame.setText("Make Game Selection");
@@ -167,12 +206,6 @@ public class MainController {
         });
     }
 
-    /**
-     * Creates a menu for the given lottery state.
-     *
-     * @param state The lottery state data.
-     * @return The menu containing the state's lottery games.
-     */
     private Menu createStateMenu(LotteryState state) {
         Menu stateMenu = new Menu(WordUtils.capitalizeFully(state.getStateRegion()));
         state.getStateLotteryGames().forEach(lotteryGame -> {
@@ -183,25 +216,12 @@ public class MainController {
         return stateMenu;
     }
 
-    /**
-     * Creates a menu item for the given lottery game.
-     *
-     * @param state       The lottery state data.
-     * @param lotteryGame The lottery game data.
-     * @return The menu item representing the lottery game.
-     */
     private MenuItem createGameMenuItem(LotteryState state, LotteryGame lotteryGame) {
         MenuItem item = new MenuItem(lotteryGame.getFullName());
         item.setOnAction(event -> handleGameSelection(state, lotteryGame));
         return item;
     }
 
-    /**
-     * Handles the selection of a lottery game.
-     *
-     * @param state       The selected lottery state.
-     * @param lotteryGame The selected lottery game.
-     */
     private void handleGameSelection(LotteryState state, LotteryGame lotteryGame) {
         selectedStateAndGame.setText(WordUtils.capitalizeFully(state.getStateRegion()) + ": " + lotteryGame.getFullName());
         stateName = state.getStateRegion();
@@ -211,9 +231,6 @@ public class MainController {
         toggleButtonMap.get(activeToggleButton).fire();
     }
 
-    /**
-     * Sets up the toggle buttons for the different views.
-     */
     private void setupToggleButtons() {
         ObservableList<Toggle> toggles = toggleGroup.getToggles();
         toggles.forEach(toggle -> {
@@ -226,11 +243,6 @@ public class MainController {
         });
     }
 
-    /**
-     * Handles any errors that occur during the state games fetching process.
-     *
-     * @param error The error that occurred.
-     */
     private void handleError(Throwable error) {
         Platform.runLater(() -> {
             error.printStackTrace();
@@ -238,9 +250,6 @@ public class MainController {
         });
     }
 
-    /**
-     * Handles the completion of the state games fetching process.
-     */
     private void handleCompletion() {
         Platform.runLater(() -> {
             progressIndicator.setVisible(false);

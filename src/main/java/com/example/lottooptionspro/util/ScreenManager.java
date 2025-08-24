@@ -49,4 +49,20 @@ public class ScreenManager {
                 })
                 .subscribe();
     }
+
+    public <T> void loadView(Class<T> controllerClass, StackPane contentArea, ProgressIndicator progressIndicator) {
+        contentArea.getChildren().setAll(progressIndicator);
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(600), contentArea);
+        fadeIn.setFromValue(0);
+        fadeIn.setToValue(1);
+
+        FxControllerAndView<T, Node> controllerAndView = fxWeaver.load(controllerClass);
+
+        Platform.runLater(() -> {
+            progressIndicator.setVisible(false);
+            Node view = controllerAndView.getView().get();
+            contentArea.getChildren().setAll(view);
+            fadeIn.play();
+        });
+    }
 }
