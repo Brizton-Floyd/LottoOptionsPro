@@ -1,11 +1,13 @@
 package com.example.lottooptionspro.controller;
 
 import com.example.lottooptionspro.GameInformation;
-import com.example.lottooptionspro.service.DashboardService;
+import com.example.lottooptionspro.presenter.DashboardPresenter;
+import com.example.lottooptionspro.presenter.DashboardView;
 import com.floyd.model.dashboard.DrawResultPattern;
 import com.floyd.model.dashboard.LotteryNumber;
 import com.floyd.model.dashboard.PatternAnalysisResult;
 import com.floyd.model.response.DashboardResponse;
+import jakarta.annotation.PostConstruct;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleIntegerProperty;
@@ -22,6 +24,7 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import net.rgielen.fxweaver.core.FxmlView;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -32,7 +35,7 @@ import java.util.Stack;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/dashboard.fxml")
-public class DashBoardController implements GameInformation {
+public class DashBoardController implements GameInformation, DashboardView {
     @FXML
     private TableView<ObservableList<Object>> dateColumnTable;
     @FXML
@@ -44,53 +47,94 @@ public class DashBoardController implements GameInformation {
     @FXML
     private HBox legendContainer;
 
-    private final DashboardService dashboardService;
+    private final DashboardPresenter presenter;
     private final ObservableList<ObservableList<Object>> data = FXCollections.observableArrayList();
     private final Stack<ObservableList<Object>> removedItems = new Stack<>();
     private int totalElementsInList;
-    private String gameName;
 
-    public DashBoardController(DashboardService dashboardService) {
-        this.dashboardService = dashboardService;
+    @Autowired
+    public DashBoardController(DashboardPresenter presenter) {
+        this.presenter = presenter;
+    }
+
+    @PostConstruct
+    public void init() {
+        presenter.setView(this);
     }
 
     @Override
     public Mono<Void> setUpUi(String stateName, String gameName) {
-        this.gameName = gameName;
-        return dashboardService.getDashboardData(stateName.toUpperCase(), gameName)
-                .flatMap(this::updateUiWithDashboardData)
-                .doOnError(this::handleDashboardDataError)
-                .then();
+        return presenter.loadDashboardData(stateName, gameName);
     }
 
-    private Mono<Void> updateUiWithDashboardData(DashboardResponse dashboardResponse) {
-        return Mono.fromRunnable(() -> Platform.runLater(() -> {
-            setUpDrawPatternTable(dashboardResponse.getDrawResultPatterns());
-            setUpProbabilityPanes(dashboardResponse);
-            setUpLegend();
-        }));
+    @Override
+    public void setUpDrawPatternTable(List<DrawResultPattern> drawResultPatterns) {
+        data.clear();
+        dateColumnTable.getColumns().clear();
+        numberColumnsTable.getColumns().clear();
+
+        drawResultPatterns.forEach(pattern -> {
+            ObservableList<Object> row = FXCollections.observableArrayList();
+            row.add(pattern.getDrawDate());
+            pattern.getLotteryNumbers().forEach(lotteryNumber -> row.add(lotteryNumber.getGamesOut()));
+            data.add(row);
+        });
+
+        TableColumn<ObservableList<Object>, String> drawDateColumn = new TableColumn<>("Draw Date");
+        drawDateColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().get(0).toString()));
+        drawDateColumn.setSortable(false);
+        drawDateColumn.setReorderable(false);
+        dateColumnTable.getColumns().add(drawDateColumn);
+
+        numberColumnsTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+
+        int min = drawResultPatterns.get(0).getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).min().orElse(1);
+        int max = drawResultPatterns.get(0).getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).max().orElse(1);
+
+        for (int i = min; i <= max; i++) {
+            final int colIndex = (i - min) + 1;
+            TableColumn<ObservableList<Object>, Integer> column = new TableColumn<>("" + i);
+            column.setSortable(false);
+            column.setReorderable(false);
+            column.setCellValueFactory(param -> {
+                ObservableList<Object> values = param.getValue();
+                if (colIndex < values.size() && values.get(colIndex) != null) {
+                    return new SimpleIntegerProperty(Integer.parseInt(values.get(colIndex).toString())).asObject();
+                }
+                return null;
+            });
+
+            column.setCellFactory(col -> new TableCell<>() {
+                @Override
+                protected void updateItem(Integer item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (item == null || empty) {
+                        setText(null);
+                        setStyle("");
+                    } else {
+                        setText(item == 0 ? "#" : item.toString());
+                        setStyle(item == 0 ? "-fx-text-fill: orange; -fx-font-weight: bold;" : "");
+                    }
+                }
+            });
+            numberColumnsTable.getColumns().add(column);
+        }
+
+        totalElementsInList = data.size();
+        dateColumnTable.setItems(data);
+        numberColumnsTable.setItems(data);
+
+        synchronizeScrollbars();
+
+        Platform.runLater(() -> {
+            numberColumnsTable.scrollTo(data.size());
+            dateColumnTable.scrollTo(data.size());
+        });
+        addBtn.setDisable(true);
     }
 
-    private void setUpLegend() {
-        legendContainer.getChildren().clear();
-
-        Label hitSymbol = new Label("#");
-        hitSymbol.setStyle("-fx-text-fill: orange; -fx-font-weight: bold; -fx-font-size: 14px;");
-
-        Label hitText = new Label("= Number Hit");
-        hitText.getStyleClass().add("legend-text");
-
-        Label gamesOut = new Label("1, 2, 3...");
-        gamesOut.getStyleClass().add("legend-text");
-        gamesOut.setStyle("-fx-padding: 0 0 0 10px;");
-
-        Label gamesOutText = new Label("= Games Out Since Last Hit");
-        gamesOutText.getStyleClass().add("legend-text");
-
-        legendContainer.getChildren().addAll(hitSymbol, hitText, gamesOut, gamesOutText);
-    }
-
-    private void setUpProbabilityPanes(DashboardResponse dashboardResponse) {
+    @Override
+    public void setUpProbabilityPanes(DashboardResponse dashboardResponse) {
         dynamicPanesContainer.getChildren().clear();
 
         VBox probabilityPanel = new VBox(10);
@@ -171,69 +215,35 @@ public class DashBoardController implements GameInformation {
         return column;
     }
 
-    private void setUpDrawPatternTable(List<DrawResultPattern> drawResultPatterns) {
-        data.clear();
-        dateColumnTable.getColumns().clear();
-        numberColumnsTable.getColumns().clear();
+    @Override
+    public void setUpLegend() {
+        legendContainer.getChildren().clear();
 
-        drawResultPatterns.forEach(pattern -> {
-            ObservableList<Object> row = FXCollections.observableArrayList();
-            row.add(pattern.getDrawDate());
-            pattern.getLotteryNumbers().forEach(lotteryNumber -> row.add(lotteryNumber.getGamesOut()));
-            data.add(row);
-        });
+        Label hitSymbol = new Label("#");
+        hitSymbol.setStyle("-fx-text-fill: orange; -fx-font-weight: bold; -fx-font-size: 14px;");
 
-        TableColumn<ObservableList<Object>, String> drawDateColumn = new TableColumn<>("Draw Date");
-        drawDateColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().get(0).toString()));
-        drawDateColumn.setSortable(false);
-        drawDateColumn.setReorderable(false);
-        dateColumnTable.getColumns().add(drawDateColumn);
+        Label hitText = new Label("= Number Hit");
+        hitText.getStyleClass().add("legend-text");
 
-        numberColumnsTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        Label gamesOut = new Label("1, 2, 3...");
+        gamesOut.getStyleClass().add("legend-text");
+        gamesOut.setStyle("-fx-padding: 0 0 0 10px;");
 
-        int min = drawResultPatterns.get(0).getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).min().orElse(1);
-        int max = drawResultPatterns.get(0).getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).max().orElse(1);
+        Label gamesOutText = new Label("= Games Out Since Last Hit");
+        gamesOutText.getStyleClass().add("legend-text");
 
-        for (int i = min; i <= max; i++) {
-            final int colIndex = (i - min) + 1;
-            TableColumn<ObservableList<Object>, Integer> column = new TableColumn<>("" + i);
-            column.setSortable(false);
-            column.setReorderable(false);
-            column.setCellValueFactory(param -> {
-                ObservableList<Object> values = param.getValue();
-                if (colIndex < values.size() && values.get(colIndex) != null) {
-                    return new SimpleIntegerProperty(Integer.parseInt(values.get(colIndex).toString())).asObject();
-                }
-                return null;
-            });
+        legendContainer.getChildren().addAll(hitSymbol, hitText, gamesOut, gamesOutText);
+    }
 
-            column.setCellFactory(col -> new TableCell<>() {
-                @Override
-                protected void updateItem(Integer item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (item == null || empty) {
-                        setText(null);
-                        setStyle("");
-                    } else {
-                        setText(item == 0 ? "#" : item.toString());
-                        setStyle(item == 0 ? "-fx-text-fill: orange; -fx-font-weight: bold;" : "");
-                    }
-                }
-            });
-            numberColumnsTable.getColumns().add(column);
-        }
-
-        totalElementsInList = data.size();
-        dateColumnTable.setItems(data);
-        numberColumnsTable.setItems(data);
-
-        synchronizeScrollbars();
-
+    @Override
+    public void showDataError(Throwable error) {
         Platform.runLater(() -> {
-            numberColumnsTable.scrollTo(data.size());
-            dateColumnTable.scrollTo(data.size());
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error");
+            alert.setHeaderText("Failed to load dashboard data");
+            alert.setContentText(error.getMessage());
+            alert.showAndWait();
         });
-        addBtn.setDisable(true);
     }
 
     private void synchronizeScrollbars() {
@@ -315,16 +325,6 @@ public class DashBoardController implements GameInformation {
         Platform.runLater(() -> {
             numberColumnsTable.scrollTo(data.size());
             dateColumnTable.scrollTo(data.size());
-        });
-    }
-
-    private void handleDashboardDataError(Throwable error) {
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Error");
-            alert.setHeaderText("Failed to load dashboard data");
-            alert.setContentText(error.getMessage());
-            alert.showAndWait();
         });
     }
 }

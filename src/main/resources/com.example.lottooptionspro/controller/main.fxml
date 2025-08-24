@@ -5,7 +5,7 @@
 
 
 <?import java.net.URL?>
-<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.example.lottooptionspro.controller.MainController">
+<BorderPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.example.lottooptionspro.controller.MainController" prefWidth="1280" prefHeight="720">
     <!-- Top section for the application title or menu bar -->
     <stylesheets>
         <URL value="@styling/style.css" />

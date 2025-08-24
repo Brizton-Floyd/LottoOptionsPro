@@ -1,13 +1,12 @@
 package com.example.lottooptionspro.controller;
 
 import com.example.lottooptionspro.GameInformation;
+import com.example.lottooptionspro.presenter.RandomNumberGeneratorPresenter;
+import com.example.lottooptionspro.presenter.RandomNumberGeneratorView;
 import com.example.lottooptionspro.service.RandomNumberGeneratorService;
-import com.floyd.model.generatednumbers.GeneratedNumberData;
 import com.floyd.model.generatednumbers.PrizeLevelResult;
-import com.floyd.model.request.RandomNumberGeneratorRequest;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
-import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -18,14 +17,13 @@ import net.rgielen.fxweaver.core.FxmlView;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import java.io.*;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/randomNumberGenerator.fxml")
-public class RandomNumberGeneratorController implements GameInformation {
+public class RandomNumberGeneratorController implements GameInformation, RandomNumberGeneratorView {
 
     @FXML private ComboBox<String> rngComboBox;
     @FXML private TextField numberSetPerPatternField;
@@ -44,22 +42,17 @@ public class RandomNumberGeneratorController implements GameInformation {
     @FXML private Label estimatedDaysLabel;
 
     private final FxWeaver fxWeaver;
-    private GeneratedNumberData currentData;
-    private final RandomNumberGeneratorService randomNumberGeneratorService;
-    private String gameName, stateName;
+    private final RandomNumberGeneratorPresenter presenter;
 
     public RandomNumberGeneratorController(RandomNumberGeneratorService randomNumberGeneratorService, FxWeaver fxWeaver) {
-        this.randomNumberGeneratorService = randomNumberGeneratorService;
         this.fxWeaver = fxWeaver;
+        this.presenter = new RandomNumberGeneratorPresenter(this, randomNumberGeneratorService);
     }
 
     @FXML
     public void initialize() {
         rngComboBox.getItems().addAll("Random 1", "SecureRandom", "ThreadLocalRandom");
-
-        numberSetColumn.setCellValueFactory(cellData ->
-                new SimpleStringProperty(Arrays.toString(cellData.getValue())));
-
+        numberSetColumn.setCellValueFactory(cellData -> new SimpleStringProperty(Arrays.toString(cellData.getValue())));
         correctNumbersColumn.setCellValueFactory(new PropertyValueFactory<>("correctNumbers"));
         hitsColumn.setCellValueFactory(new PropertyValueFactory<>("hits"));
         gamesOutColumn.setCellValueFactory(new PropertyValueFactory<>("gamesOut"));
@@ -68,150 +61,130 @@ public class RandomNumberGeneratorController implements GameInformation {
 
     @FXML
     private void generateNumbers() {
-
-        progressIndicator.setVisible(true);
-        contentHolder.setDisable(true);
-        Task<GeneratedNumberData> task = new Task<>() {
-            @Override
-            protected GeneratedNumberData call() throws Exception {
-                // Simulating API call
-                return randomNumberGeneratorService.generateNumbers(createRequest()).block();
-            }
-        };
-
-        task.setOnSucceeded(e -> {
-            progressIndicator.setVisible(false);
-            contentHolder.setDisable(false);
-            currentData = task.getValue();
-            updateUI();
-        });
-
-        task.setOnFailed(e -> {
-            progressIndicator.setVisible(false);
-            contentHolder.setDisable(false);
-            // Handle error
-        });
-
-        new Thread(task).start();
-    }
-
-    private void updateUI() {
-        generatedNumbersTable.setItems(FXCollections.observableArrayList(currentData.getGeneratedNumbers()));
-        prizeLevelResultsTable.setItems(FXCollections.observableArrayList(currentData.getPrizeLevelResults()));
-
-        totalTicketsLabel.setText(String.valueOf(currentData.getTotalTickets()));
-        estimatedDaysLabel.setText(String.format("%.2f", currentData.getEstimatedElapsedDaysForTargetedPrizeLevelWin()));
+        presenter.generateNumbers();
     }
 
     @FXML
     private void generateBetslips() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Open Chosen Numbers File");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Chosen Number Files", "*.ser"));
-        File file = fileChooser.showOpenDialog(null);
-        if (file != null) {
-            try (FileInputStream fis = new FileInputStream(file);
-                 ObjectInputStream ois = new ObjectInputStream(fis)) {
-                GeneratedNumberData loadedData = (GeneratedNumberData) ois.readObject();
-                List<List<int[]>> partitionedNumbers = processLoadedData(loadedData);
-                openBetslipsWindow(partitionedNumbers);
-            } catch (IOException | ClassNotFoundException e) {
-                showAlert("Error", "Cannot load coordinates: " + e.getMessage());
-            }
-        }
-    }
-
-    private List<List<int[]>> processLoadedData(GeneratedNumberData loadedData) {
-        List<int[]> generatedNumbers = loadedData.getGeneratedNumbers();
-        return partitionList(generatedNumbers, 5);
-    }
-
-    private List<List<int[]>> partitionList(List<int[]> list, int size) {
-        List<List<int[]>> partitions = new ArrayList<>();
-        for (int i = 0; i < list.size(); i += size) {
-            partitions.add(list.subList(i, Math.min(i + size, list.size())));
-        }
-        return partitions;
-    }
-
-    private void openBetslipsWindow(List<List<int[]>> partitionedNumbers) {
-        LotteryBetSlipController betslipsController = fxWeaver.loadController(LotteryBetSlipController.class);
-        betslipsController.setData(partitionedNumbers, this.stateName, this.gameName);
-        betslipsController.show();
+        presenter.generateBetslips();
     }
 
     @FXML
     private void saveNumbers() {
-        if (currentData != null) {
-            // Define the directory path
-            String directoryPath = "Chosen Number Files/" + stateName;
-            File directory = new File(directoryPath);
-
-            // Ensure the directory exists
-            if (!directory.exists()) {
-                boolean dirCreated = directory.mkdirs();
-                if (!dirCreated) {
-                    showAlert("Error", "Failed to create directory: " + directoryPath);
-                    return;
-                }
-            }
-
-            // Get the current date and time
-            LocalDateTime now = LocalDateTime.now();
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd-yyyy");
-            String formattedNow = now.format(formatter);
-
-            // Configure the FileChooser
-            FileChooser fileChooser = new FileChooser();
-            fileChooser.setTitle("Save Chosen Numbers");
-            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Chosen Number Files", "*.ser"));
-            fileChooser.setInitialDirectory(directory);
-
-            // Set the initial file name with the current date
-            fileChooser.setInitialFileName(gameName + "_chosen_numbers_" + formattedNow + ".ser");
-
-            // Show the save dialog
-            File file = fileChooser.showSaveDialog(null);
-            if (file != null) {
-                try (FileOutputStream fos = new FileOutputStream(file);
-                     ObjectOutputStream oos = new ObjectOutputStream(fos)) {
-                    oos.writeObject(currentData);
-                    showAlert("Success", "Coordinates saved successfully.");
-                } catch (IOException e) {
-                    showAlert("Error", "Cannot save coordinates: " + e.getMessage());
-                    e.printStackTrace(); // This will print the stack trace for debugging
-                }
-            }
-        }
+        presenter.saveNumbers();
     }
 
     @Override
     public Mono<Void> setUpUi(String stateName, String gameName) {
-        this.gameName = gameName;
-        this.stateName = stateName;
+        presenter.setGameInfo(stateName, gameName);
         return Mono.empty();
     }
-    private void showAlert(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
+
+    @Override
+    public String getSelectedRng() {
+        return rngComboBox.getValue();
+    }
+
+    @Override
+    public int getNumberSetPerPattern() {
+        try {
+            return Integer.parseInt(numberSetPerPatternField.getText());
+        } catch (NumberFormatException e) {
+            showAlert("Error", "Invalid input for Number Set Per Pattern.");
+            return 0;
+        }
+    }
+
+    @Override
+    public int getTargetedPrizeLevel() {
+        try {
+            return Integer.parseInt(targetedPrizeLevelField.getText());
+        } catch (NumberFormatException e) {
+            showAlert("Error", "Invalid input for Targeted Prize Level.");
+            return 0;
+        }
+    }
+
+    @Override
+    public int getDrawDaysPerWeek() {
+        try {
+            return Integer.parseInt(drawDaysPerWeekField.getText());
+        } catch (NumberFormatException e) {
+            showAlert("Error", "Invalid input for Draw Days Per Week.");
+            return 0;
+        }
+    }
+
+    @Override
+    public void showProgress(boolean show) {
+        progressIndicator.setVisible(show);
+    }
+
+    @Override
+    public void setContentDisabled(boolean disabled) {
+        contentHolder.setDisable(disabled);
+    }
+
+    @Override
+    public void updateGeneratedNumbers(List<int[]> numbers) {
+        generatedNumbersTable.setItems(FXCollections.observableArrayList(numbers));
+    }
+
+    @Override
+    public void updatePrizeLevelResults(List<PrizeLevelResult> results) {
+        prizeLevelResultsTable.setItems(FXCollections.observableArrayList(results));
+    }
+
+    @Override
+    public void updateTotalTickets(String total) {
+        totalTicketsLabel.setText(total);
+    }
+
+    @Override
+    public void updateEstimatedDays(String days) {
+        estimatedDaysLabel.setText(days);
+    }
+
+    @Override
+    public void openBetslipsWindow(List<List<int[]>> partitionedNumbers, String stateName, String gameName) {
+        LotteryBetSlipController betslipsController = fxWeaver.loadController(LotteryBetSlipController.class);
+        betslipsController.setData(partitionedNumbers, stateName, gameName);
+        betslipsController.showView();
+    }
+
+    @Override
+    public File showSaveDialog(String initialDirectory, String initialFileName) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Chosen Numbers");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Chosen Number Files", "*.ser"));
+        File directory = new File(initialDirectory);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+        fileChooser.setInitialDirectory(directory);
+        fileChooser.setInitialFileName(initialFileName);
+        return fileChooser.showSaveDialog(null);
+    }
+
+    @Override
+    public File showOpenDialog(String initialDirectory) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Open Chosen Numbers File");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Chosen Number Files", "*.ser"));
+        File directory = new File(initialDirectory);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+        fileChooser.setInitialDirectory(directory);
+        return fileChooser.showOpenDialog(null);
+    }
+
+    @Override
+    public void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
-    }
-    private RandomNumberGeneratorRequest createRequest() {
-        Map<String, String> generatorMapper = new HashMap<>();
-        generatorMapper.put("Random 1", "LOW_ODD_LOW_EVEN_HIGH_ODD_HIGH_EVEN");
-
-        // Create and return the request object based on user input
-        RandomNumberGeneratorRequest request = new RandomNumberGeneratorRequest();
-        request.setLotteryGame(this.gameName);
-        request.setLotteryState(this.stateName);
-        request.setNumberGenerator(generatorMapper.get(rngComboBox.getValue()));
-        request.setNumberSetsPerPattern(Integer.parseInt(numberSetPerPatternField.getText()));
-        request.setDrawDaysPerWeek(Integer.parseInt(drawDaysPerWeekField.getText()));
-        request.setTargetedPrizeLevel(Integer.parseInt(targetedPrizeLevelField.getText()));
-
-        // Set properties of the request object
-        return request;
     }
 }

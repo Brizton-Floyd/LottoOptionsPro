@@ -1,8 +1,8 @@
 package com.example.lottooptionspro.controller;
 
-
 import com.example.lottooptionspro.GameInformation;
-import com.floyd.model.generatednumbers.GeneratedNumberData;
+import com.example.lottooptionspro.presenter.LotteryValidatorPresenter;
+import com.example.lottooptionspro.presenter.LotteryValidatorView;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.fxml.FXML;
@@ -10,22 +10,19 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.text.Text;
-import javafx.scene.text.TextFlow;
 import javafx.stage.FileChooser;
 import net.rgielen.fxweaver.core.FxmlView;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/LotteryValidator.fxml")
-public class LotteryValidatorController implements GameInformation {
+public class LotteryValidatorController implements GameInformation, LotteryValidatorView {
 
     @FXML
     private HBox winningNumbersContainer;
@@ -38,40 +35,21 @@ public class LotteryValidatorController implements GameInformation {
     private TableColumn<List<Integer>, Integer> ticketNumberColumn;
 
     @FXML
-    private TableView<PrizeLevelResult> prizeTable;
+    private TableView<LotteryValidatorPresenter.PrizeLevelResult> prizeTable;
     @FXML
-    private TableColumn<PrizeLevelResult, Integer> correctNumbersColumn;
+    private TableColumn<LotteryValidatorPresenter.PrizeLevelResult, Integer> correctNumbersColumn;
     @FXML
-    private TableColumn<PrizeLevelResult, Integer> hitsColumn;
+    private TableColumn<LotteryValidatorPresenter.PrizeLevelResult, Integer> hitsColumn;
 
-    private List<TextField> winningNumberFields;
-    private List<List<Integer>> generatedNumbers;
+    private List<TextField> winningNumberFields = new ArrayList<>();
+    private final LotteryValidatorPresenter presenter;
 
-    private List<PrizeLevelResult> prizeLevelResults;
+    public LotteryValidatorController() {
+        this.presenter = new LotteryValidatorPresenter(this);
+    }
 
+    @FXML
     private void initialize() {
-        ticketColumn.setCellFactory(column -> new TableCell<List<Integer>, String>() {
-            @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                    setGraphic(null);
-                } else {
-                    String[] numbers = item.split(" ");
-                    HBox hbox = new HBox(5); // 5 is the spacing between numbers
-                    for (String number : numbers) {
-                        Text text = new Text(number.replace("-", ""));
-                        if (number.startsWith("-")) {
-                            text.setStyle("-fx-font-weight: bold;");
-                        }
-                        hbox.getChildren().add(text);
-                    }
-                    setGraphic(hbox);
-                }
-            }
-        });
-        // Set up the ticket number column
         ticketNumberColumn.setCellValueFactory(data ->
                 new SimpleObjectProperty<>(ticketTable.getItems().indexOf(data.getValue()) + 1));
 
@@ -80,124 +58,98 @@ public class LotteryValidatorController implements GameInformation {
             return new SimpleStringProperty(formatTicket(ticket));
         });
 
-        int drawPositions = generatedNumbers.get(0).size();
-        createWinningNumberFields(drawPositions);
+        ticketColumn.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    String[] numbers = item.split(" ");
+                    HBox hbox = new HBox(5);
+                    for (String number : numbers) {
+                        Text text = new Text(number.replace("-", ""));
+                        if (number.startsWith("-")) {
+                            text.setStyle("-fx-font-weight: bold; -fx-fill: red;");
+                        }
+                        hbox.getChildren().add(text);
+                    }
+                    setGraphic(hbox);
+                }
+            }
+        });
 
         correctNumbersColumn.setCellValueFactory(new PropertyValueFactory<>("correctNumbers"));
         hitsColumn.setCellValueFactory(new PropertyValueFactory<>("hits"));
-
-        ticketTable.getItems().setAll(generatedNumbers);
-        prizeTable.getItems().setAll(prizeLevelResults);
     }
 
-    private void createWinningNumberFields(int count) {
-        winningNumberFields = new ArrayList<>();
+    @FXML
+    public void validateNumbers() {
+        presenter.validateNumbers();
+    }
+
+    @FXML
+    public void loadGameFile() {
+        presenter.loadGameFile();
+    }
+
+    @Override
+    public Mono<Void> setUpUi(String stateName, String gameName) {
+        // This view is independent of the game selection for now
+        return Mono.empty();
+    }
+
+    @Override
+    public void createWinningNumberFields(int count) {
+        winningNumbersContainer.getChildren().clear();
+        winningNumberFields.clear();
         for (int i = 0; i < count; i++) {
             TextField field = new TextField();
-            field.setPromptText("Number " + (i + 1));
+            field.setPromptText("Num " + (i + 1));
             field.setPrefWidth(70);
             winningNumberFields.add(field);
             winningNumbersContainer.getChildren().add(field);
         }
     }
 
-    private String formatTicket(List<Integer> ticket) {
-        return ticket.stream()
-                .map(num -> (num < 0 ? "-" + Math.abs(num) : String.valueOf(num)))
-                .collect(Collectors.joining(" "));
-    }
-
-    @FXML
-    public void validateNumbers() {
-        List<Integer> winningNumbers = new ArrayList<>();
-        for (TextField field : winningNumberFields) {
-            winningNumbers.add(Integer.parseInt(field.getText()));
-        }
-
-        ticketTable.getItems().clear();
-        for (List<Integer> ticket : generatedNumbers) {
-            List<Integer> displayTicket = new ArrayList<>();
-            for (Integer number : ticket) {
-                if (winningNumbers.contains(number)) {
-                    displayTicket.add(-number); // Use negative to indicate bold
-                } else {
-                    displayTicket.add(number);
-                }
-            }
-            ticketTable.getItems().add(displayTicket);
-        }
-
-        updatePrizeLevelResults(winningNumbers);
-    }
-
-    private void updatePrizeLevelResults(List<Integer> winningNumbers) {
-        Map<Integer, Integer> hitCounts = new HashMap<>();
-        for (List<Integer> ticket : generatedNumbers) {
-            int matches = (int) ticket.stream().filter(winningNumbers::contains).count();
-            hitCounts.put(matches, hitCounts.getOrDefault(matches, 0) + 1);
-        }
-
-        prizeTable.getItems().clear();
-        for (PrizeLevelResult result : prizeLevelResults) {
-            int hits = hitCounts.getOrDefault(result.getCorrectNumbers(), 0);
-            prizeTable.getItems().add(new PrizeLevelResult(result.getCorrectNumbers(), hits));
-        }
-    }
-
-    public void loadGameFile() {
-        winningNumberFields.clear();
-        winningNumbersContainer.getChildren().clear();
-        loadGeneratedData();
-        initialize();
-    }
     @Override
-    public Mono<Void> setUpUi(String stateName, String gameName) {
-        loadGeneratedData();
-        initialize();
-        return Mono.empty();
+    public List<String> getWinningNumbers() {
+        return winningNumberFields.stream()
+                .map(TextField::getText)
+                .collect(Collectors.toList());
     }
 
-    private void loadGeneratedData() {
+    @Override
+    public void updateTicketTable(List<List<Integer>> tickets) {
+        ticketTable.getItems().setAll(tickets);
+    }
+
+    @Override
+    public void updatePrizeTable(List<LotteryValidatorPresenter.PrizeLevelResult> results) {
+        prizeTable.getItems().setAll(results);
+    }
+
+    @Override
+    public File showOpenFileDialog() {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Open Chosen Numbers File");
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Chosen Number Files", "*.ser"));
-        File file = fileChooser.showOpenDialog(null);
-        if (file != null) {
-            try (FileInputStream fis = new FileInputStream(file);
-                 ObjectInputStream ois = new ObjectInputStream(fis)) {
-                GeneratedNumberData loadedData = (GeneratedNumberData) ois.readObject();
-                this.generatedNumbers = loadedData.getGeneratedNumbers().stream()
-                        .map(array -> Arrays.stream(array)
-                                .boxed()
-                                .collect(Collectors.toList()))
-                        .collect(Collectors.toList());
-                this.prizeLevelResults = loadedData.getPrizeLevelResults().stream()
-                        .map(data -> new PrizeLevelResult(data.correctNumbers, 0))
-                        .collect(Collectors.toList());
-            } catch (IOException | ClassNotFoundException e) {
-                showAlert("Error", "Cannot load coordinates: " + e.getMessage());
-            }
-        }
+        return fileChooser.showOpenDialog(null);
     }
 
-    private void showAlert(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
+    @Override
+    public void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
     }
 
-    public static class PrizeLevelResult {
-        private final int correctNumbers;
-        private final int hits;
-
-        public PrizeLevelResult(int correctNumbers, int hits) {
-            this.correctNumbers = correctNumbers;
-            this.hits = hits;
-        }
-
-        public int getCorrectNumbers() { return correctNumbers; }
-        public int getHits() { return hits; }
+    private String formatTicket(List<Integer> ticket) {
+        return ticket.stream()
+                .map(num -> (num < 0 ? "-" + Math.abs(num) : String.valueOf(num)))
+                .collect(Collectors.joining(" "));
     }
 }
