@@ -80,3 +80,7 @@ Thumbs.db
 *.sublime-project
 *.sublime-workspace
 *.code-workspace
+
+# Documentation and other non-source files
+*.pdf
+*.md
