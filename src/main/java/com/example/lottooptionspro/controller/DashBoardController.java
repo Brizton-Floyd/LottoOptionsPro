@@ -2,18 +2,20 @@ package com.example.lottooptionspro.controller;
 
 import com.example.lottooptionspro.GameInformation;
 import com.example.lottooptionspro.service.DashboardService;
-import com.example.lottooptionspro.util.ScreenManager;
 import com.floyd.model.dashboard.DrawResultPattern;
 import com.floyd.model.dashboard.LotteryNumber;
 import com.floyd.model.dashboard.PatternAnalysisResult;
 import com.floyd.model.response.DashboardResponse;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -22,40 +24,33 @@ import javafx.scene.layout.*;
 import net.rgielen.fxweaver.core.FxmlView;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
 
 import java.lang.reflect.Field;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.text.DecimalFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
-import java.util.List;
-
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/dashboard.fxml")
-public class DashBoardController implements GameInformation  {
+public class DashBoardController implements GameInformation {
     @FXML
-    private TableView<ObservableList<Object>> dynamicTable;
-
+    private TableView<ObservableList<Object>> dateColumnTable;
+    @FXML
+    private TableView<ObservableList<Object>> numberColumnsTable;
     @FXML
     private Button addBtn, removeBtn;
-
     @FXML
     private HBox dynamicPanesContainer;
+    @FXML
+    private HBox legendContainer;
 
-    private ScreenManager screenManager;
-
-    private DashboardService dashboardService;
-
+    private final DashboardService dashboardService;
     private final ObservableList<ObservableList<Object>> data = FXCollections.observableArrayList();
     private final Stack<ObservableList<Object>> removedItems = new Stack<>();
     private int totalElementsInList;
     private String gameName;
 
-    public DashBoardController(ScreenManager screenManager, DashboardService dashboardService) {
-        this.screenManager = screenManager;
+    public DashBoardController(DashboardService dashboardService) {
         this.dashboardService = dashboardService;
     }
 
@@ -65,7 +60,6 @@ public class DashBoardController implements GameInformation  {
         return dashboardService.getDashboardData(stateName.toUpperCase(), gameName)
                 .flatMap(this::updateUiWithDashboardData)
                 .doOnError(this::handleDashboardDataError)
-                .doFinally(this::handleDashboardDataCompletion)
                 .then();
     }
 
@@ -73,63 +67,68 @@ public class DashBoardController implements GameInformation  {
         return Mono.fromRunnable(() -> Platform.runLater(() -> {
             setUpDrawPatternTable(dashboardResponse.getDrawResultPatterns());
             setUpProbabilityPanes(dashboardResponse);
+            setUpLegend();
         }));
     }
 
+    private void setUpLegend() {
+        legendContainer.getChildren().clear();
+
+        Label hitSymbol = new Label("#");
+        hitSymbol.setStyle("-fx-text-fill: orange; -fx-font-weight: bold; -fx-font-size: 14px;");
+
+        Label hitText = new Label("= Number Hit");
+        hitText.getStyleClass().add("legend-text");
+
+        Label gamesOut = new Label("1, 2, 3...");
+        gamesOut.getStyleClass().add("legend-text");
+        gamesOut.setStyle("-fx-padding: 0 0 0 10px;");
+
+        Label gamesOutText = new Label("= Games Out Since Last Hit");
+        gamesOutText.getStyleClass().add("legend-text");
+
+        legendContainer.getChildren().addAll(hitSymbol, hitText, gamesOut, gamesOutText);
+    }
+
     private void setUpProbabilityPanes(DashboardResponse dashboardResponse) {
-//        dynamicPanesContainer.setStyle("-fx-background-color: blue;");
-        String[] patterns = new String[] {"oddEvenPatterns", "highLowPatterns"};
-        for (int i = 0; i < patterns.length; i++) {
-            Pane pane = createPanesWithData(dashboardResponse, patterns[i]);
-            pane.getStyleClass().add("chart-pane");
-            dynamicPanesContainer.getChildren().add(pane);
-            HBox.setHgrow(pane, Priority.ALWAYS);
-        }
-//        int numChildren = dynamicPanesContainer.getChildren().size();
-//        Pane node = (Pane)dynamicPanesContainer.getChildren().get(0);
-//        Pane nodeTwo = (Pane)dynamicPanesContainer.getChildren().get(0);
-//        node.prefWidthProperty().bind(dynamicPanesContainer.widthProperty().divide(numChildren));
-//        nodeTwo.prefWidthProperty().bind(dynamicPanesContainer.widthProperty().divide(numChildren));
-    }
+        dynamicPanesContainer.getChildren().clear();
 
-    private void handleDashboardDataError(Throwable error) {
-        error.printStackTrace();
-    }
+        VBox probabilityPanel = new VBox(10);
+        probabilityPanel.getStyleClass().add("chart-pane");
+        HBox.setHgrow(probabilityPanel, Priority.ALWAYS);
+        probabilityPanel.setAlignment(Pos.TOP_CENTER);
 
-    private void handleDashboardDataCompletion(SignalType signalType) {
-//        System.out.println("Dashboard data retrieval completed.");
-    }
+        String mainHeaderText = "Probability Estimation";
+        String subHeaderText = dashboardResponse.getHistoryBeginAndEndDates()[0] + " to " +
+                dashboardResponse.getHistoryBeginAndEndDates()[1] + " (" + dashboardResponse.getTotalDraws() + " Draws)";
+        Label mainHeaderLabel = new Label(mainHeaderText);
+        mainHeaderLabel.getStyleClass().add("chart-header-main");
 
-    private Pane createPanesWithData(DashboardResponse dashboardResponse, String pattern) {
-        // Data
-        String mainHeader = "Probability Estimation Compared to the Actual Results of the " + gameName + " Lotto " + dashboardResponse.getGameFormat();
-        String subHeader = dashboardResponse.getHistoryBeginAndEndDates()[0] + " to " +
-                dashboardResponse.getHistoryBeginAndEndDates ()[1] + "(" + dashboardResponse.getTotalDraws()+ " Draws)";
+        Label subHeaderLabel = new Label(subHeaderText);
+        subHeaderLabel.getStyleClass().add("chart-header-sub");
 
-        // Create Labels
-        Label mainHeaderLabel = new Label(mainHeader);
-        Label subHeaderLabel = new Label(subHeader);
+        ComboBox<String> patternSelector = new ComboBox<>();
+        patternSelector.getItems().addAll("Odd/Even Patterns", "High/Low Patterns");
+        patternSelector.setMaxWidth(Double.MAX_VALUE);
 
-        // Style the labels (optional)
-        mainHeaderLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-alignment: center;");
-        subHeaderLabel.setStyle("-fx-font-size: 12px; -fx-font-style: italic; -fx-text-alignment: center;");
+        StackPane tableContainer = new StackPane();
+        VBox.setVgrow(tableContainer, Priority.ALWAYS);
 
-        // Create a VBox to hold the labels
-        VBox vbox = new VBox(5); // 10 is the spacing between elements
-        vbox.getChildren().addAll(mainHeaderLabel, subHeaderLabel, createProbabilityTable(dashboardResponse, pattern));
-        vbox.setAlignment(Pos.CENTER);
-        vbox.setFillWidth(true);
+        patternSelector.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
 
-        vbox.setStyle("-fx-background-color: #B7B597;");
+            String patternKey = "oddEvenPatterns";
+            if (newVal.equals("High/Low Patterns")) {
+                patternKey = "highLowPatterns";
+            }
 
+            Node probabilityTable = createProbabilityTable(dashboardResponse, patternKey);
+            tableContainer.getChildren().setAll(probabilityTable);
+        });
 
-        AnchorPane.setTopAnchor(vbox, 0.0);
-        AnchorPane.setBottomAnchor(vbox, 0.0);
-        AnchorPane.setLeftAnchor(vbox, 0.0);
-        AnchorPane.setRightAnchor(vbox, 0.0);
-
-        AnchorPane pane = new AnchorPane(vbox);
-        return pane;
+        probabilityPanel.getChildren().addAll(mainHeaderLabel, subHeaderLabel, patternSelector, tableContainer);
+        dynamicPanesContainer.getChildren().add(probabilityPanel);
+        patternSelector.getSelectionModel().selectFirst();
     }
 
     private Node createProbabilityTable(DashboardResponse dashboardResponse, String pattern) {
@@ -137,36 +136,27 @@ public class DashBoardController implements GameInformation  {
         tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         try {
-            Class<? extends DashboardResponse> clazz = dashboardResponse.getClass();
-            Field declaredField = clazz.getDeclaredField(pattern);
+            Field declaredField = dashboardResponse.getClass().getDeclaredField(pattern);
             declaredField.setAccessible(true);
             Map<String, PatternAnalysisResult> patternData = (Map<String, PatternAnalysisResult>) declaredField.get(dashboardResponse);
 
-            ObservableList<PatternAnalysisResult> data = FXCollections.observableArrayList();
-            for (Map.Entry<String, PatternAnalysisResult> entry : patternData.entrySet()) {
-                PatternAnalysisResult patternObject = entry.getValue();
-                data.add(patternObject);
-            }
+            ObservableList<PatternAnalysisResult> tableData = FXCollections.observableArrayList(patternData.values());
 
-            PatternAnalysisResult value = patternData.values().iterator().next();
+            tableView.getColumns().add(createColumn("Combinatorial Patterns", "pattern"));
+            tableView.getColumns().add(createColumn("Frequency", "frequency"));
+            tableView.getColumns().add(createColumn("Probability", "probability"));
+            tableView.getColumns().add(createColumn("Estimated Hit Frequency", "estimatedHitFrequency"));
+            tableView.getColumns().add(createColumn("Games Since Last Appearance", "gamesSinceLastAppearance"));
 
-            TableColumn<PatternAnalysisResult, Object> patternColumn = new TableColumn<>("Combinatorial Patterns");
-            patternColumn.setCellValueFactory(new PropertyValueFactory<>("pattern"));
+            tableView.setItems(tableData);
 
-            TableColumn<PatternAnalysisResult, Double> probabilityColumn = new TableColumn<>("Probability");
-            probabilityColumn.setCellValueFactory(new PropertyValueFactory<>("probability"));
-
-            TableColumn<PatternAnalysisResult, Double> estimatedHitFrequencyColumn = new TableColumn<>("Estimated Hit Frequency");
-            estimatedHitFrequencyColumn.setCellValueFactory(new PropertyValueFactory<>("estimatedHitFrequency"));
-
-            TableColumn<PatternAnalysisResult, Integer> frequencyColumn = new TableColumn<>("Frequency");
-            frequencyColumn.setCellValueFactory(new PropertyValueFactory<>("frequency"));
-
-            TableColumn<PatternAnalysisResult, Integer> gamesSinceLastAppearanceColumn = new TableColumn<>("Games Since Last Appearance");
-            gamesSinceLastAppearanceColumn.setCellValueFactory(new PropertyValueFactory<>("gamesSinceLastAppearance"));
-
-            tableView.getColumns().addAll(patternColumn, frequencyColumn, probabilityColumn, estimatedHitFrequencyColumn, gamesSinceLastAppearanceColumn);
-            tableView.setItems(data);
+            // Dynamically set the table height based on its content to "shrink-wrap" it.
+            tableView.setFixedCellSize(30);
+            tableView.prefHeightProperty().bind(
+                    tableView.fixedCellSizeProperty().multiply(Bindings.size(tableView.getItems()).add(1.05))
+            );
+            tableView.minHeightProperty().bind(tableView.prefHeightProperty());
+            tableView.maxHeightProperty().bind(tableView.prefHeightProperty());
 
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new RuntimeException(e);
@@ -175,116 +165,166 @@ public class DashBoardController implements GameInformation  {
         return tableView;
     }
 
-    private void setUpDrawPatternTable(List<DrawResultPattern> drawResultPatterns) {
+    private <S, T> TableColumn<S, T> createColumn(String title, String property) {
+        TableColumn<S, T> column = new TableColumn<>(title);
+        column.setCellValueFactory(new PropertyValueFactory<>(property));
+        return column;
+    }
 
-        for (DrawResultPattern pattern : drawResultPatterns) {
+    private void setUpDrawPatternTable(List<DrawResultPattern> drawResultPatterns) {
+        data.clear();
+        dateColumnTable.getColumns().clear();
+        numberColumnsTable.getColumns().clear();
+
+        drawResultPatterns.forEach(pattern -> {
             ObservableList<Object> row = FXCollections.observableArrayList();
             row.add(pattern.getDrawDate());
-            for (LotteryNumber lotteryNumber : pattern.getLotteryNumbers()) {
-                row.add(lotteryNumber.getGamesOut());
-            }
+            pattern.getLotteryNumbers().forEach(lotteryNumber -> row.add(lotteryNumber.getGamesOut()));
             data.add(row);
-        }
+        });
 
         TableColumn<ObservableList<Object>, String> drawDateColumn = new TableColumn<>("Draw Date");
         drawDateColumn.setCellValueFactory(param -> new SimpleStringProperty(param.getValue().get(0).toString()));
-        dynamicTable.getColumns().add(drawDateColumn);
+        drawDateColumn.setSortable(false);
+        drawDateColumn.setReorderable(false);
+        dateColumnTable.getColumns().add(drawDateColumn);
 
-        int min = Integer.MAX_VALUE;
-        int max = Integer.MIN_VALUE;
-        for (LotteryNumber lotteryNumber : drawResultPatterns.get(0).getLotteryNumbers()) {
-            min = Math.min(min, lotteryNumber.getNumber());
-            max = Math.max(max, lotteryNumber.getNumber());
-        }
+        numberColumnsTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
 
-        if (max == 9) {
-            dynamicTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        }
+        int min = drawResultPatterns.get(0).getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).min().orElse(1);
+        int max = drawResultPatterns.get(0).getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).max().orElse(1);
 
-        int idx = 1;
-        for (int i = min; i <= max; i++, idx++) {
-            TableColumn<ObservableList<Object>, Integer> column = new TableColumn<>("" + (i));
-            final int colIndex = idx; // Need a final variable for the lambda
+        for (int i = min; i <= max; i++) {
+            final int colIndex = (i - min) + 1;
+            TableColumn<ObservableList<Object>, Integer> column = new TableColumn<>("" + i);
             column.setSortable(false);
             column.setReorderable(false);
             column.setCellValueFactory(param -> {
                 ObservableList<Object> values = param.getValue();
-                if (colIndex >= 0 && colIndex < values.size()) {
-                    Object value = values.get(colIndex);
-                    if (value != null) {
-                        try {
-                            return new SimpleIntegerProperty(Integer.parseInt(value.toString())).asObject();
-                        } catch (NumberFormatException e) {
-                            // Handle the exception, e.g., log the error or return a default value
-
-                        }
-                    }
+                if (colIndex < values.size() && values.get(colIndex) != null) {
+                    return new SimpleIntegerProperty(Integer.parseInt(values.get(colIndex).toString())).asObject();
                 }
-                // Return a default value if the index is out of bounds or the value is null
                 return null;
             });
-            // Custom cell factory
-            column.setCellFactory(col -> {
-                return new TableCell<ObservableList<Object>, Integer>() {
-                    @Override
-                    protected void updateItem(Integer item, boolean empty) {
-                        super.updateItem(item, empty);
-                        if (item == null || empty) {
-                            setText(null);
-                            setStyle("");
-                        } else {
-                            if (item == 0) {
-                                setText("#");
-                                setStyle("-fx-text-fill: orange;"); // Set text color to yellow
-                            } else {
-                                setText(item.toString());
-                                setStyle("");
-                            }
-                        }
-                    }
-                };
-            });
 
-            dynamicTable.getColumns().add(column);
+            column.setCellFactory(col -> new TableCell<>() {
+                @Override
+                protected void updateItem(Integer item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (item == null || empty) {
+                        setText(null);
+                        setStyle("");
+                    } else {
+                        setText(item == 0 ? "#" : item.toString());
+                        setStyle(item == 0 ? "-fx-text-fill: orange; -fx-font-weight: bold;" : "");
+                    }
+                }
+            });
+            numberColumnsTable.getColumns().add(column);
         }
 
-        this.totalElementsInList = data.size();
-        dynamicTable.setItems(data);
+        totalElementsInList = data.size();
+        dateColumnTable.setItems(data);
+        numberColumnsTable.setItems(data);
 
-        // Scroll to the last row
-        dynamicTable.scrollTo(data.size());
+        synchronizeScrollbars();
+
+        Platform.runLater(() -> {
+            numberColumnsTable.scrollTo(data.size());
+            dateColumnTable.scrollTo(data.size());
+        });
         addBtn.setDisable(true);
+    }
+
+    private void synchronizeScrollbars() {
+        numberColumnsTable.skinProperty().addListener((obs, oldSkin, newSkin) -> {
+            if (newSkin != null) {
+                bindScrollBars();
+                ScrollBar hBar = findHorizontalScrollBar(numberColumnsTable);
+                if (hBar != null) {
+                    Runnable updatePadding = () -> {
+                        double height = hBar.isVisible() ? hBar.getHeight() : 0;
+                        dateColumnTable.setPadding(new Insets(0, 0, height, 0));
+                    };
+                    hBar.visibleProperty().addListener(o -> Platform.runLater(updatePadding));
+                    hBar.heightProperty().addListener(o -> Platform.runLater(updatePadding));
+                    Platform.runLater(updatePadding);
+                }
+            }
+        });
+        dateColumnTable.skinProperty().addListener((obs, oldSkin, newSkin) -> {
+            if (newSkin != null) {
+                bindScrollBars();
+            }
+        });
+    }
+
+    private void bindScrollBars() {
+        ScrollBar dateVBar = findVerticalScrollBar(dateColumnTable);
+        ScrollBar numberVBar = findVerticalScrollBar(numberColumnsTable);
+        if (dateVBar != null && numberVBar != null) {
+            dateVBar.valueProperty().bindBidirectional(numberVBar.valueProperty());
+            dateVBar.setOpacity(0);
+        }
+    }
+
+    private ScrollBar findVerticalScrollBar(TableView<?> tableView) {
+        for (Node node : tableView.lookupAll(".scroll-bar")) {
+            if (node instanceof ScrollBar && ((ScrollBar) node).getOrientation() == Orientation.VERTICAL) {
+                return (ScrollBar) node;
+            }
+        }
+        return null;
+    }
+
+    private ScrollBar findHorizontalScrollBar(TableView<?> tableView) {
+        for (Node node : tableView.lookupAll(".scroll-bar")) {
+            if (node instanceof ScrollBar && ((ScrollBar) node).getOrientation() == Orientation.HORIZONTAL) {
+                return (ScrollBar) node;
+            }
+        }
+        return null;
     }
 
     @FXML
     public void handleAddRow(ActionEvent event) {
         if (!removedItems.isEmpty()) {
-            // Add back the last removed item
             data.add(removedItems.pop());
             totalElementsInList++;
-            removeBtn.setDisable(false); // Enable the remove button if it was disabled
+            removeBtn.setDisable(false);
         }
-        // Disable the add button if there are no more items to add back
         if (removedItems.isEmpty()) {
             addBtn.setDisable(true);
         }
-        // Scroll to the last row
-        dynamicTable.scrollTo(data.size());
+        Platform.runLater(() -> {
+            numberColumnsTable.scrollTo(data.size());
+            dateColumnTable.scrollTo(data.size());
+        });
     }
 
     @FXML
     public void handleRemoveRow(ActionEvent event) {
         if (totalElementsInList > 0) {
-            // Remove the last item from the data list and push it onto the stack
             removedItems.push(data.remove(totalElementsInList - 1));
             totalElementsInList--;
-            addBtn.setDisable(false); // Enable the add button if it was disabled
+            addBtn.setDisable(false);
         }
-        // Disable the remove button if there are no more items to remove
         if (totalElementsInList == 0) {
             removeBtn.setDisable(true);
         }
-        // Scroll to the last row
-        dynamicTable.scrollTo(data.size());
+        Platform.runLater(() -> {
+            numberColumnsTable.scrollTo(data.size());
+            dateColumnTable.scrollTo(data.size());
+        });
+    }
+
+    private void handleDashboardDataError(Throwable error) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Error");
+            alert.setHeaderText("Failed to load dashboard data");
+            alert.setContentText(error.getMessage());
+            alert.showAndWait();
+        });
     }
 }

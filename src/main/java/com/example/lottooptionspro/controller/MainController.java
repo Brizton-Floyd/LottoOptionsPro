@@ -89,9 +89,10 @@ public class MainController {
     }
 
     @FXML
-    private void showTicketPrinting(ActionEvent actionEvent) {
+    private void showWinCheck(ActionEvent actionEvent) {
+        progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        mainContentArea.getChildren().setAll(new Label("Ticket Printing UI"));
+        this.screenManager.loadView(LotteryValidatorController.class, mainContentArea, stateName, gameName, progressIndicator);
     }
 
     @FXML

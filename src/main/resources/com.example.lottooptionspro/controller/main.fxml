@@ -2,7 +2,6 @@
 
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.geometry.Insets?>
 
 
 <?import java.net.URL?>
@@ -41,10 +40,7 @@
 
     <!-- Left section for the navigation pane -->
     <left>
-        <VBox spacing="10" styleClass="vbox-background">
-            <padding>
-                <Insets top="10" right="10" bottom="10" left="10"/>
-            </padding>
+        <VBox styleClass="vbox-background">
             <fx:define>
                 <ToggleGroup fx:id="toggleGroup"/>
             </fx:define>
@@ -52,7 +48,7 @@
             <ToggleButton text="Set BetSlip Dimensions" onAction="#showBetlipPrccessor" toggleGroup="$toggleGroup" fx:id="btnPatternAnalysis"/>
             <ToggleButton text="Preprocess BetSlip" onAction="#showPreBetSlipProcessor" toggleGroup="$toggleGroup" fx:id="btnPreProcessBetSlip"/>
             <ToggleButton text="Random Number Generator" onAction="#showRandomNumberGenerator" toggleGroup="$toggleGroup" fx:id="btnRandomNumberGenerator"/>
-            <ToggleButton text="Ticket Printing" onAction="#showTicketPrinting" toggleGroup="$toggleGroup" fx:id="btnTicketPrinting"/>
+            <ToggleButton text="Win Check" onAction="#showWinCheck" toggleGroup="$toggleGroup" fx:id="btnTicketPrinting"/>
             <ToggleButton text="Statistical Analysis Tools" onAction="#showStatisticalAnalysisTools" toggleGroup="$toggleGroup" fx:id="btnStatisticalAnalysisTools"/>
             <ToggleButton text="Historical Data and Trends" onAction="#showHistoricalDataAndTrends" toggleGroup="$toggleGroup" fx:id="btnHistoricalDataAndTrends"/>
             <ToggleButton text="User Account Management" onAction="#showUserAccountManagement" toggleGroup="$toggleGroup" fx:id="btnUserAccountManagement"/>

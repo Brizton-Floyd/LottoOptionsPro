@@ -1,68 +1,87 @@
-.scroll-pane .scroll-bar:horizontal {
-    -fx-opacity: 0;
-    -fx-max-height: 0;
-    -fx-pref-height: 0;
+/* --- General Layout & Spacing --- */
+.chart-pane {
+    -fx-padding: 15;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
 }
 
-/* Style for the table headers */
-.table-view .column-header{
-    -fx-background-color: #B7B597; /* Header background color */
+.table-container {
+    -fx-background-color: transparent;
+    -fx-spacing: 0; /* Removes space between tables */
 }
 
-/* General text color for table cells */
-.table-view .table-cell {
-    -fx-text-fill: #DAD3BE;; /* Change to desired color */
+/* --- Typography --- */
+.chart-header-main {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #333333;
+}
+
+.chart-header-sub {
+    -fx-font-size: 12px;
+    -fx-text-fill: #757575;
+}
+
+.legend-text {
+    -fx-font-size: 12px;
+    -fx-text-fill: #333333;
 }
 
 .table-view .column-header .label {
-    -fx-text-fill: #6B8A7A; /* Header text color */
-    -fx-font-weight: bold; /* Optional: make the text bold */
-}
-/* Style for the TableView */
-.table-view {
-    -fx-background-color: transparent;
-}
-
-/* Style for the table rows */
-.table-row-cell {
-    -fx-text-fill: #DAD3BE; /* Text color for all rows */
+    -fx-text-fill: #005A9E; /* Professional Blue for header text */
+    -fx-font-size: 14px; /* Larger header font */
+    -fx-font-weight: bold;
 }
 
 .table-view .table-cell {
+    -fx-font-size: 13px; /* Larger cell font for readability */
+    -fx-text-fill: #333333; /* Dark gray for body text */
     -fx-alignment: center;
 }
 
-/* Style for even rows */
+/* --- Table Styles --- */
+.table-view {
+    -fx-background-color: transparent;
+    -fx-padding: 0; /* Remove internal padding */
+}
+
+.table-view .column-header {
+    -fx-background-color: #F5F5F5; /* Light gray for header background */
+}
+
 .table-row-cell:even {
-    -fx-background-color: #254336;
+    -fx-background-color: #FFFFFF; /* White for even rows */
 }
 
-/* Style for odd rows */
 .table-row-cell:odd {
-    -fx-background-color: #6B8A7A;
+    -fx-background-color: #F9F9F9; /* Off-white for odd rows */
 }
 
-.button:focused {
-    -fx-focus-color: transparent;
-    -fx-faint-focus-color: transparent;
-    -fx-border-color: transparent; /* removes the border when focused */
-    -fx-background-insets: 0;
-
+.table-row-cell:selected {
+    -fx-background-color: #E3F2FD; /* Light blue for selected rows */
+    -fx-text-fill: #333333;
 }
 
-/*!* Style for selected rows *!*/
-/*.table-row-cell:selected {*/
-/*    -fx-background-color: pink; !* You can customize this color as needed *!*/
-/*    -fx-text-fill: #DAD3BE; !* Ensure text color remains consistent *!*/
-/*}*/
-
+/* --- ScrollBar & Controls --- */
 .table-view .scroll-bar:vertical {
     -fx-opacity: 0;
     -fx-max-width: 0;
     -fx-pref-width: 0;
 }
 
-.chart-pane {
-    /*-fx-background-color: black;*/
-    -fx-padding: 10;
+.button:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-insets: 0;
+}
+
+/* Style for the navigation arrow buttons */
+.nav-button {
+    -fx-font-size: 16px; /* Larger font for the arrows */
+    -fx-font-weight: bold; /* Make the arrows bolder */
+    -fx-padding: 0; /* Adjust padding for a tighter look */
 }

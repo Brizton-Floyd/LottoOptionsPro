@@ -1,62 +1,92 @@
-/* Style for the MenuBar */
+/* --- Global Styles --- */
+.root {
+    -fx-font-family: "System";
+    -fx-base: #FFFFFF; /* Base color for the light theme */
+}
+
+/* --- MenuBar --- */
 .menu-bar {
-    -fx-background-color: #DAD3BE;
-    -fx-text-fill: #254336;
+    -fx-background-color: #F5F5F5; /* Light gray background */
 }
 
-/* Style for the Menu */
-.menu {
-    -fx-background-color: transparent;
+.menu .label, .menu-item .label {
+    -fx-text-fill: #333333; /* Dark gray text */
+    -fx-font-size: 13px;
 }
 
-.menu .label {
-    -fx-text-fill: #254336; /* Change text color */
+.menu-item:focused {
+    -fx-background-color: #E3F2FD; /* Light blue for selection/focus */
 }
 
-/* Style for the MenuItem */
-.menu-item {
-    /*-fx-background-color: #B7B597;*/
-    -fx-text-fill: #6B8A7A;
+.menu-item:focused .label {
+    -fx-text-fill: #005A9E; /* Blue text on selection */
 }
 
-/* Style for the MenuItem when hovered */
-.menu-item:hover {
-    /*-fx-background-color: #B7B597;*/
-    -fx-text-fill: #6B8A7A;
-}
 
-/* Style for the MenuItem when selected */
-.menu-item:selected {
-    /*-fx-background-color: #B7B597;*/
-    -fx-text-fill: #6B8A7A;
-}
-
+/* --- Sidebar & VBox --- */
 .vbox-background {
-    -fx-background-color: #254336;
+    -fx-background-color: #F5F5F5; /* Consistent light gray sidebar */
 }
 
+/* --- Toggle Buttons (Game Selection) --- */
 .toggle-button {
-    -fx-max-width: 175px; /* Make the button fill the width of its parent */
-    -fx-pref-width: 175px; /* Set the preferred width to 100% */
+    -fx-background-color: transparent;
+    -fx-text-fill: #333333;
+    -fx-border-color: transparent transparent #E0E0E0 transparent; /* Bottom border for separation */
+    -fx-border-width: 1;
+    -fx-max-width: 175px;
+    -fx-pref-width: 175px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 10 15;
+}
+
+.toggle-button:hover {
+    -fx-background-color: #F9F9F9;
+}
+
+.toggle-button:selected {
+    -fx-background-color: #E3F2FD;
+    -fx-text-fill: #005A9E;
+    -fx-font-weight: bold;
 }
 
 .toggle-button:disabled {
-    /*background-color: #F1F3F5; !* Example: set background color for disabled state *!*/
-    -fx-text-fill: #254336; /* Example: set text color for disabled state */
-    -fx-font-weight: bold;
+    -fx-opacity: 0.7;
+    -fx-background-color: transparent;
+    -fx-text-fill: #9E9E9E; /* Lighter text for disabled state */
+    -fx-font-weight: normal;
 }
 
 .toggle-button:focused {
     -fx-focus-color: transparent;
     -fx-faint-focus-color: transparent;
-    -fx-border-color: transparent; /* removes the border when focused */
 }
 
-/* Set the background color and text alignment for the Label */
+/* --- Header Label (Selected State/Game) --- */
 #selectedStateAndGame {
-    -fx-background-color: #DAD3BE;
-    -fx-text-alignment: center;
-    -fx-text-fill: #254336;
-    -fx-alignment: center; /* Center the text within the label */
-    -fx-padding: 5px; /* Add some padding for better appearance */
+    -fx-background-color: #005A9E; /* Blue accent background */
+    -fx-text-fill: #FFFFFF; /* White text */
+    -fx-alignment: center;
+    -fx-padding: 8px;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
+/* --- General Controls --- */
+.button {
+    -fx-background-color: #005A9E;
+    -fx-text-fill: white;
+    -fx-background-radius: 4;
+    -fx-padding: 5 15;
+}
+
+.button:hover {
+    -fx-background-color: #004C8C;
+}
+
+.combo-box {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E0E0E0;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
 }
