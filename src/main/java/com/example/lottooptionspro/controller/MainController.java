@@ -8,14 +8,16 @@ import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import org.apache.commons.text.WordUtils;
 import org.springframework.stereotype.Component;
 import net.rgielen.fxweaver.core.FxmlView;
-import javafx.scene.control.Label;
-import javafx.scene.layout.StackPane;
 import reactor.core.publisher.Flux;
 
 import java.util.Comparator;
@@ -44,7 +46,6 @@ public class MainController {
     private final ScreenManager screenManager;
     private final MainControllerService mainControllerService;
     private ToggleButton lastClickedButton = null;
-    private ProgressIndicator progressIndicator = new ProgressIndicator();
     private String stateName = "TEXAS";
     private String gameName = "Cash Five";
     private String activeToggleButton;
@@ -57,44 +58,46 @@ public class MainController {
     @FXML
     private void initialize() {
         screenManager.setContentArea(mainContentArea);
-        progressIndicator.setVisible(true);
-        mainContentArea.getChildren().add(progressIndicator);
+        mainContentArea.getChildren().add(createLoadingOverlay()); // Show initial loading screen
         setupLotteryStatesAndGamesMenuOptions();
     }
 
+    private Node createLoadingOverlay() {
+        ProgressIndicator progressIndicator = new ProgressIndicator();
+        Pane background = new Pane();
+        background.setStyle("-fx-background-color: rgba(0, 0, 0, 0.4);");
+        StackPane loadingOverlay = new StackPane(background, progressIndicator);
+        loadingOverlay.setAlignment(Pos.CENTER);
+        return loadingOverlay;
+    }
 
     @FXML
     private void showRandomNumberGenerator(ActionEvent actionEvent) {
-        progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(RandomNumberGeneratorController.class, mainContentArea, stateName, gameName, progressIndicator);
+        this.screenManager.loadView(RandomNumberGeneratorController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
     }
     @FXML
     private void showDashboard(ActionEvent actionEvent) {
-        progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(DashBoardController.class, mainContentArea, stateName, gameName, progressIndicator);
+        this.screenManager.loadView(DashBoardController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
     }
 
     @FXML
     private void showTemplateCreator(ActionEvent actionEvent) {
-        progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(TemplateCreatorController.class, mainContentArea, progressIndicator);
+        this.screenManager.loadView(TemplateCreatorController.class, mainContentArea, createLoadingOverlay());
     }
 
     @FXML
     private void showPreBetSlipProcessor(ActionEvent actionEvent) {
-        progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(PreProcessBetSlipController.class, mainContentArea, stateName, gameName, progressIndicator);
+        this.screenManager.loadView(PreProcessBetSlipController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
     }
 
     @FXML
     private void showWinCheck(ActionEvent actionEvent) {
-        progressIndicator.setVisible(true);
         reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(LotteryValidatorController.class, mainContentArea, stateName, gameName, progressIndicator);
+        this.screenManager.loadView(LotteryValidatorController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
     }
 
     @FXML
@@ -252,7 +255,8 @@ public class MainController {
 
     private void handleCompletion() {
         Platform.runLater(() -> {
-            progressIndicator.setVisible(false);
+            // The loading overlay is now removed automatically by the ScreenManager when a view loads.
+            // We just need to update the text.
             selectedStateAndGame.setText(WordUtils.capitalizeFully(stateName) + ": " + gameName);
             System.out.println("Completed fetching state games");
         });

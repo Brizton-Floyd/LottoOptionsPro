@@ -68,6 +68,7 @@ nbdist/
 
 # OS-specific files
 .DS_Store
+
 Thumbs.db
 
 # Temporary files
