@@ -17,7 +17,7 @@
 
 <AnchorPane prefHeight="600.0" prefWidth="800.0" stylesheets="@styling/style.css" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.lottooptionspro.controller.TemplateCreatorController">
    <children>
-      <BorderPane layoutX="236.0" layoutY="165.0" prefHeight="600.0" prefWidth="800.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+      <BorderPane prefHeight="600.0" prefWidth="800.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
          <top>
             <HBox alignment="CENTER_LEFT" prefHeight="50.0" prefWidth="200.0" spacing="10.0" styleClass="top-bar" BorderPane.alignment="CENTER">
                <children>
@@ -25,7 +25,8 @@
                   <TextField fx:id="gameNameField" />
                   <Label text="Jurisdiction:" />
                   <TextField fx:id="jurisdictionField" />
-                  <Button fx:id="loadImageButton" mnemonicParsing="false" onAction="#loadImage" text="Load Image" />
+                  <Button onAction="#loadImage" text="Load Image" />
+                  <Button onAction="#loadTemplate" text="Load Template" />
                </children>
                <padding>
                   <Insets left="10.0" right="10.0" />
@@ -33,9 +34,9 @@
             </HBox>
          </top>
          <center>
-            <ScrollPane fx:id="scrollPane" fitToHeight="true" fitToWidth="true" prefViewportHeight="450.0" prefViewportWidth="600.0" BorderPane.alignment="CENTER">
+            <ScrollPane fitToHeight="true" fitToWidth="true" BorderPane.alignment="CENTER">
                <content>
-                  <StackPane fx:id="stackPane">
+                  <StackPane>
                      <children>
                         <ImageView fx:id="betslipImageView" pickOnBounds="true" preserveRatio="true" />
                         <Pane fx:id="drawingPane" />
@@ -45,7 +46,7 @@
             </ScrollPane>
          </center>
          <right>
-            <VBox alignment="TOP_CENTER" prefHeight="200.0" prefWidth="200.0" spacing="10.0" styleClass="side-panel" BorderPane.alignment="CENTER">
+            <VBox alignment="TOP_CENTER" prefWidth="200.0" spacing="10.0" styleClass="side-panel" BorderPane.alignment="CENTER">
                <children>
                   <Label text="Mark Width:" />
                   <Spinner fx:id="markWidthSpinner" />
@@ -55,8 +56,11 @@
                   <ComboBox fx:id="panelComboBox" prefWidth="150.0" />
                   <Label text="Mapping Mode:" />
                   <ComboBox fx:id="mappingModeComboBox" prefWidth="150.0" />
-                  <Label text="Global Option Name:" />
-                  <TextField fx:id="globalOptionNameField" disable="true" />
+                  <Label text="Next Number:" />
+                  <TextField fx:id="nextNumberField" />
+                  <Label fx:id="globalOptionNameLabel" text="Global Option Name:" />
+                  <TextField fx:id="globalOptionNameField" />
+                  <Button onAction="#clearLastMarking" text="Clear Last Marking" />
                </children>
                <padding>
                   <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
@@ -66,8 +70,9 @@
          <bottom>
             <HBox alignment="CENTER_RIGHT" prefHeight="50.0" prefWidth="200.0" spacing="10.0" styleClass="bottom-bar" BorderPane.alignment="CENTER">
                <children>
-                  <Button fx:id="previewButton" mnemonicParsing="false" text="Preview" />
-                  <Button fx:id="saveTemplateButton" mnemonicParsing="false" text="Save Template" />
+                  <Button onAction="#previewTemplate" text="Preview" />
+                  <Button onAction="#saveTemplate" text="Save" />
+                  <Button onAction="#saveTemplateAs" text="Save As..." />
                </children>
                <padding>
                   <Insets right="10.0" />

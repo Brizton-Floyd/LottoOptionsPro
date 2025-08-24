@@ -147,9 +147,9 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
 
     @Override
     public void openBetslipsWindow(List<List<int[]>> partitionedNumbers, String stateName, String gameName) {
-        LotteryBetSlipController betslipsController = fxWeaver.loadController(LotteryBetSlipController.class);
-        betslipsController.setData(partitionedNumbers, stateName, gameName);
-        betslipsController.showView();
+//        LotteryBetSlipController betslipsController = fxWeaver.loadController(LotteryBetSlipController.class);
+//        betslipsController.setData(partitionedNumbers, stateName, gameName);
+//        betslipsController.showView();
     }
 
     @Override
