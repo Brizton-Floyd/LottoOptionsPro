@@ -34,7 +34,7 @@
 
         <HBox spacing="10">
             <Button text="Generate Numbers" onAction="#generateNumbers"/>
-            <Button fx:id="generateBetslipsButton" text="Generate Betslips" onAction="#generateBetslips"/>
+            <Button fx:id="generateBetslipsButton" text="Generate Betslips" onAction="#generateBetslips" disable="true"/>
         </HBox>
 
         <TableView fx:id="generatedNumbersTable" VBox.vgrow="ALWAYS">

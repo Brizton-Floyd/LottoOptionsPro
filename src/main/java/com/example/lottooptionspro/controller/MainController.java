@@ -71,6 +71,13 @@ public class MainController {
         return loadingOverlay;
     }
 
+    public void switchToBetslipTemplateEditor() {
+        ToggleButton templateEditorButton = toggleButtonMap.get("Betslip Template Editor");
+        if (templateEditorButton != null) {
+            templateEditorButton.fire();
+        }
+    }
+
     @FXML
     private void showRandomNumberGenerator(ActionEvent actionEvent) {
         reEnableDisableButton(actionEvent);
@@ -86,12 +93,6 @@ public class MainController {
     private void showTemplateCreator(ActionEvent actionEvent) {
         reEnableDisableButton(actionEvent);
         this.screenManager.loadView(TemplateCreatorController.class, mainContentArea, createLoadingOverlay());
-    }
-
-    @FXML
-    private void showPreBetSlipProcessor(ActionEvent actionEvent) {
-        reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(PreProcessBetSlipController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
     }
 
     @FXML

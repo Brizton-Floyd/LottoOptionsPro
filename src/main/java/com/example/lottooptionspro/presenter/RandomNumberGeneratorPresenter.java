@@ -3,7 +3,7 @@ package com.example.lottooptionspro.presenter;
 import com.example.lottooptionspro.service.RandomNumberGeneratorService;
 import com.floyd.model.generatednumbers.GeneratedNumberData;
 import com.floyd.model.request.RandomNumberGeneratorRequest;
-import javafx.concurrent.Task;
+import javafx.application.Platform;
 
 import java.io.*;
 import java.time.LocalDateTime;
@@ -30,30 +30,34 @@ public class RandomNumberGeneratorPresenter {
     }
 
     public void generateNumbers() {
-        view.showProgress(true);
-        view.setContentDisabled(true);
+        RandomNumberGeneratorRequest request = createRequest();
+        if (request == null) return; // createRequest handles its own alerts
 
-        Task<GeneratedNumberData> task = new Task<>() {
-            @Override
-            protected GeneratedNumberData call() throws Exception {
-                return service.generateNumbers(createRequest()).block();
-            }
-        };
+        service.generateNumbers(request)
+                .doOnSubscribe(subscription -> Platform.runLater(() -> {
+                    view.showProgress(true);
+                    view.setContentDisabled(true);
+                }))
+                .doFinally(signalType -> Platform.runLater(() -> {
+                    view.showProgress(false);
+                    view.setContentDisabled(false);
+                }))
+                .subscribe(
+                        this::handleGenerationSuccess,
+                        this::handleGenerationError
+                );
+    }
 
-        task.setOnSucceeded(e -> {
-            view.showProgress(false);
-            view.setContentDisabled(false);
-            currentData = task.getValue();
-            updateUI();
+    private void handleGenerationSuccess(GeneratedNumberData data) {
+        this.currentData = data;
+        Platform.runLater(this::updateUI);
+    }
+
+    private void handleGenerationError(Throwable error) {
+        Platform.runLater(() -> {
+            view.showAlert("Error", "Failed to generate numbers: " + error.getMessage());
+            error.printStackTrace();
         });
-
-        task.setOnFailed(e -> {
-            view.showProgress(false);
-            view.setContentDisabled(false);
-            view.showAlert("Error", "Failed to generate numbers: " + task.getException().getMessage());
-        });
-
-        new Thread(task).start();
     }
 
     private void updateUI() {
@@ -66,23 +70,7 @@ public class RandomNumberGeneratorPresenter {
     }
 
     public void generateBetslips() {
-        String initialDirectory = "Chosen Number Files/" + stateName;
-        File file = view.showOpenDialog(initialDirectory);
-        if (file != null) {
-            try (FileInputStream fis = new FileInputStream(file);
-                 ObjectInputStream ois = new ObjectInputStream(fis)) {
-                GeneratedNumberData loadedData = (GeneratedNumberData) ois.readObject();
-                List<List<int[]>> partitionedNumbers = processLoadedData(loadedData);
-                view.openBetslipsWindow(partitionedNumbers, stateName, gameName);
-            } catch (IOException | ClassNotFoundException e) {
-                view.showAlert("Error", "Cannot load chosen numbers: " + e.getMessage());
-            }
-        }
-    }
-
-    private List<List<int[]>> processLoadedData(GeneratedNumberData loadedData) {
-        List<int[]> generatedNumbers = loadedData.getGeneratedNumbers();
-        return partitionList(generatedNumbers, 5); // Assuming 5 numbers per panel
+        // This logic is for a future chunk
     }
 
     private List<List<int[]>> partitionList(List<int[]> list, int size) {
@@ -130,6 +118,12 @@ public class RandomNumberGeneratorPresenter {
         request.setNumberSetsPerPattern(view.getNumberSetPerPattern());
         request.setDrawDaysPerWeek(view.getDrawDaysPerWeek());
         request.setTargetedPrizeLevel(view.getTargetedPrizeLevel());
+
+        // Return null if any of the numeric fields failed parsing (view shows its own alert)
+        if (view.getNumberSetPerPattern() == 0 || view.getTargetedPrizeLevel() == 0 || view.getDrawDaysPerWeek() == 0) {
+            return null;
+        }
+
         return request;
     }
 }

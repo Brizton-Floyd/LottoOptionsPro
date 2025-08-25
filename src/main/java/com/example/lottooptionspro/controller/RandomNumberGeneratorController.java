@@ -3,10 +3,13 @@ package com.example.lottooptionspro.controller;
 import com.example.lottooptionspro.GameInformation;
 import com.example.lottooptionspro.presenter.RandomNumberGeneratorPresenter;
 import com.example.lottooptionspro.presenter.RandomNumberGeneratorView;
+import com.example.lottooptionspro.service.BetslipGenerationService;
 import com.example.lottooptionspro.service.RandomNumberGeneratorService;
 import com.floyd.model.generatednumbers.PrizeLevelResult;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -18,8 +21,12 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.io.File;
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/randomNumberGenerator.fxml")
@@ -40,13 +47,19 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
     @FXML private VBox contentHolder;
     @FXML private Label totalTicketsLabel;
     @FXML private Label estimatedDaysLabel;
+    @FXML private Button generateBetslipsButton;
 
     private final FxWeaver fxWeaver;
     private final RandomNumberGeneratorPresenter presenter;
+    private final BetslipGenerationService betslipGenerationService;
 
-    public RandomNumberGeneratorController(RandomNumberGeneratorService randomNumberGeneratorService, FxWeaver fxWeaver) {
+    private String stateName;
+    private String gameName;
+
+    public RandomNumberGeneratorController(RandomNumberGeneratorService randomNumberGeneratorService, FxWeaver fxWeaver, BetslipGenerationService betslipGenerationService) {
         this.fxWeaver = fxWeaver;
         this.presenter = new RandomNumberGeneratorPresenter(this, randomNumberGeneratorService);
+        this.betslipGenerationService = betslipGenerationService;
     }
 
     @FXML
@@ -66,7 +79,60 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
 
     @FXML
     private void generateBetslips() {
-        presenter.generateBetslips();
+        boolean hasTemplate = betslipGenerationService.hasTemplateForGame(this.stateName, this.gameName);
+
+        if (hasTemplate) {
+            ObservableList<int[]> numberSets = generatedNumbersTable.getItems();
+            if (numberSets == null || numberSets.isEmpty()) {
+                showAlert("Info", "Please generate numbers first.");
+                return;
+            }
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd-yyyy");
+            String formattedNow = LocalDateTime.now().format(formatter);
+            String initialFileName = String.format("betslips_%s_%s.pdf", gameName.toLowerCase().replaceAll("\\s+", ""), formattedNow);
+            File selectedFile = showSavePdfDialog(initialFileName);
+
+            if (selectedFile == null) {
+                return; // User cancelled
+            }
+
+            betslipGenerationService.generatePdf(numberSets, stateName, gameName)
+                    .doOnSubscribe(subscription -> Platform.runLater(() -> {
+                        showProgress(true);
+                        setContentDisabled(true);
+                    }))
+                    .doOnSuccess(document -> {
+                        try {
+                            document.save(selectedFile);
+                            document.close();
+                        } catch (IOException e) {
+                            throw new RuntimeException("Failed to save PDF", e);
+                        }
+                    })
+                    .doFinally(signalType -> Platform.runLater(() -> {
+                        showProgress(false);
+                        setContentDisabled(false);
+                    }))
+                    .subscribe(
+                            document -> Platform.runLater(() -> showAlert("Success", "Betslips PDF saved successfully to " + selectedFile.getName())),
+                            error -> Platform.runLater(() -> {
+                                showAlert("Error", "Failed to generate or save PDF: " + error.getMessage());
+                                error.printStackTrace();
+                            })
+                    );
+
+        } else {
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle("Template Not Found");
+            alert.setHeaderText("No betslip template found for this game.");
+            alert.setContentText("Would you like to create one now?");
+
+            Optional<ButtonType> result = alert.showAndWait();
+            if (result.isPresent() && result.get() == ButtonType.OK) {
+                fxWeaver.loadController(MainController.class).switchToBetslipTemplateEditor();
+            }
+        }
     }
 
     @FXML
@@ -76,6 +142,8 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
 
     @Override
     public Mono<Void> setUpUi(String stateName, String gameName) {
+        this.stateName = stateName;
+        this.gameName = gameName;
         presenter.setGameInfo(stateName, gameName);
         return Mono.empty();
     }
@@ -128,6 +196,7 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
     @Override
     public void updateGeneratedNumbers(List<int[]> numbers) {
         generatedNumbersTable.setItems(FXCollections.observableArrayList(numbers));
+        generateBetslipsButton.setDisable(numbers == null || numbers.isEmpty());
     }
 
     @Override
@@ -147,9 +216,7 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
 
     @Override
     public void openBetslipsWindow(List<List<int[]>> partitionedNumbers, String stateName, String gameName) {
-//        LotteryBetSlipController betslipsController = fxWeaver.loadController(LotteryBetSlipController.class);
-//        betslipsController.setData(partitionedNumbers, stateName, gameName);
-//        betslipsController.showView();
+        // Deprecated
     }
 
     @Override
@@ -177,6 +244,15 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
         }
         fileChooser.setInitialDirectory(directory);
         return fileChooser.showOpenDialog(null);
+    }
+
+    @Override
+    public File showSavePdfDialog(String initialFileName) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Betslips PDF");
+        fileChooser.setInitialFileName(initialFileName);
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF Files", "*.pdf"));
+        return fileChooser.showSaveDialog(null);
     }
 
     @Override
