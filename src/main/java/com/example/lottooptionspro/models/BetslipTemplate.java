@@ -17,4 +17,5 @@ public class BetslipTemplate {
     private Mark mark;
     private List<PlayPanel> playPanels;
     private Map<String, Coordinate> globalOptions;
+    private List<ScannerMark> scannerMarks;
 }

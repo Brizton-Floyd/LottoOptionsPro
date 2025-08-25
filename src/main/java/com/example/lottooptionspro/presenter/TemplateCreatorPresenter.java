@@ -1,9 +1,6 @@
 package com.example.lottooptionspro.presenter;
 
-import com.example.lottooptionspro.models.BetslipTemplate;
-import com.example.lottooptionspro.models.Coordinate;
-import com.example.lottooptionspro.models.Mark;
-import com.example.lottooptionspro.models.PlayPanel;
+import com.example.lottooptionspro.models.*;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -21,6 +18,7 @@ public class TemplateCreatorPresenter {
     private final List<Runnable> undoStack = new ArrayList<>();
 
     private Coordinate originalCoordinate;
+    private ScannerMark originalScannerMark;
     private File currentFile; // Remember the current file for saving
 
     public TemplateCreatorPresenter(BetslipTemplate model, TemplateCreatorView view) {
@@ -29,6 +27,7 @@ public class TemplateCreatorPresenter {
         if (this.model.getMark() == null) this.model.setMark(new Mark(20, 20));
         if (this.model.getPlayPanels() == null) this.model.setPlayPanels(new ArrayList<>());
         if (this.model.getGlobalOptions() == null) this.model.setGlobalOptions(new HashMap<>());
+        if (this.model.getScannerMarks() == null) this.model.setScannerMarks(new ArrayList<>());
     }
 
     public void onPanelOrModeChanged() {
@@ -91,6 +90,9 @@ public class TemplateCreatorPresenter {
             try (FileReader reader = new FileReader(file)) {
                 Gson gson = new Gson();
                 this.model = gson.fromJson(reader, BetslipTemplate.class);
+                if (model.getScannerMarks() == null) {
+                    model.setScannerMarks(new ArrayList<>());
+                }
                 this.currentFile = file; // Remember the file path
                 updateViewFromModel();
                 view.showSuccess("Template loaded successfully from " + file.getName());
@@ -169,24 +171,37 @@ public class TemplateCreatorPresenter {
         }
     }
 
-    public void onPaneClicked(double x, double y) {
+    public void onPaneClicked(double x, double y, int width, int height) {
         view.clearPreviewRectangles();
         String mappingMode = view.getSelectedMappingMode();
         if (mappingMode == null || mappingMode.isEmpty()) {
             view.showError("Please select a mapping mode first.");
             return;
         }
-        Coordinate newCoordinate = new Coordinate((int) x, (int) y);
+
         switch (mappingMode) {
             case "Main Number":
             case "Bonus Number":
             case "Quick Pick":
-                handlePanelMapping(newCoordinate, mappingMode);
+                handlePanelMapping(new Coordinate((int) x, (int) y), mappingMode);
                 break;
             case "Global Option":
-                handleGlobalOptionMapping(newCoordinate);
+                handleGlobalOptionMapping(new Coordinate((int) x, (int) y));
+                break;
+            case "Scanner Mark":
+                handleScannerMarkMapping(x, y, width, height);
                 break;
         }
+    }
+
+    private void handleScannerMarkMapping(double x, double y, int width, int height) {
+        ScannerMark newMark = new ScannerMark(x, y, width, height);
+        model.getScannerMarks().add(newMark);
+        undoStack.add(() -> {
+            model.getScannerMarks().remove(newMark);
+            redrawAllMarkings();
+        });
+        redrawAllMarkings();
     }
 
     private void handlePanelMapping(Coordinate coordinate, String mappingMode) {
@@ -250,6 +265,19 @@ public class TemplateCreatorPresenter {
         redrawAllMarkings();
     }
 
+    public void updateScannerMarkSize(ScannerMark mark, int width, int height) {
+        final double oldWidth = mark.getWidth();
+        final double oldHeight = mark.getHeight();
+        undoStack.add(() -> {
+            mark.setWidth(oldWidth);
+            mark.setHeight(oldHeight);
+            view.updateScannerMarkRectangle(mark, oldWidth, oldHeight);
+        });
+        mark.setWidth(width);
+        mark.setHeight(height);
+        view.updateScannerMarkRectangle(mark, width, height);
+    }
+
     public void startCoordinateMove(Coordinate coord) {
         this.originalCoordinate = new Coordinate(coord.getX(), coord.getY());
     }
@@ -270,6 +298,26 @@ public class TemplateCreatorPresenter {
         redrawAllMarkings();
     }
 
+    public void startScannerMarkMove(ScannerMark mark) {
+        this.originalScannerMark = new ScannerMark(mark.getX(), mark.getY(), mark.getWidth(), mark.getHeight());
+    }
+
+    public void finishScannerMarkMove(ScannerMark markToMove, double newX, double newY) {
+        final double oldX = this.originalScannerMark.getX();
+        final double oldY = this.originalScannerMark.getY();
+        undoStack.add(() -> {
+            markToMove.setX(oldX);
+            markToMove.setY(oldY);
+            redrawAllMarkings();
+        });
+
+        markToMove.setX(newX);
+        markToMove.setY(newY);
+
+        this.originalScannerMark = null;
+        redrawAllMarkings();
+    }
+
     private void redrawAllMarkings() {
         view.clearAllRectangles();
         int w = model.getMark().getWidth();
@@ -280,6 +328,8 @@ public class TemplateCreatorPresenter {
             if (panel.getQuickPick() != null) view.drawRectangle(panel.getQuickPick(), w, h);
         }
         model.getGlobalOptions().values().forEach(c -> view.drawRectangle(c, w, h));
+        model.getScannerMarks().forEach(view::drawScannerMark);
+        view.setScannerMarkCount(model.getScannerMarks().size());
     }
 
     private PlayPanel getOrCreatePlayPanel(String panelId) {

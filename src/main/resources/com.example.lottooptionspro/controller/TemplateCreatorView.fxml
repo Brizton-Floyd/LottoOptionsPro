@@ -60,6 +60,15 @@
                   <TextField fx:id="nextNumberField" />
                   <Label fx:id="globalOptionNameLabel" text="Global Option Name:" />
                   <TextField fx:id="globalOptionNameField" />
+                  <VBox fx:id="selectedMarkControls" alignment="TOP_CENTER" spacing="10.0" visible="false">
+                     <children>
+                        <Label text="Selected Mark Width:" />
+                        <Spinner fx:id="selectedMarkWidthSpinner" />
+                        <Label text="Selected Mark Height:" />
+                        <Spinner fx:id="selectedMarkHeightSpinner" />
+                     </children>
+                  </VBox>
+                  <Label fx:id="scannerMarkCountLabel" text="Scanner Marks: 0" />
                   <Button onAction="#clearLastMarking" text="Clear Last Marking" />
                </children>
                <padding>
