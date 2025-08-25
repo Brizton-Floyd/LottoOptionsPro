@@ -23,6 +23,7 @@
                     </toggleGroup>
                 </RadioButton>
                 <RadioButton fx:id="bwRadioButton" text="Black &amp; White" toggleGroup="$colorToggleGroup" />
+                <RadioButton fx:id="scannerRadioButton" text="Scanner-Ready B&amp;W" toggleGroup="$colorToggleGroup" />
             </children>
         </HBox>
     </top>

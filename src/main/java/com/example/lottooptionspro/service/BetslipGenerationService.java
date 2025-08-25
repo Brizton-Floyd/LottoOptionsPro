@@ -99,7 +99,7 @@ public class BetslipGenerationService {
         return newImage;
     }
 
-    private Mono<PDDocument> createPdfFromBufferedImages(List<BufferedImage> markedImages) {
+    public Mono<PDDocument> createPdfFromBufferedImages(List<BufferedImage> markedImages) {
         return Mono.fromCallable(() -> {
             PDDocument document = new PDDocument();
             PDPage currentPage = null;
@@ -110,7 +110,7 @@ public class BetslipGenerationService {
             for (BufferedImage awtImage : markedImages) {
                 PDImageXObject pdImage = convertToPdfImage(awtImage, document);
 
-                // DEFINITIVE FIX: Do not rotate the image. Scale the portrait image to the landscape page height.
+                // Scale to fit page height, not a slot.
                 float targetHeight = pageSize.getHeight() - (2 * PAGE_PADDING);
                 float scale = targetHeight / pdImage.getHeight();
                 float scaledWidth = pdImage.getWidth() * scale;
@@ -125,7 +125,9 @@ public class BetslipGenerationService {
                     currentX = PAGE_PADDING;
                 }
 
-                contentStream.drawImage(pdImage, currentX, PAGE_PADDING, scaledWidth, targetHeight);
+                // Center the image vertically
+                float yPos = (pageSize.getHeight() - targetHeight) / 2;
+                contentStream.drawImage(pdImage, currentX, yPos, scaledWidth, targetHeight);
                 currentX += scaledWidth;
 
                 if (currentX + SCISSOR_LINE_SPACING <= pageSize.getWidth()) {

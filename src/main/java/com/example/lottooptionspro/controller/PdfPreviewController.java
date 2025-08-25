@@ -6,6 +6,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.image.Image;
@@ -31,6 +32,10 @@ public class PdfPreviewController implements PdfPreviewView {
     @FXML
     private RadioButton colorRadioButton;
     @FXML
+    private RadioButton bwRadioButton;
+    @FXML
+    private RadioButton scannerRadioButton;
+    @FXML
     private ToggleGroup colorToggleGroup;
     @FXML
     private ProgressIndicator progressIndicator;
@@ -46,8 +51,7 @@ public class PdfPreviewController implements PdfPreviewView {
     @FXML
     public void initialize() {
         colorToggleGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
-            boolean isGrayscale = newValue != colorRadioButton;
-            presenter.onColorModeChanged(isGrayscale);
+            presenter.onColorModeChanged(getSelectedColorMode());
         });
     }
 
@@ -67,7 +71,7 @@ public class PdfPreviewController implements PdfPreviewView {
         for (Image pageImage : pages) {
             ImageView imageView = new ImageView(pageImage);
             imageView.setPreserveRatio(true);
-            imageView.fitWidthProperty().bind(scrollPane.widthProperty().subtract(20)); // Bind to ScrollPane width
+            imageView.fitWidthProperty().bind(scrollPane.widthProperty().subtract(20));
             pdfPagesContainer.getChildren().add(imageView);
         }
     }
@@ -89,7 +93,9 @@ public class PdfPreviewController implements PdfPreviewView {
 
     @Override
     public String getSelectedColorMode() {
-        return colorRadioButton.isSelected() ? "Color" : "Black & White";
+        RadioButton selected = (RadioButton) colorToggleGroup.getSelectedToggle();
+        if (selected == null) return "Color";
+        return selected.getText();
     }
 
     @Override

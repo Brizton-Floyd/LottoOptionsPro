@@ -1,5 +1,6 @@
 package com.example.lottooptionspro.presenter;
 
+import com.example.lottooptionspro.util.ImageProcessor;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
@@ -11,10 +12,11 @@ import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
-import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -27,9 +29,11 @@ import java.util.stream.Collectors;
 @Component
 public class PdfPreviewPresenter {
 
+    private static final float PAGE_PADDING = 20f;
+    private static final float SCISSOR_LINE_SPACING = 20f;
+
     private PdfPreviewView view;
     private List<BufferedImage> originalColorImages;
-    private List<BufferedImage> currentImages;
 
     public void setView(PdfPreviewView view) {
         this.view = view;
@@ -50,8 +54,7 @@ public class PdfPreviewPresenter {
                     originalColorImages.add(renderer.renderImageWithDPI(i, 150));
                 }
                 document.close();
-                currentImages = new ArrayList<>(originalColorImages);
-                return currentImages.stream()
+                return originalColorImages.stream()
                         .map(img -> SwingFXUtils.toFXImage(img, null))
                         .collect(Collectors.toList());
             }
@@ -70,57 +73,57 @@ public class PdfPreviewPresenter {
         new Thread(renderTask).start();
     }
 
-    public void onColorModeChanged(boolean isGrayscale) {
+    public void onColorModeChanged(String mode) {
         if (originalColorImages == null) return;
 
         Task<List<Image>> conversionTask = new Task<>() {
             @Override
             protected List<Image> call() {
-                if (isGrayscale) {
-                    currentImages = originalColorImages.stream()
-                            .map(PdfPreviewPresenter.this::convertToGrayscale)
-                            .collect(Collectors.toList());
-                } else {
-                    currentImages = new ArrayList<>(originalColorImages);
-                }
-                return currentImages.stream()
-                        .map(img -> SwingFXUtils.toFXImage(img, null))
+                return originalColorImages.stream()
+                        .map(img -> {
+                            switch (mode) {
+                                case "Black & White":
+                                    return SwingFXUtils.toFXImage(convertToGrayscale(img), null);
+                                case "Scanner-Ready B&W":
+                                    return SwingFXUtils.toFXImage(ImageProcessor.convertToSelectiveBnW(img), null);
+                                default: // Full Color
+                                    return SwingFXUtils.toFXImage(img, null);
+                            }
+                        })
                         .collect(Collectors.toList());
             }
         };
 
         conversionTask.setOnSucceeded(event -> view.displayPdfPages(conversionTask.getValue()));
-        conversionTask.setOnFailed(event -> view.showError("Failed to convert color mode."));
-
+        conversionTask.setOnFailed(event -> view.showError("Failed to convert images."));
         new Thread(conversionTask).start();
     }
 
     public void save() {
+        String colorMode = view.getSelectedColorMode();
+        List<BufferedImage> imagesToSave = new ArrayList<>(originalColorImages);
+        if ("Black & White".equals(colorMode)) {
+            imagesToSave = originalColorImages.stream().map(this::convertToGrayscale).collect(Collectors.toList());
+        } else if ("Scanner-Ready B&W".equals(colorMode)) {
+            imagesToSave = originalColorImages.stream().map(ImageProcessor::convertToSelectiveBnW).collect(Collectors.toList());
+        }
+
         String initialFileName = "betslips.pdf";
         File file = view.showSavePdfDialog(initialFileName);
         if (file == null) return;
 
         view.showProgress(true);
-        Task<Void> saveTask = new Task<>() {
-            @Override
-            protected Void call() throws Exception {
-                try (PDDocument docToSave = createPdfFromBufferedImages(currentImages)) {
+        createPdfFromBufferedImages(imagesToSave)
+            .doFinally(signal -> Platform.runLater(() -> view.showProgress(false)))
+            .subscribe(docToSave -> {
+                try {
                     docToSave.save(file);
+                    docToSave.close();
+                    Platform.runLater(() -> view.closeView());
+                } catch (IOException e) {
+                    Platform.runLater(() -> view.showError("Failed to save PDF: " + e.getMessage()));
                 }
-                return null;
-            }
-        };
-
-        saveTask.setOnSucceeded(event -> {
-            view.showProgress(false);
-            view.closeView();
-        });
-        saveTask.setOnFailed(event -> {
-            view.showProgress(false);
-            view.showError("Failed to save PDF: " + saveTask.getException().getMessage());
-        });
-
-        new Thread(saveTask).start();
+            }, error -> Platform.runLater(() -> view.showError("Failed to save PDF: " + error.getMessage())));
     }
 
     private BufferedImage convertToGrayscale(BufferedImage source) {
@@ -131,45 +134,49 @@ public class PdfPreviewPresenter {
         return grayImage;
     }
 
-    private PDDocument createPdfFromBufferedImages(List<BufferedImage> markedImages) throws IOException {
-        PDDocument document = new PDDocument();
-        final PDRectangle pageSize = new PDRectangle(PDRectangle.LETTER.getHeight(), PDRectangle.LETTER.getWidth());
+    private Mono<PDDocument> createPdfFromBufferedImages(List<BufferedImage> markedImages) {
+        return Mono.fromCallable(() -> {
+            PDDocument document = new PDDocument();
+            PDPage currentPage = null;
+            PDPageContentStream contentStream = null;
+            float currentX = PAGE_PADDING;
+            final PDRectangle pageSize = new PDRectangle(PDRectangle.LETTER.getHeight(), PDRectangle.LETTER.getWidth());
 
-        for (int i = 0; i < markedImages.size(); i += 3) {
-            PDPage page = new PDPage(pageSize);
-            document.addPage(page);
-            PDPageContentStream contentStream = new PDPageContentStream(document, page);
-
-            float availablePageHeight = pageSize.getHeight() - 40f;
-            float slotHeight = (availablePageHeight - (2 * 20f)) / 3;
-
-            for (int j = 0; j < 3 && (i + j) < markedImages.size(); j++) {
-                BufferedImage awtImage = markedImages.get(i + j);
+            for (BufferedImage awtImage : markedImages) {
                 PDImageXObject pdImage = convertToPdfImage(awtImage, document);
 
-                float slotWidth = pageSize.getWidth() - 40f;
-                float scale = Math.min(slotWidth / pdImage.getWidth(), slotHeight / pdImage.getHeight());
+                // DEFINITIVE FIX: Scale to fit page height, not a slot.
+                float targetHeight = pageSize.getHeight() - (2 * PAGE_PADDING);
+                float scale = targetHeight / pdImage.getHeight();
                 float scaledWidth = pdImage.getWidth() * scale;
-                float scaledHeight = pdImage.getHeight() * scale;
 
-                float slotStartY = pageSize.getHeight() - 20f - (j * (slotHeight + 20f));
-                float yPos = slotStartY - scaledHeight;
-                float xPos = (pageSize.getWidth() - scaledWidth) / 2;
+                if (currentPage == null || currentX + scaledWidth + PAGE_PADDING > pageSize.getWidth()) {
+                    if (contentStream != null) {
+                        contentStream.close();
+                    }
+                    currentPage = new PDPage(pageSize);
+                    document.addPage(currentPage);
+                    contentStream = new PDPageContentStream(document, currentPage);
+                    currentX = PAGE_PADDING;
+                }
 
-                contentStream.drawImage(pdImage, xPos, yPos, scaledWidth, scaledHeight);
+                // Center the image vertically
+                float yPos = (pageSize.getHeight() - targetHeight) / 2;
+                contentStream.drawImage(pdImage, currentX, yPos, scaledWidth, targetHeight);
+                currentX += scaledWidth;
 
-                if (j < 2) {
-                    float lineY = yPos - 10f;
-                    contentStream.setLineDashPattern(new float[]{10, 5}, 0);
-                    contentStream.setStrokingColor(java.awt.Color.RED);
-                    contentStream.moveTo(20f, lineY);
-                    contentStream.lineTo(pageSize.getWidth() - 20f, lineY);
-                    contentStream.stroke();
+                // Draw a vertical scissor line if there's space for another image.
+                if (currentX + SCISSOR_LINE_SPACING <= pageSize.getWidth()) {
+                    drawDashedLine(contentStream, currentX + (SCISSOR_LINE_SPACING / 2), PAGE_PADDING, currentX + (SCISSOR_LINE_SPACING / 2), pageSize.getHeight() - PAGE_PADDING);
+                    currentX += SCISSOR_LINE_SPACING;
                 }
             }
-            contentStream.close();
-        }
-        return document;
+
+            if (contentStream != null) {
+                contentStream.close();
+            }
+            return document;
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     private PDImageXObject convertToPdfImage(BufferedImage awtImage, PDDocument document) throws IOException {
@@ -178,6 +185,15 @@ public class PdfPreviewPresenter {
         out.flush();
         ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
         return PDImageXObject.createFromByteArray(document, in.readAllBytes(), "png");
+    }
+
+    private void drawDashedLine(PDPageContentStream contentStream, float xStart, float yStart, float xEnd, float yEnd) throws IOException {
+        contentStream.setLineDashPattern(new float[]{10, 5}, 0);
+        contentStream.setStrokingColor(java.awt.Color.RED);
+        contentStream.moveTo(xStart, yStart);
+        contentStream.lineTo(xEnd, yEnd);
+        contentStream.stroke();
+        contentStream.setLineDashPattern(new float[]{}, 0);
     }
 
     public void cancel() {
