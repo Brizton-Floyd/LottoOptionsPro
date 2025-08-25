@@ -11,19 +11,21 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import net.rgielen.fxweaver.core.FxWeaver;
 import net.rgielen.fxweaver.core.FxmlView;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.io.File;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -88,36 +90,19 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
                 return;
             }
 
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd-yyyy");
-            String formattedNow = LocalDateTime.now().format(formatter);
-            String initialFileName = String.format("betslips_%s_%s.pdf", gameName.toLowerCase().replaceAll("\\s+", ""), formattedNow);
-            File selectedFile = showSavePdfDialog(initialFileName);
-
-            if (selectedFile == null) {
-                return; // User cancelled
-            }
-
             betslipGenerationService.generatePdf(numberSets, stateName, gameName)
                     .doOnSubscribe(subscription -> Platform.runLater(() -> {
                         showProgress(true);
                         setContentDisabled(true);
                     }))
-                    .doOnSuccess(document -> {
-                        try {
-                            document.save(selectedFile);
-                            document.close();
-                        } catch (IOException e) {
-                            throw new RuntimeException("Failed to save PDF", e);
-                        }
-                    })
                     .doFinally(signalType -> Platform.runLater(() -> {
                         showProgress(false);
                         setContentDisabled(false);
                     }))
                     .subscribe(
-                            document -> Platform.runLater(() -> showAlert("Success", "Betslips PDF saved successfully to " + selectedFile.getName())),
+                            this::showPreviewDialog,
                             error -> Platform.runLater(() -> {
-                                showAlert("Error", "Failed to generate or save PDF: " + error.getMessage());
+                                showAlert("Error", "Failed to generate PDF: " + error.getMessage());
                                 error.printStackTrace();
                             })
                     );
@@ -133,6 +118,22 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
                 fxWeaver.loadController(MainController.class).switchToBetslipTemplateEditor();
             }
         }
+    }
+
+    private void showPreviewDialog(PDDocument document) {
+        Platform.runLater(() -> {
+            PdfPreviewController controller = fxWeaver.loadController(PdfPreviewController.class);
+            controller.presenter.setDocument(document);
+
+            Stage dialogStage = new Stage();
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            dialogStage.initOwner(contentHolder.getScene().getWindow());
+            dialogStage.setTitle("PDF Preview");
+
+            Scene scene = new Scene((Parent) fxWeaver.loadView(PdfPreviewController.class));
+            dialogStage.setScene(scene);
+            dialogStage.showAndWait();
+        });
     }
 
     @FXML
