@@ -19,6 +19,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import net.rgielen.fxweaver.core.FxControllerAndView;
 import net.rgielen.fxweaver.core.FxWeaver;
 import net.rgielen.fxweaver.core.FxmlView;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -122,7 +123,9 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
 
     private void showPreviewDialog(PDDocument document) {
         Platform.runLater(() -> {
-            PdfPreviewController controller = fxWeaver.loadController(PdfPreviewController.class);
+            // DEFINITIVE FIX: Use fxWeaver.load() to get a single, consistent instance.
+            FxControllerAndView<PdfPreviewController, Parent> controllerAndView = fxWeaver.load(PdfPreviewController.class);
+            PdfPreviewController controller = controllerAndView.getController();
             controller.presenter.setDocument(document);
 
             Stage dialogStage = new Stage();
@@ -130,7 +133,7 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
             dialogStage.initOwner(contentHolder.getScene().getWindow());
             dialogStage.setTitle("PDF Preview");
 
-            Scene scene = new Scene((Parent) fxWeaver.loadView(PdfPreviewController.class));
+            Scene scene = new Scene(controllerAndView.getView().get());
             dialogStage.setScene(scene);
             dialogStage.showAndWait();
         });

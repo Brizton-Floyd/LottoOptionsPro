@@ -5,7 +5,9 @@ import com.example.lottooptionspro.presenter.PdfPreviewView;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.RadioButton;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
@@ -30,6 +32,10 @@ public class PdfPreviewController implements PdfPreviewView {
     private RadioButton colorRadioButton;
     @FXML
     private ToggleGroup colorToggleGroup;
+    @FXML
+    private ProgressIndicator progressIndicator;
+    @FXML
+    private ScrollPane scrollPane;
 
     @Autowired
     public PdfPreviewController(PdfPreviewPresenter presenter) {
@@ -39,7 +45,6 @@ public class PdfPreviewController implements PdfPreviewView {
 
     @FXML
     public void initialize() {
-        // Add a listener to update the preview in real-time when the selection changes.
         colorToggleGroup.selectedToggleProperty().addListener((observable, oldValue, newValue) -> {
             boolean isGrayscale = newValue != colorRadioButton;
             presenter.onColorModeChanged(isGrayscale);
@@ -62,7 +67,7 @@ public class PdfPreviewController implements PdfPreviewView {
         for (Image pageImage : pages) {
             ImageView imageView = new ImageView(pageImage);
             imageView.setPreserveRatio(true);
-            imageView.fitWidthProperty().bind(pdfPagesContainer.widthProperty().subtract(20));
+            imageView.fitWidthProperty().bind(scrollPane.widthProperty().subtract(20)); // Bind to ScrollPane width
             pdfPagesContainer.getChildren().add(imageView);
         }
     }
@@ -94,5 +99,11 @@ public class PdfPreviewController implements PdfPreviewView {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    @Override
+    public void showProgress(boolean show) {
+        scrollPane.setVisible(!show);
+        progressIndicator.setVisible(show);
     }
 }
