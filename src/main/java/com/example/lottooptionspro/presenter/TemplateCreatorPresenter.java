@@ -166,6 +166,18 @@ public class TemplateCreatorPresenter {
             model.setImagePath(imagePath);
             view.displayImage(imageUri);
             this.currentFile = null; // New image means it's a new template
+
+            // A new image means a new template, so we clear all existing markings.
+            if (model.getPlayPanels() != null) {
+                model.getPlayPanels().clear();
+            }
+            if (model.getGlobalOptions() != null) {
+                model.getGlobalOptions().clear();
+            }
+            if (model.getScannerMarks() != null) {
+                model.getScannerMarks().clear();
+            }
+
             undoStack.clear();
             redrawAllMarkings();
         }

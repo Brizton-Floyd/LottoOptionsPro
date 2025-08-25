@@ -1,0 +1,32 @@
+{
+  "gameName": "Powerball",
+  "jurisdiction": "Texas",
+  "imagePath": "/Users/briztonfloyd/Desktop/Lotto Application/lottooptionspro/src/main/resources/images/Texas/Powerball.jpg",
+  "mark": {
+    "width": 34,
+    "height": 35
+  },
+  "playPanels": [
+    {
+      "panelId": "A",
+      "mainNumbers": {
+        "2": {
+          "x": 101,
+          "y": 2210
+        },
+        "36": {
+          "x": 101,
+          "y": 2263
+        }
+      },
+      "bonusNumbers": {
+        "1": {
+          "x": 637,
+          "y": 2263
+        }
+      }
+    }
+  ],
+  "globalOptions": {},
+  "scannerMarks": []
+}
