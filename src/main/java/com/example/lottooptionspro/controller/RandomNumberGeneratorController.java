@@ -22,7 +22,6 @@ import javafx.stage.Stage;
 import net.rgielen.fxweaver.core.FxControllerAndView;
 import net.rgielen.fxweaver.core.FxWeaver;
 import net.rgielen.fxweaver.core.FxmlView;
-import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -121,12 +120,11 @@ public class RandomNumberGeneratorController implements GameInformation, RandomN
         }
     }
 
-    private void showPreviewDialog(PDDocument document) {
+    private void showPreviewDialog(BetslipGenerationService.PdfGenerationResult result) {
         Platform.runLater(() -> {
-            // DEFINITIVE FIX: Use fxWeaver.load() to get a single, consistent instance.
             FxControllerAndView<PdfPreviewController, Parent> controllerAndView = fxWeaver.load(PdfPreviewController.class);
             PdfPreviewController controller = controllerAndView.getController();
-            controller.presenter.setDocument(document);
+            controller.presenter.setData(result.images, result.template);
 
             Stage dialogStage = new Stage();
             dialogStage.initModality(Modality.WINDOW_MODAL);

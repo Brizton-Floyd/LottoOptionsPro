@@ -14,7 +14,6 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -34,7 +33,17 @@ public class BetslipGenerationService {
     private static final float PAGE_PADDING = 20f;
     private static final float SCISSOR_LINE_SPACING = 20f;
 
-    public Mono<PDDocument> generatePdf(List<int[]> allNumberSets, String stateName, String gameName) {
+    public static class PdfGenerationResult {
+        public final List<BufferedImage> images;
+        public final BetslipTemplate template;
+
+        public PdfGenerationResult(List<BufferedImage> images, BetslipTemplate template) {
+            this.images = images;
+            this.template = template;
+        }
+    }
+
+    public Mono<PdfGenerationResult> generatePdf(List<int[]> allNumberSets, String stateName, String gameName) {
         return Mono.fromCallable(() -> loadTemplate(stateName, gameName))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(templateOptional -> {
@@ -47,7 +56,7 @@ public class BetslipGenerationService {
                     try {
                         BufferedImage baseImage = ImageIO.read(new File(template.getImagePath()));
                         return createMultiPanelMarkedImages(allNumberSets, template, baseImage)
-                                .flatMap(this::createPdfFromBufferedImages);
+                                .map(images -> new PdfGenerationResult(images, template));
                     } catch (IOException e) {
                         return Mono.error(e);
                     }
@@ -75,7 +84,7 @@ public class BetslipGenerationService {
 
     private BufferedImage createDetachedMarkedImage(List<int[]> numberSetsForSlip, BetslipTemplate template, BufferedImage baseImage) {
         BufferedImage newImage = new BufferedImage(baseImage.getWidth(), baseImage.getHeight(), baseImage.getType());
-        Graphics2D g2d = newImage.createGraphics();
+        java.awt.Graphics2D g2d = newImage.createGraphics();
         g2d.drawImage(baseImage, 0, 0, null);
         g2d.setColor(java.awt.Color.BLACK);
 
@@ -99,82 +108,6 @@ public class BetslipGenerationService {
         return newImage;
     }
 
-    public Mono<PDDocument> createPdfFromBufferedImages(List<BufferedImage> markedImages) {
-        return Mono.fromCallable(() -> {
-            PDDocument document = new PDDocument();
-            PDPage currentPage = null;
-            PDPageContentStream contentStream = null;
-            float currentX = PAGE_PADDING;
-            final PDRectangle pageSize = new PDRectangle(PDRectangle.LETTER.getHeight(), PDRectangle.LETTER.getWidth());
-
-            for (BufferedImage awtImage : markedImages) {
-                PDImageXObject pdImage = convertToPdfImage(awtImage, document);
-
-                // Scale to fit page height, not a slot.
-                float targetHeight = pageSize.getHeight() - (2 * PAGE_PADDING);
-                float scale = targetHeight / pdImage.getHeight();
-                float scaledWidth = pdImage.getWidth() * scale;
-
-                if (currentPage == null || currentX + scaledWidth + PAGE_PADDING > pageSize.getWidth()) {
-                    if (contentStream != null) {
-                        contentStream.close();
-                    }
-                    currentPage = new PDPage(pageSize);
-                    document.addPage(currentPage);
-                    contentStream = new PDPageContentStream(document, currentPage);
-                    currentX = PAGE_PADDING;
-                }
-
-                // Center the image vertically
-                float yPos = (pageSize.getHeight() - targetHeight) / 2;
-                contentStream.drawImage(pdImage, currentX, yPos, scaledWidth, targetHeight);
-                currentX += scaledWidth;
-
-                if (currentX + SCISSOR_LINE_SPACING <= pageSize.getWidth()) {
-                    drawDashedLine(contentStream, currentX + (SCISSOR_LINE_SPACING / 2), PAGE_PADDING, currentX + (SCISSOR_LINE_SPACING / 2), pageSize.getHeight() - PAGE_PADDING);
-                    currentX += SCISSOR_LINE_SPACING;
-                }
-            }
-
-            if (contentStream != null) {
-                contentStream.close();
-            }
-            return document;
-        }).subscribeOn(Schedulers.boundedElastic());
-    }
-
-    private PDImageXObject convertToPdfImage(BufferedImage awtImage, PDDocument document) throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ImageIO.write(awtImage, "png", out);
-        out.flush();
-        ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-        return PDImageXObject.createFromByteArray(document, in.readAllBytes(), "png");
-    }
-
-    private void drawDashedLine(PDPageContentStream contentStream, float xStart, float yStart, float xEnd, float yEnd) throws IOException {
-        contentStream.setLineDashPattern(new float[]{10, 5}, 0);
-        contentStream.setStrokingColor(java.awt.Color.RED);
-        contentStream.moveTo(xStart, yStart);
-        contentStream.lineTo(xEnd, yEnd);
-        contentStream.stroke();
-        contentStream.setLineDashPattern(new float[]{}, 0);
-    }
-
-    public boolean hasTemplateForGame(String stateName, String gameName) {
-        if (stateName == null || stateName.trim().isEmpty() || gameName == null || gameName.trim().isEmpty()) {
-            return false;
-        }
-        String resourcePath = getResourcePath(stateName, gameName);
-        try {
-            URL resource = this.getClass().getResource(resourcePath);
-            return resource != null;
-        } catch (Exception e) {
-            System.err.println("Error checking for template resource: " + resourcePath);
-            e.printStackTrace();
-            return false;
-        }
-    }
-
     private Optional<BetslipTemplate> loadTemplate(String stateName, String gameName) {
         String resourcePath = getResourcePath(stateName, gameName);
         try (InputStreamReader reader = new InputStreamReader(this.getClass().getResourceAsStream(resourcePath))) {
@@ -190,5 +123,20 @@ public class BetslipGenerationService {
     private String getResourcePath(String stateName, String gameName) {
         String sanitizedGameName = gameName.replaceAll("\\s+", "");
         return "/images/" + stateName + "/" + sanitizedGameName + ".json";
+    }
+
+    public boolean hasTemplateForGame(String stateName, String gameName) {
+        if (stateName == null || stateName.trim().isEmpty() || gameName == null || gameName.trim().isEmpty()) {
+            return false;
+        }
+        String resourcePath = getResourcePath(stateName, gameName);
+        try {
+            URL resource = this.getClass().getResource(resourcePath);
+            return resource != null;
+        } catch (Exception e) {
+            System.err.println("Error checking for template resource: " + resourcePath);
+            e.printStackTrace();
+            return false;
+        }
     }
 }

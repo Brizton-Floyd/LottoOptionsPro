@@ -1,58 +1,69 @@
 package com.example.lottooptionspro.util;
 
+import com.example.lottooptionspro.models.BetslipTemplate;
+import com.example.lottooptionspro.models.ScannerMark;
+
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.util.List;
 
 public class ImageProcessor {
 
-    private static final int BLACK_THRESHOLD = 50; // For scanner marks
-    private static final double SCAN_ZONE_PERCENTAGE = 0.15; // Scan top 15% and bottom 15%
-
     /**
-     * Converts a marked image to a selective black and white version.
-     * It preserves dark pixels in the top and bottom zones (scanner marks)
-     * and pure black pixels anywhere (user markings), turning everything else white.
+     * Converts a marked image to a scanner-ready black and white version.
+     * This method uses a robust, two-step process to ensure all markings are drawn correctly.
      *
-     * @param markedColorImage The source image with user markings.
-     * @return A new BufferedImage with a white background and preserved marks.
+     * @param markedColorImage The source image with user markings (unscaled).
+     * @param template The betslip template containing the scanner mark coordinates.
+     * @return A new, clean BufferedImage with only the necessary black markings on a white background.
      */
-    public static BufferedImage convertToSelectiveBnW(BufferedImage markedColorImage) {
+    public static BufferedImage convertToSelectiveBnW(BufferedImage markedColorImage, BetslipTemplate template) {
         int width = markedColorImage.getWidth();
         int height = markedColorImage.getHeight();
 
-        // 1. Create a blank white image
-        BufferedImage newImage = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_BINARY);
-        Graphics2D g2d = newImage.createGraphics();
-        g2d.setColor(Color.WHITE);
-        g2d.fillRect(0, 0, width, height);
-        g2d.dispose();
+        // Step 1: Create an intermediate color canvas to reliably draw all markings on.
+        BufferedImage intermediateImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = intermediateImage.createGraphics();
 
-        int scanZoneHeight = (int) (height * SCAN_ZONE_PERCENTAGE);
+        try {
+            // Prepare the canvas with a white background.
+            g2d.setColor(Color.WHITE);
+            g2d.fillRect(0, 0, width, height);
 
-        // 2. Iterate through all pixels and apply the two-rule system
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int rgb = markedColorImage.getRGB(x, y);
-                int red = (rgb >> 16) & 0xFF;
-                int green = (rgb >> 8) & 0xFF;
-                int blue = rgb & 0xFF;
+            // Set the drawing color to black for all subsequent marks.
+            g2d.setColor(Color.BLACK);
 
-                // Rule 1: Preserve scanner marks in top/bottom zones
-                boolean inScanZone = y < scanZoneHeight || y >= (height - scanZoneHeight);
-                if (inScanZone) {
-                    if (red < BLACK_THRESHOLD && green < BLACK_THRESHOLD && blue < BLACK_THRESHOLD) {
-                        newImage.setRGB(x, y, Color.BLACK.getRGB());
-                    }
-                } else {
-                    // Rule 2: Preserve only pure black user markings in the middle zone
-                    if (red == 0 && green == 0 && blue == 0) {
-                        newImage.setRGB(x, y, Color.BLACK.getRGB());
+            // Plot the user's number selections onto the canvas by finding pure black pixels.
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    if (markedColorImage.getRGB(x, y) == Color.BLACK.getRGB()) {
+                        g2d.fillRect(x, y, 1, 1);
                     }
                 }
             }
+
+            // Plot the scanner marks from the template directly onto the same canvas.
+            List<ScannerMark> scannerMarks = template.getScannerMarks();
+            if (scannerMarks != null) {
+                for (ScannerMark mark : scannerMarks) {
+                    g2d.fillRect((int) mark.getX(), (int) mark.getY(), (int) mark.getWidth(), (int) mark.getHeight());
+                }
+            }
+        } finally {
+            g2d.dispose();
         }
 
-        return newImage;
+        // Step 2: Create the final binary image and draw the intermediate canvas onto it.
+        // This correctly handles the conversion to the final black-and-white format.
+        BufferedImage finalImage = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_BINARY);
+        Graphics2D finalG2d = finalImage.createGraphics();
+        try {
+            finalG2d.drawImage(intermediateImage, 0, 0, null);
+        } finally {
+            finalG2d.dispose();
+        }
+
+        return finalImage;
     }
 }
