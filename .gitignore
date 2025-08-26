@@ -85,4 +85,6 @@ Thumbs.db
 # Documentation and other non-source files
 *.pdf
 *.md
-prompt.txt
+prompt*.txt
+CLAUDE.md
+tasks/
