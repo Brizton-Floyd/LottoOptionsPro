@@ -15,7 +15,10 @@ public interface TemplateCreatorView {
     File showSaveDialog(String initialFileName);
     void displayImage(String imagePath);
     void clearAllRectangles();
+    void clearPanelRectangles(String panelId);
     void drawRectangle(Coordinate coordinate, int width, int height);
+    void drawRectangle(Coordinate coordinate, int width, int height, String type);
+    void drawRectangle(Coordinate coordinate, int width, int height, String type, String panelId);
     void drawScannerMark(ScannerMark mark);
     void drawPreviewRectangle(Coordinate coordinate, int width, int height);
     void clearPreviewRectangles();
@@ -29,10 +32,11 @@ public interface TemplateCreatorView {
     void showError(String message);
     void showSuccess(String message);
     Optional<String> askForPreviewNumbers();
-    void setSelectedMarkControlsVisible(boolean visible);
+    void setSelectedMarkControlsVisible(boolean visible, String markType);
     void setSelectedMarkDimensions(double width, double height);
     void setScannerMarkCount(int count);
     void updateScannerMarkRectangle(ScannerMark mark, double width, double height);
+    void selectScannerMark(ScannerMark mark);  // Auto-select newly placed scanner mark
     
     // Grid mapping methods
     void setGridMappingControlsVisible(boolean visible);

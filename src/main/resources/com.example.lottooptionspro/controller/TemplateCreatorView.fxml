@@ -109,7 +109,7 @@
                               <HBox spacing="3.0">
                                  <children>
                                     <Button fx:id="defineGridButton" text="Define Grid" onAction="#startGridDefinition" prefHeight="25.0" style="-fx-font-size: 10px;" />
-                                    <Button fx:id="clearGridButton" text="Clear" onAction="#clearGrid" visible="false" prefHeight="25.0" style="-fx-font-size: 10px;" />
+                                    <Button fx:id="clearGridButton" text="Clear Grid" onAction="#clearGrid" visible="false" prefHeight="25.0" style="-fx-font-size: 10px;" />
                                  </children>
                               </HBox>
                               
@@ -175,6 +175,7 @@
                   <Separator />
                   <VBox fx:id="selectedMarkControls" alignment="TOP_CENTER" spacing="10.0" visible="false">
                      <children>
+                        <Label fx:id="selectedMarkTypeLabel" text="Selected Mark Type" style="-fx-font-weight: bold; -fx-font-size: 11px;" />
                         <Label text="Selected Mark Width:" />
                         <Spinner fx:id="selectedMarkWidthSpinner" />
                         <Label text="Selected Mark Height:" />

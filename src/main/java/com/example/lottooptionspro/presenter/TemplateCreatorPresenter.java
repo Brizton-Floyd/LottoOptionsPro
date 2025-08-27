@@ -2,6 +2,7 @@ package com.example.lottooptionspro.presenter;
 
 import com.example.lottooptionspro.models.*;
 import com.example.lottooptionspro.util.GridCalculator;
+import com.example.lottooptionspro.controller.TemplateCreatorController;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -37,6 +38,10 @@ public class TemplateCreatorPresenter {
         if (this.model.getPlayPanels() == null) this.model.setPlayPanels(new ArrayList<>());
         if (this.model.getGlobalOptions() == null) this.model.setGlobalOptions(new HashMap<>());
         if (this.model.getScannerMarks() == null) this.model.setScannerMarks(new ArrayList<>());
+        
+        // Initialize new scanner mark size from current model defaults
+        this.newScannerMarkWidth = this.model.getMark().getWidth();
+        this.newScannerMarkHeight = this.model.getMark().getHeight();
     }
 
     public void onPanelOrModeChanged() {
@@ -45,6 +50,115 @@ public class TemplateCreatorPresenter {
         if (currentPanelId == null || currentMode == null) return;
 
         // Panel/mode changed - no longer need to update Next Number field
+        
+        // Update grid definition for new panel to enable column/row selection
+        updateGridDefinitionForCurrentPanel();
+        
+        // Debug: Print current grid status after panel change
+        if (currentGrid != null) {
+            System.out.println("Panel changed to " + currentPanelId + 
+                ", currentGrid panel: " + currentGrid.getPanelId() + 
+                ", grid valid: " + currentGrid.isValid());
+        } else {
+            System.out.println("Panel changed to " + currentPanelId + ", currentGrid is NULL");
+        }
+    }
+    
+    /**
+     * Update grid definition for the current panel to enable column/row selection
+     */
+    private void updateGridDefinitionForCurrentPanel() {
+        String currentPanelId = view.getSelectedPanel();
+        if (currentPanelId == null) return;
+        
+        // Update grid for both existing panels and new panels  
+        if (model != null) {
+            // Try grid config first, then fall back to coordinate inference
+            boolean hasGridConfig = model.getGridConfig() != null && model.getGridConfig().isValid();
+            PlayPanel currentPanel = getOrCreatePlayPanel(currentPanelId);
+            
+            // If current panel has coordinates, reconstruct grid from coordinates
+            if (currentPanel.getMainNumbers() != null && !currentPanel.getMainNumbers().isEmpty()) {
+                
+                // First try to reconstruct from saved grid config if available
+                if (currentGrid == null && hasGridConfig) {
+                    reconstructGridDefinitionFromData();
+                }
+                
+                // If still no grid, try to create one from saved grid config or coordinate analysis
+                if (currentGrid == null) {
+                    currentGrid = createGridFromExistingData(currentPanel, currentPanelId);
+                    if (currentGrid != null) {
+                        System.out.println("Created grid for panel " + currentPanelId + ": " + 
+                            currentGrid.getColumns() + "x" + currentGrid.getRows());
+                    }
+                }
+                
+                // Update the current grid's panel ID to match the current panel
+                if (currentGrid != null) {
+                    currentGrid = new GridDefinition(
+                        currentGrid.getTopLeftX(),
+                        currentGrid.getTopLeftY(),
+                        currentGrid.getBottomRightX(),
+                        currentGrid.getBottomRightY(),
+                        currentGrid.getColumns(),
+                        currentGrid.getRows(),
+                        currentGrid.getStartNumber(),
+                        currentGrid.getEndNumber(),
+                        currentGrid.getFillOrder(),
+                        currentPanelId // Update panel ID
+                    );
+                }
+            } else if (hasGridConfig) {
+                // Panel has no coordinates yet, but we can still use the grid configuration
+                // Also check if we can use an existing grid from another panel as a template
+                if (currentGrid != null && currentGrid.isValid()) {
+                    // We have a valid grid from another panel, adapt it for this panel
+                    currentGrid = new GridDefinition(
+                        currentGrid.getTopLeftX(),
+                        currentGrid.getTopLeftY(),
+                        currentGrid.getBottomRightX(),
+                        currentGrid.getBottomRightY(),
+                        currentGrid.getColumns(),
+                        currentGrid.getRows(),
+                        currentGrid.getStartNumber(),
+                        currentGrid.getEndNumber(),
+                        currentGrid.getFillOrder(),
+                        currentPanelId // Update panel ID for new panel
+                    );
+                    System.out.println("Adapted existing grid for panel " + currentPanelId);
+                } else {
+                    // Create a basic grid from the saved config that can be refined later
+                    GridConfiguration config = model.getGridConfig();
+                    String[] rangeParts = config.getNumberRange().split("-");
+                    if (rangeParts.length == 2) {
+                        try {
+                            int startNumber = Integer.parseInt(rangeParts[0].trim());
+                            int endNumber = Integer.parseInt(rangeParts[1].trim());
+                            
+                            // Create a placeholder grid that will be positioned when user defines corners
+                            currentGrid = new GridDefinition(
+                                0, 0, // Placeholder coordinates - will be set when user defines grid
+                                100, 100, // Placeholder coordinates
+                                config.getColumns(),
+                                config.getRows(),
+                                startNumber,
+                                endNumber,
+                                FillOrder.valueOf(config.getFillOrder()),
+                                currentPanelId
+                            );
+                            
+                            System.out.println("Created placeholder grid for panel " + currentPanelId + 
+                                             " with config: " + config.getColumns() + "x" + config.getRows());
+                            
+                        } catch (Exception e) {
+                            System.err.println("Error creating grid from config: " + e.getMessage());
+                            currentGrid = null;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public void saveTemplate() {
@@ -180,6 +294,286 @@ public class TemplateCreatorPresenter {
         
         redrawAllMarkings();
         onPanelOrModeChanged();
+        
+        // Try to reconstruct grid definition for column/row selection
+        reconstructGridDefinitionFromData();
+        
+        // Notify view if grid was successfully reconstructed
+        if (currentGrid != null && view != null) {
+            System.out.println("Grid reconstructed successfully for panel: " + currentGrid.getPanelId());
+            // Force update of UI state now that we have a valid grid
+            view.updateGridMappingStatus("Grid loaded from template. Column/row editing available.");
+        }
+    }
+    
+    /**
+     * Reconstruct grid definition from existing coordinate data to enable column/row selection
+     */
+    private void reconstructGridDefinitionFromData() {
+        if (model == null || model.getPlayPanels() == null) {
+            return;
+        }
+        
+        // Try to reconstruct grid for any panel that has coordinates
+        // First check all panels to find one with coordinates
+        String targetPanelId = null;
+        PlayPanel targetPanel = null;
+        
+        for (PlayPanel panel : model.getPlayPanels()) {
+            if (panel.getMainNumbers() != null && !panel.getMainNumbers().isEmpty()) {
+                targetPanelId = panel.getPanelId();
+                targetPanel = panel;
+                break; // Use the first panel with coordinates
+            }
+        }
+        
+        if (targetPanel == null) {
+            currentGrid = null;
+            return;
+        }
+        
+        // Use saved grid config if available
+        if (model.getGridConfig() != null && model.getGridConfig().isValid()) {
+            GridConfiguration config = model.getGridConfig();
+            
+            // Parse number range
+            String[] rangeParts = config.getNumberRange().split("-");
+            if (rangeParts.length == 2) {
+                try {
+                    int startNumber = Integer.parseInt(rangeParts[0].trim());
+                    int endNumber = Integer.parseInt(rangeParts[1].trim());
+                    
+                    // Calculate bounds from actual coordinates
+                    double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE;
+                    double maxX = Double.MIN_VALUE, maxY = Double.MIN_VALUE;
+                    
+                    for (Coordinate coord : targetPanel.getMainNumbers().values()) {
+                        minX = Math.min(minX, coord.getX());
+                        minY = Math.min(minY, coord.getY());
+                        maxX = Math.max(maxX, coord.getX());
+                        maxY = Math.max(maxY, coord.getY());
+                    }
+                    
+                    // Add some padding to create proper grid bounds
+                    int markWidth = model.getMark() != null ? model.getMark().getWidth() : 20;
+                    int markHeight = model.getMark() != null ? model.getMark().getHeight() : 20;
+                    double padding = Math.max(markWidth, markHeight) / 2.0;
+                    
+                    currentGrid = new GridDefinition(
+                        minX - padding, minY - padding,
+                        maxX + padding, maxY + padding,
+                        config.getColumns(), config.getRows(),
+                        startNumber, endNumber,
+                        FillOrder.valueOf(config.getFillOrder()),
+                        targetPanelId // Use the panel that actually has coordinates
+                    );
+                    
+                    System.out.println("Successfully reconstructed grid: " + 
+                        config.getColumns() + "x" + config.getRows() + 
+                        " for panel " + targetPanelId + 
+                        " with " + targetPanel.getMainNumbers().size() + " coordinates");
+                        
+                } catch (Exception e) {
+                    System.err.println("Grid reconstruction failed: " + e.getMessage());
+                    e.printStackTrace();
+                    currentGrid = null;
+                }
+            }
+        } else {
+            // No grid config available, try to infer grid structure from coordinates
+            // This is a fallback for older templates that don't have grid config
+            System.out.println("No saved grid config found. Attempting to infer grid from coordinate patterns...");
+            
+            if (targetPanel != null) {
+                GridDefinition inferredGrid = inferGridFromCoordinates(targetPanel, targetPanelId);
+                if (inferredGrid != null && inferredGrid.isValid()) {
+                    currentGrid = inferredGrid;
+                    System.out.println("Successfully inferred grid: " + inferredGrid.getColumns() + "x" + inferredGrid.getRows() + " for panel " + targetPanelId);
+                } else {
+                    System.out.println("Failed to infer grid from coordinate patterns - column/row fine-tuning will not be available");
+                    currentGrid = null;
+                }
+            } else {
+                System.out.println("No panels with coordinates found - column/row fine-tuning will not be available");
+                currentGrid = null;
+            }
+        }
+    }
+    
+    /**
+     * Create grid from existing template data - prioritize saved config over coordinate inference
+     */
+    private GridDefinition createGridFromExistingData(PlayPanel panel, String panelId) {
+        // First priority: Use saved grid configuration if available
+        if (model.getGridConfig() != null && model.getGridConfig().isValid()) {
+            return createGridFromSavedConfig(panel, panelId);
+        }
+        
+        // Second priority: Try to infer from coordinate patterns (fallback for old templates)
+        return inferGridFromCoordinates(panel, panelId);
+    }
+    
+    /**
+     * Create grid using saved grid configuration and actual coordinate bounds
+     */
+    private GridDefinition createGridFromSavedConfig(PlayPanel panel, String panelId) {
+        GridConfiguration config = model.getGridConfig();
+        Map<String, Coordinate> mainNumbers = panel.getMainNumbers();
+        
+        if (mainNumbers == null || mainNumbers.isEmpty()) {
+            return null;
+        }
+        
+        try {
+            // Parse number range from config
+            String[] rangeParts = config.getNumberRange().split("-");
+            if (rangeParts.length != 2) {
+                return null;
+            }
+            
+            int startNumber = Integer.parseInt(rangeParts[0].trim());
+            int endNumber = Integer.parseInt(rangeParts[1].trim());
+            
+            // Calculate actual bounds from coordinates
+            double minX = mainNumbers.values().stream().mapToDouble(Coordinate::getX).min().orElse(0);
+            double maxX = mainNumbers.values().stream().mapToDouble(Coordinate::getX).max().orElse(0);
+            double minY = mainNumbers.values().stream().mapToDouble(Coordinate::getY).min().orElse(0);
+            double maxY = mainNumbers.values().stream().mapToDouble(Coordinate::getY).max().orElse(0);
+            
+            // Add padding
+            double padding = 20;
+            
+            // Use saved config for dimensions and fill order
+            return new GridDefinition(
+                minX - padding, minY - padding,
+                maxX + padding, maxY + padding,
+                config.getColumns(), config.getRows(), // Use saved columns/rows
+                startNumber, endNumber,
+                FillOrder.valueOf(config.getFillOrder()), // Use saved fill order
+                panelId
+            );
+            
+        } catch (Exception e) {
+            System.err.println("Error creating grid from saved config: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Fallback: Infer grid structure from coordinate patterns when no saved grid config exists
+     */
+    private GridDefinition inferGridFromCoordinates(PlayPanel panel, String panelId) {
+        Map<String, Coordinate> mainNumbers = panel.getMainNumbers();
+        if (mainNumbers == null || mainNumbers.size() < 10) {
+            return null; // Need at least 10 coordinates to infer pattern
+        }
+        
+        try {
+            // Get all coordinates and number values
+            List<Integer> numbers = mainNumbers.keySet().stream()
+                .filter(key -> key.matches("\\d+"))
+                .map(Integer::parseInt)
+                .sorted()
+                .collect(Collectors.toList());
+                
+            if (numbers.isEmpty()) {
+                return null;
+            }
+            
+            // Determine number range
+            int startNumber = numbers.get(0);
+            int endNumber = numbers.get(numbers.size() - 1);
+            
+            // Group coordinates by X and Y positions to determine grid structure
+            Set<Integer> uniqueXPositions = mainNumbers.values().stream()
+                .mapToInt(Coordinate::getX)
+                .boxed()
+                .collect(Collectors.toSet());
+                
+            Set<Integer> uniqueYPositions = mainNumbers.values().stream()
+                .mapToInt(Coordinate::getY)
+                .boxed()
+                .collect(Collectors.toSet());
+            
+            int inferredColumns = uniqueXPositions.size();
+            int inferredRows = uniqueYPositions.size();
+            
+            // Validate the inferred grid makes sense
+            int totalNumbers = endNumber - startNumber + 1;
+            int gridCells = inferredColumns * inferredRows;
+            
+            if (Math.abs(gridCells - totalNumbers) > totalNumbers * 0.2) {
+                // Grid structure doesn't match well
+                System.out.println("Inferred grid " + inferredColumns + "x" + inferredRows + " doesn't match " + totalNumbers + " numbers");
+                return null;
+            }
+            
+            // Determine fill order by analyzing coordinate patterns
+            FillOrder fillOrder = inferFillOrderFromCoordinates(mainNumbers, numbers);
+            
+            // Calculate grid bounds
+            double minX = mainNumbers.values().stream().mapToDouble(Coordinate::getX).min().orElse(0);
+            double maxX = mainNumbers.values().stream().mapToDouble(Coordinate::getX).max().orElse(0);
+            double minY = mainNumbers.values().stream().mapToDouble(Coordinate::getY).min().orElse(0);
+            double maxY = mainNumbers.values().stream().mapToDouble(Coordinate::getY).max().orElse(0);
+            
+            // Add padding for grid bounds
+            double padding = 20;
+            
+            return new GridDefinition(
+                minX - padding, minY - padding,
+                maxX + padding, maxY + padding,
+                inferredColumns, inferredRows,
+                startNumber, endNumber,
+                fillOrder, panelId
+            );
+            
+        } catch (Exception e) {
+            System.err.println("Error inferring grid from coordinates: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Infer fill order from coordinate patterns
+     */
+    private FillOrder inferFillOrderFromCoordinates(Map<String, Coordinate> coordinates, List<Integer> sortedNumbers) {
+        if (sortedNumbers.size() < 4) {
+            return FillOrder.COLUMN_BOTTOM_TO_TOP; // Default
+        }
+        
+        try {
+            // Check first few numbers to determine pattern
+            Coordinate first = coordinates.get(String.valueOf(sortedNumbers.get(0)));
+            Coordinate second = coordinates.get(String.valueOf(sortedNumbers.get(1)));
+            Coordinate third = coordinates.get(String.valueOf(sortedNumbers.get(2)));
+            
+            if (first == null || second == null || third == null) {
+                return FillOrder.COLUMN_BOTTOM_TO_TOP;
+            }
+            
+            // Check if first few numbers are in same column (X position)
+            if (first.getX() == second.getX()) {
+                // Column-wise fill
+                if (first.getY() > second.getY()) {
+                    return FillOrder.COLUMN_BOTTOM_TO_TOP;
+                } else {
+                    return FillOrder.COLUMN_TOP_TO_BOTTOM;
+                }
+            } else if (first.getY() == second.getY()) {
+                // Row-wise fill
+                if (first.getX() < second.getX()) {
+                    return FillOrder.ROW_LEFT_TO_RIGHT;
+                } else {
+                    return FillOrder.ROW_RIGHT_TO_LEFT;
+                }
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error inferring fill order: " + e.getMessage());
+        }
+        
+        return FillOrder.COLUMN_BOTTOM_TO_TOP; // Safe default
     }
     
     private void autoPopulateGridSettings() {
@@ -194,8 +588,6 @@ public class TemplateCreatorPresenter {
             view.setGridColumns(savedConfig.getColumns());
             view.setGridRows(savedConfig.getRows());
             view.setGridFillOrder(savedConfig.getFillOrder());
-            System.out.println("Loaded saved grid config: " + savedConfig.getNumberRange() + ", " + 
-                             savedConfig.getColumns() + "x" + savedConfig.getRows());
             return;
         }
         
@@ -381,6 +773,8 @@ public class TemplateCreatorPresenter {
             }
             if (model.getScannerMarks() != null) {
                 model.getScannerMarks().clear();
+                // Reset Scanner Mark ID counter when all are cleared
+                ScannerMark.setNextId(1);
             }
 
             undoStack.clear();
@@ -412,13 +806,22 @@ public class TemplateCreatorPresenter {
     }
 
     private void handleScannerMarkMapping(double x, double y, int width, int height) {
-        ScannerMark newMark = new ScannerMark(x, y, width, height);
+        // Use the preset size for new scanner marks instead of the provided width/height
+        ScannerMark newMark = new ScannerMark(x, y, newScannerMarkWidth, newScannerMarkHeight);
         model.getScannerMarks().add(newMark);
         undoStack.add(() -> {
             model.getScannerMarks().remove(newMark);
-            redrawAllMarkings();
+            // Use size-preserving redraw to prevent affecting other markings
+            redrawAllMarkingsPreservingSizes();
         });
-        redrawAllMarkings();
+        // Just draw the new scanner mark, don't redraw everything
+        view.drawScannerMark(newMark);
+        
+        // Update scanner mark count and ensure consistent numbering
+        view.setScannerMarkCount(model.getScannerMarks().size());
+        
+        // Auto-select the newly placed scanner mark so controls appear immediately
+        view.selectScannerMark(newMark);
     }
 
     private void handlePanelMapping(Coordinate coordinate, String mappingMode) {
@@ -468,18 +871,199 @@ public class TemplateCreatorPresenter {
         redrawAllMarkings();
     }
 
+    /**
+     * Remove last marking for a specific panel (simplified version)
+     */
+    public void removeLastMarkingForPanel(String panelId) {
+        if (panelId == null) return;
+        
+        view.clearPreviewRectangles();
+        
+        // Find the panel and remove the last coordinate if any exist
+        PlayPanel panel = getOrCreatePlayPanel(panelId);
+        if (panel.getMainNumbers() != null && !panel.getMainNumbers().isEmpty()) {
+            // Find the coordinate with the highest number (assuming numbers are added sequentially)
+            String lastNumber = panel.getMainNumbers().keySet().stream()
+                .filter(key -> key.matches("\\d+"))
+                .map(Integer::parseInt)
+                .max(Integer::compareTo)
+                .map(String::valueOf)
+                .orElse(null);
+                
+            if (lastNumber != null) {
+                panel.getMainNumbers().remove(lastNumber);
+                redrawAllMarkings();
+            }
+        }
+    }
+    
     public void removeLastMarking() {
         view.clearPreviewRectangles();
         if (!undoStack.isEmpty()) {
+            // Store current mark size to preserve it
+            int originalWidth = model.getMark().getWidth();
+            int originalHeight = model.getMark().getHeight();
+            
             undoStack.remove(undoStack.size() - 1).run();
-            redrawAllMarkings();
+            
+            // The undo action might have changed the global mark size
+            // Restore it to prevent scanner mark sizes from affecting betslip numbers
+            model.getMark().setWidth(originalWidth);
+            model.getMark().setHeight(originalHeight);
+            
+            // Renumber Scanner Marks to keep IDs sequential (1, 2, 3, ...)
+            renumberScannerMarks();
+            
+            // Redraw with preserved sizes
+            redrawAllMarkingsPreservingSizes();
         }
+    }
+    
+    /**
+     * Redraw all markings while preserving individual scanner mark sizes
+     */
+    private void redrawAllMarkingsPreservingSizes() {
+        view.clearAllRectangles();
+        int w = model.getMark().getWidth();
+        int h = model.getMark().getHeight();
+        
+        // Redraw panels with individual sizes where applicable
+        for (PlayPanel panel : model.getPlayPanels()) {
+            String panelId = panel.getPanelId();
+            
+            // Main and bonus numbers always use standard sizes
+            panel.getMainNumbers().values().forEach(c -> view.drawRectangle(c, w, h, "MAIN_NUMBER", panelId));
+            panel.getBonusNumbers().values().forEach(c -> view.drawRectangle(c, w, h, "BONUS_NUMBER", panelId));
+            
+            // Quick Pick uses individual size if set
+            if (panel.getQuickPick() != null) {
+                int[] qpSize = quickPickSizes.getOrDefault(panelId, new int[]{w, h});
+                view.drawRectangle(panel.getQuickPick(), qpSize[0], qpSize[1], "QUICK_PICK", panelId);
+            }
+        }
+        
+        // Redraw global options with individual sizes if set
+        if (model.getGlobalOptions() != null) {
+            model.getGlobalOptions().forEach((optionName, coord) -> {
+                int[] goSize = globalOptionSizes.getOrDefault(optionName, new int[]{w, h});
+                view.drawRectangle(coord, goSize[0], goSize[1], "GLOBAL_OPTION", null);
+            });
+        }
+        
+        // Redraw scanner marks with their individual sizes (NOT standard mark size)
+        model.getScannerMarks().forEach(view::drawScannerMark);
+        view.setScannerMarkCount(model.getScannerMarks().size());
     }
 
     public void updateMarkSize(int width, int height) {
+        String currentMode = view.getSelectedMappingMode();
+        
+        if ("Scanner Mark".equals(currentMode)) {
+            // For scanner marks, don't update the global mark size
+            // Scanner mark resizing should be handled separately
+            return;
+        }
+        
         model.getMark().setWidth(width);
         model.getMark().setHeight(height);
-        redrawAllMarkings();
+        // Only redraw the current panel's markings, not all panels
+        redrawCurrentPanelMarkings();
+    }
+    
+    /**
+     * Update mark size for the current panel and mode only, without affecting other panels or modes
+     */
+    public void updateMarkSizeForCurrentPanel(int width, int height, String mode) {
+        String currentPanelId = view.getSelectedPanel();
+        if (currentPanelId == null) return;
+        
+        PlayPanel currentPanel = getOrCreatePlayPanel(currentPanelId);
+        
+        // For Main/Bonus number modes, we need to redraw all markings but only update
+        // the specific type with the new size
+        if ("Main Number".equals(mode) || "Bonus Number".equals(mode)) {
+            // Clear all rectangles and redraw everything to maintain consistency
+            view.clearAllRectangles();
+            
+            // Redraw all panels with their original sizes, except current panel's specific type
+            for (PlayPanel panel : model.getPlayPanels()) {
+                int w = model.getMark().getWidth();
+                int h = model.getMark().getHeight();
+                
+                // Use custom size only for the current panel and mode
+                if (panel.getPanelId().equals(currentPanelId)) {
+                    if ("Main Number".equals(mode)) {
+                        // Use custom size for main numbers in current panel
+                        panel.getMainNumbers().values().forEach(c -> 
+                            view.drawRectangle(c, width, height, "MAIN_NUMBER", panel.getPanelId()));
+                        // Use normal size for bonus numbers in current panel
+                        panel.getBonusNumbers().values().forEach(c -> 
+                            view.drawRectangle(c, w, h, "BONUS_NUMBER", panel.getPanelId()));
+                    } else if ("Bonus Number".equals(mode)) {
+                        // Use normal size for main numbers in current panel
+                        panel.getMainNumbers().values().forEach(c -> 
+                            view.drawRectangle(c, w, h, "MAIN_NUMBER", panel.getPanelId()));
+                        // Use custom size for bonus numbers in current panel
+                        panel.getBonusNumbers().values().forEach(c -> 
+                            view.drawRectangle(c, width, height, "BONUS_NUMBER", panel.getPanelId()));
+                    }
+                } else {
+                    // Use normal size for all other panels
+                    panel.getMainNumbers().values().forEach(c -> 
+                        view.drawRectangle(c, w, h, "MAIN_NUMBER", panel.getPanelId()));
+                    panel.getBonusNumbers().values().forEach(c -> 
+                        view.drawRectangle(c, w, h, "BONUS_NUMBER", panel.getPanelId()));
+                }
+                
+                // Redraw quick pick with normal size
+                if (panel.getQuickPick() != null) {
+                    view.drawRectangle(panel.getQuickPick(), w, h, "QUICK_PICK", panel.getPanelId());
+                }
+            }
+            
+            // Redraw global options and scanner marks with their own sizes
+            model.getGlobalOptions().values().forEach(c -> 
+                view.drawRectangle(c, model.getMark().getWidth(), model.getMark().getHeight(), "GLOBAL_OPTION", null));
+            model.getScannerMarks().forEach(view::drawScannerMark);
+            view.setScannerMarkCount(model.getScannerMarks().size());
+        }
+    }
+    
+    /**
+     * Redraw markings only for the currently selected panel
+     */
+    public void redrawCurrentPanelMarkings() {
+        String currentPanelId = view.getSelectedPanel();
+        if (currentPanelId == null) return;
+        
+        // Clear only rectangles belonging to the current panel
+        clearCurrentPanelRectangles();
+        
+        // Redraw only current panel's markings
+        int w = model.getMark().getWidth();
+        int h = model.getMark().getHeight();
+        
+        PlayPanel currentPanel = getOrCreatePlayPanel(currentPanelId);
+        currentPanel.getMainNumbers().values().forEach(c -> view.drawRectangle(c, w, h, "MAIN_NUMBER", currentPanelId));
+        currentPanel.getBonusNumbers().values().forEach(c -> view.drawRectangle(c, w, h, "BONUS_NUMBER", currentPanelId));
+        if (currentPanel.getQuickPick() != null) {
+            view.drawRectangle(currentPanel.getQuickPick(), w, h, "QUICK_PICK", currentPanelId);
+        }
+        
+        // Also redraw global options and scanner marks since they're not panel-specific
+        model.getGlobalOptions().values().forEach(c -> view.drawRectangle(c, w, h, "GLOBAL_OPTION", null));
+        model.getScannerMarks().forEach(view::drawScannerMark);
+        view.setScannerMarkCount(model.getScannerMarks().size());
+    }
+    
+    /**
+     * Clear rectangles that belong to the current panel only
+     */
+    private void clearCurrentPanelRectangles() {
+        String currentPanelId = view.getSelectedPanel();
+        if (currentPanelId != null) {
+            view.clearPanelRectangles(currentPanelId);
+        }
     }
 
     public void updateScannerMarkSize(ScannerMark mark, int width, int height) {
@@ -494,6 +1078,94 @@ public class TemplateCreatorPresenter {
         mark.setHeight(height);
         view.updateScannerMarkRectangle(mark, width, height);
     }
+    
+    public void updateScannerMarkDefaultSize(int width, int height) {
+        // Update the default mark size which will be used for new scanner marks
+        model.getMark().setWidth(width);
+        model.getMark().setHeight(height);
+        // No need to redraw anything since this just sets the default for future marks
+    }
+    
+    /**
+     * @deprecated This method is no longer used. Each Scanner Mark has individual size.
+     * Use updateScannerMarkSize(ScannerMark mark, int width, int height) for individual marks.
+     * Use setNewScannerMarkSize(int width, int height) to set size for newly placed marks.
+     */
+    @Deprecated
+    public void updateAllScannerMarksSize(int width, int height) {
+        // METHOD DEPRECATED - Scanner marks now have individual sizes
+        // Each scanner mark maintains its own size independently
+        // This method is kept for backward compatibility but should not be used
+        System.out.println("WARNING: updateAllScannerMarksSize() is deprecated. Scanner marks now have individual sizes.");
+    }
+    
+    public void updateMarkSizeForMode(int width, int height, String mode) {
+        if ("Global Option".equals(mode)) {
+            // Redraw only global options without affecting other marking types
+            redrawGlobalOptionsOnly(width, height);
+        } else if ("Quick Pick".equals(mode)) {
+            // Redraw only quick pick marks without affecting other marking types
+            redrawQuickPickMarksOnly(width, height);
+        }
+    }
+    
+    private void redrawGlobalOptionsOnly(int width, int height) {
+        // Clear and redraw everything to maintain visual consistency
+        view.clearAllRectangles();
+        
+        // Redraw all markings with normal sizes except global options
+        int w = model.getMark().getWidth();
+        int h = model.getMark().getHeight();
+        
+        // Redraw all panels with normal sizes
+        for (PlayPanel panel : model.getPlayPanels()) {
+            panel.getMainNumbers().values().forEach(c -> 
+                view.drawRectangle(c, w, h, "MAIN_NUMBER", panel.getPanelId()));
+            panel.getBonusNumbers().values().forEach(c -> 
+                view.drawRectangle(c, w, h, "BONUS_NUMBER", panel.getPanelId()));
+            if (panel.getQuickPick() != null) {
+                view.drawRectangle(panel.getQuickPick(), w, h, "QUICK_PICK", panel.getPanelId());
+            }
+        }
+        
+        // Redraw global options with custom size
+        model.getGlobalOptions().values().forEach(c -> 
+            view.drawRectangle(c, width, height, "GLOBAL_OPTION", null));
+            
+        // Redraw scanner marks with their individual sizes
+        model.getScannerMarks().forEach(view::drawScannerMark);
+        view.setScannerMarkCount(model.getScannerMarks().size());
+    }
+    
+    private void redrawQuickPickMarksOnly(int width, int height) {
+        // Clear and redraw everything to maintain visual consistency
+        view.clearAllRectangles();
+        
+        // Redraw all markings with normal sizes except quick pick
+        int w = model.getMark().getWidth();
+        int h = model.getMark().getHeight();
+        
+        // Redraw all panels
+        for (PlayPanel panel : model.getPlayPanels()) {
+            panel.getMainNumbers().values().forEach(c -> 
+                view.drawRectangle(c, w, h, "MAIN_NUMBER", panel.getPanelId()));
+            panel.getBonusNumbers().values().forEach(c -> 
+                view.drawRectangle(c, w, h, "BONUS_NUMBER", panel.getPanelId()));
+            // Use custom size for quick pick marks
+            if (panel.getQuickPick() != null) {
+                view.drawRectangle(panel.getQuickPick(), width, height, "QUICK_PICK", panel.getPanelId());
+            }
+        }
+        
+        // Redraw global options with normal size
+        model.getGlobalOptions().values().forEach(c -> 
+            view.drawRectangle(c, w, h, "GLOBAL_OPTION", null));
+            
+        // Redraw scanner marks with their individual sizes
+        model.getScannerMarks().forEach(view::drawScannerMark);
+        view.setScannerMarkCount(model.getScannerMarks().size());
+    }
+    
 
     public void startCoordinateMove(Coordinate coord) {
         this.originalCoordinate = new Coordinate(coord.getX(), coord.getY());
@@ -540,11 +1212,11 @@ public class TemplateCreatorPresenter {
         int w = model.getMark().getWidth();
         int h = model.getMark().getHeight();
         for (PlayPanel panel : model.getPlayPanels()) {
-            panel.getMainNumbers().values().forEach(c -> view.drawRectangle(c, w, h));
-            panel.getBonusNumbers().values().forEach(c -> view.drawRectangle(c, w, h));
-            if (panel.getQuickPick() != null) view.drawRectangle(panel.getQuickPick(), w, h);
+            panel.getMainNumbers().values().forEach(c -> view.drawRectangle(c, w, h, "MAIN_NUMBER", panel.getPanelId()));
+            panel.getBonusNumbers().values().forEach(c -> view.drawRectangle(c, w, h, "BONUS_NUMBER", panel.getPanelId()));
+            if (panel.getQuickPick() != null) view.drawRectangle(panel.getQuickPick(), w, h, "QUICK_PICK", panel.getPanelId());
         }
-        model.getGlobalOptions().values().forEach(c -> view.drawRectangle(c, w, h));
+        model.getGlobalOptions().values().forEach(c -> view.drawRectangle(c, w, h, "GLOBAL_OPTION", null));
         model.getScannerMarks().forEach(view::drawScannerMark);
         view.setScannerMarkCount(model.getScannerMarks().size());
     }
@@ -710,6 +1382,15 @@ public class TemplateCreatorPresenter {
         return currentGrid;
     }
     
+    /**
+     * Check if we have a valid grid configuration that can be used for grid mapping
+     */
+    public boolean hasValidGridConfiguration() {
+        return model != null && 
+               model.getGridConfig() != null && 
+               model.getGridConfig().isValid();
+    }
+    
     public void updateGridDefinition(GridDefinition newGrid) {
         this.currentGrid = newGrid;
         if (view != null) {
@@ -794,6 +1475,41 @@ public class TemplateCreatorPresenter {
         }
     }
     
+    /**
+     * Clear markings data for a specific panel only
+     */
+    public void clearPanelMarkingsData(String panelId) {
+        if (model == null || panelId == null) return;
+        
+        // Find and clear the specific panel
+        if (model.getPlayPanels() != null) {
+            PlayPanel panelToClear = model.getPlayPanels().stream()
+                .filter(p -> panelId.equals(p.getPanelId()))
+                .findFirst()
+                .orElse(null);
+                
+            if (panelToClear != null) {
+                if (panelToClear.getMainNumbers() != null) {
+                    panelToClear.getMainNumbers().clear();
+                }
+                if (panelToClear.getBonusNumbers() != null) {
+                    panelToClear.getBonusNumbers().clear();
+                }
+                panelToClear.setQuickPick(null);
+            }
+        }
+        
+        // Note: Don't clear global options, scanner marks, or reset grid - these are shared
+        // Only clear undo stack items related to this panel (simplified: clear all for now)
+        undoStack.clear();
+        
+        // Update scanner mark count (this is global, but still accurate)
+        if (view != null) {
+            int totalScannerMarks = model.getScannerMarks() != null ? model.getScannerMarks().size() : 0;
+            view.setScannerMarkCount(totalScannerMarks);
+        }
+    }
+    
     public void clearAllMarkingsData() {
         if (model == null) return;
         
@@ -859,4 +1575,114 @@ public class TemplateCreatorPresenter {
     public void triggerRedraw() {
         redrawAllMarkings();
     }
+    
+    // Individual marking size management methods
+    private Map<String, int[]> quickPickSizes = new HashMap<>();  // panelId -> [width, height]
+    private Map<String, int[]> globalOptionSizes = new HashMap<>(); // optionName -> [width, height]
+    
+    // Size for new Scanner Marks (when placing new ones)
+    private int newScannerMarkWidth = 20;  // Default size for new scanner marks
+    private int newScannerMarkHeight = 20;
+    
+    /**
+     * Get the current dimensions for a marking (Quick Pick or Global Option)
+     */
+    public int[] getMarkingDimensions(Object coordinateInfo) {
+        if (coordinateInfo instanceof TemplateCreatorController.CoordinateInfo) {
+            TemplateCreatorController.CoordinateInfo coordInfo = (TemplateCreatorController.CoordinateInfo) coordinateInfo;
+            String type = coordInfo.getType();
+            String panelId = coordInfo.getPanelId();
+            
+            if ("QUICK_PICK".equals(type) && panelId != null) {
+                return quickPickSizes.getOrDefault(panelId, 
+                    new int[]{model.getMark().getWidth(), model.getMark().getHeight()});
+            } else if ("GLOBAL_OPTION".equals(type)) {
+                // Find the option name for this coordinate
+                String optionName = findGlobalOptionName(coordInfo.getCoordinate());
+                if (optionName != null) {
+                    return globalOptionSizes.getOrDefault(optionName,
+                        new int[]{model.getMark().getWidth(), model.getMark().getHeight()});
+                }
+            }
+        }
+        return new int[]{model.getMark().getWidth(), model.getMark().getHeight()};
+    }
+    
+    /**
+     * Update the size of a specific marking (Quick Pick or Global Option)
+     */
+    public void updateMarkingSize(Object coordinateInfo, int width, int height) {
+        if (coordinateInfo instanceof TemplateCreatorController.CoordinateInfo) {
+            TemplateCreatorController.CoordinateInfo coordInfo = (TemplateCreatorController.CoordinateInfo) coordinateInfo;
+            String type = coordInfo.getType();
+            String panelId = coordInfo.getPanelId();
+            Coordinate coordinate = coordInfo.getCoordinate();
+            
+            if ("QUICK_PICK".equals(type) && panelId != null) {
+                // Store the custom size for this Quick Pick
+                quickPickSizes.put(panelId, new int[]{width, height});
+                
+                // Update the visual rectangle
+                view.clearAllRectangles();
+                redrawAllMarkingsPreservingSizes();
+                
+            } else if ("GLOBAL_OPTION".equals(type)) {
+                // For global options, find which option name this coordinate matches
+                String optionName = findGlobalOptionName(coordinate);
+                if (optionName != null) {
+                    globalOptionSizes.put(optionName, new int[]{width, height});
+                    
+                    // Update the visual rectangle
+                    view.clearAllRectangles();
+                    redrawAllMarkingsPreservingSizes();
+                }
+            }
+        }
+    }
+    
+    /**
+     * Find the global option name that matches a coordinate
+     */
+    private String findGlobalOptionName(Coordinate targetCoord) {
+        if (model.getGlobalOptions() != null) {
+            for (Map.Entry<String, Coordinate> entry : model.getGlobalOptions().entrySet()) {
+                Coordinate coord = entry.getValue();
+                if (coord.getX() == targetCoord.getX() && coord.getY() == targetCoord.getY()) {
+                    return entry.getKey();
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Set the size for newly placed Scanner Marks
+     */
+    public void setNewScannerMarkSize(int width, int height) {
+        this.newScannerMarkWidth = width;
+        this.newScannerMarkHeight = height;
+    }
+    
+    /**
+     * Renumber all Scanner Marks to keep IDs sequential (1, 2, 3, ...)
+     * This ensures the ID matches the visual count and eliminates gaps
+     */
+    private void renumberScannerMarks() {
+        if (model.getScannerMarks() == null || model.getScannerMarks().isEmpty()) {
+            return;
+        }
+        
+        // Renumber all Scanner Marks sequentially starting from 1
+        for (int i = 0; i < model.getScannerMarks().size(); i++) {
+            ScannerMark mark = model.getScannerMarks().get(i);
+            mark.setId(i + 1);  // Set ID to 1, 2, 3, ...
+        }
+        
+        // Update the nextId counter to the next available ID
+        ScannerMark.setNextId(model.getScannerMarks().size() + 1);
+        
+        // Update scanner mark count display
+        view.setScannerMarkCount(model.getScannerMarks().size());
+    }
+    
 }

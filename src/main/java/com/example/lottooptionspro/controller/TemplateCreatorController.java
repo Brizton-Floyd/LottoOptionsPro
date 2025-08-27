@@ -31,6 +31,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +56,8 @@ public class TemplateCreatorController implements TemplateCreatorView {
     private Spinner<Integer> markWidthSpinner, markHeightSpinner;
     @FXML
     private VBox selectedMarkControls;
+    @FXML
+    private Label selectedMarkTypeLabel;
     @FXML
     private Spinner<Integer> selectedMarkWidthSpinner, selectedMarkHeightSpinner;
     
@@ -146,7 +149,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
         addListeners();
         configureGridMapping();
         presenter.onPanelOrModeChanged();
-        setSelectedMarkControlsVisible(false);
+        setSelectedMarkControlsVisible(false, null);
         // Make grid mapping visible by default for testing
         setGridMappingControlsVisible(true);
         // Initialize zoom controls
@@ -156,8 +159,157 @@ public class TemplateCreatorController implements TemplateCreatorView {
     private void populateComboBoxes() {
         mappingModeComboBox.setItems(FXCollections.observableArrayList("Main Number", "Bonus Number", "Quick Pick", "Global Option", "Scanner Mark"));
         mappingModeComboBox.getSelectionModel().selectFirst();
-        panelComboBox.setItems(FXCollections.observableArrayList("A", "B", "C", "D", "E"));
-        panelComboBox.getSelectionModel().selectFirst();
+        
+        // Smart panel population
+        populatePanelComboBoxIntelligently();
+    }
+    
+    /**
+     * Intelligently populate panel dropdown by showing next panel that needs mappings
+     */
+    private void populatePanelComboBoxIntelligently() {
+        populatePanelComboBoxIntelligently(false);
+    }
+    
+    /**
+     * Populate panel dropdown with option to prefer completed panels (for template loading)
+     */
+    private void populatePanelComboBoxIntelligently(boolean preferCompletedPanel) {
+        List<String> allPanels = Arrays.asList("A", "B", "C", "D", "E");
+        List<String> availablePanels = new ArrayList<>();
+        String nextPanelToSelect = null;
+        String firstCompletedPanel = null;
+        
+        // Check which panels have coordinate mappings
+        for (String panelId : allPanels) {
+            Map<String, Coordinate> mainNumbers = presenter.getMainNumbersForPanel(panelId);
+            boolean hasCoordinates = mainNumbers != null && !mainNumbers.isEmpty();
+            
+            availablePanels.add(panelId + (hasCoordinates ? " ✓" : ""));
+            
+            // Find first completed panel for template loading preference
+            if (firstCompletedPanel == null && hasCoordinates) {
+                firstCompletedPanel = panelId + " ✓";
+            }
+            
+            // Find first panel without coordinates
+            if (nextPanelToSelect == null && !hasCoordinates) {
+                nextPanelToSelect = panelId + (hasCoordinates ? " ✓" : "");
+            }
+        }
+        
+        // Set panel items with status indicators
+        panelComboBox.setItems(FXCollections.observableArrayList(availablePanels));
+        
+        // Determine which panel to select
+        String panelToSelect;
+        if (preferCompletedPanel && firstCompletedPanel != null) {
+            // When loading templates, prefer showing a completed panel first
+            panelToSelect = firstCompletedPanel;
+        } else if (nextPanelToSelect == null) {
+            // All panels complete - show message and default to first panel
+            showAllPanelsCompleteDialog();
+            panelComboBox.getSelectionModel().selectFirst();
+            return;
+        } else {
+            // Select the first panel that needs mappings
+            panelToSelect = nextPanelToSelect;
+        }
+        
+        panelComboBox.getSelectionModel().select(panelToSelect);
+    }
+    
+    /**
+     * Show dialog when all panels have coordinate mappings
+     */
+    private void showAllPanelsCompleteDialog() {
+        // Create a more detailed completion status
+        List<String> allPanels = Arrays.asList("A", "B", "C", "D", "E");
+        int completedPanels = 0;
+        StringBuilder statusMessage = new StringBuilder("Coordinate Mapping Status:\n\n");
+        
+        for (String panelId : allPanels) {
+            Map<String, Coordinate> mainNumbers = presenter.getMainNumbersForPanel(panelId);
+            boolean hasCoordinates = mainNumbers != null && !mainNumbers.isEmpty();
+            int coordinateCount = hasCoordinates ? mainNumbers.size() : 0;
+            
+            statusMessage.append(String.format("Panel %s: %s (%d coordinates)\n", 
+                panelId, 
+                hasCoordinates ? "✓ Complete" : "⚠ Needs mapping", 
+                coordinateCount));
+            
+            if (hasCoordinates) {
+                completedPanels++;
+            }
+        }
+        
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Template Status");
+        alert.setHeaderText(String.format("%d of %d panels complete", completedPanels, allPanels.size()));
+        alert.setContentText(
+            statusMessage.toString() + "\n" +
+            "Options:\n" +
+            "✓ Select any panel to modify existing mappings\n" +
+            "✓ Use 'Clear Grid → Clear All' to start over\n" +
+            "✓ Individual coordinates can be moved by dragging them\n" +
+            "✓ Use column/row selection for bulk adjustments"
+        );
+        alert.showAndWait();
+    }
+    
+    /**
+     * Refresh the panel dropdown to update status indicators
+     * Call this after loading templates or making coordinate changes
+     */
+    public void refreshPanelDropdown() {
+        refreshPanelDropdown(false);
+    }
+    
+    /**
+     * Refresh the panel dropdown with option to prefer completed panels
+     */
+    public void refreshPanelDropdown(boolean preferCompletedPanel) {
+        String currentSelection = getSelectedPanel();
+        populatePanelComboBoxIntelligently(preferCompletedPanel);
+        
+        // Try to maintain current selection if it's still valid (unless preferring completed panel)
+        if (currentSelection != null && !preferCompletedPanel) {
+            for (int i = 0; i < panelComboBox.getItems().size(); i++) {
+                String item = panelComboBox.getItems().get(i);
+                if (item.startsWith(currentSelection)) {
+                    panelComboBox.getSelectionModel().select(i);
+                    break;
+                }
+            }
+        }
+    }
+    
+    /**
+     * Update grid status with current panel completion info
+     */
+    private void updateGridStatusWithPanelInfo() {
+        String currentPanelId = getSelectedPanel();
+        if (currentPanelId == null) return;
+        
+        Map<String, Coordinate> currentPanelNumbers = getMainNumbersForPanel(currentPanelId);
+        int coordinateCount = currentPanelNumbers != null ? currentPanelNumbers.size() : 0;
+        
+        // Count total completed panels
+        List<String> allPanels = Arrays.asList("A", "B", "C", "D", "E");
+        int completedPanels = 0;
+        for (String panelId : allPanels) {
+            Map<String, Coordinate> numbers = presenter.getMainNumbersForPanel(panelId);
+            if (numbers != null && !numbers.isEmpty()) {
+                completedPanels++;
+            }
+        }
+        
+        String statusMessage = String.format(
+            "Panel %s complete! (%d coordinates) | %d of %d panels done | Ready for column/row fine-tuning",
+            currentPanelId, coordinateCount, completedPanels, allPanels.size()
+        );
+        
+        updateGridMappingStatus(statusMessage);
     }
 
     private void configureSpinners() {
@@ -231,18 +383,65 @@ public class TemplateCreatorController implements TemplateCreatorView {
             boolean showGrid = "Main Number".equals(n) || "Bonus Number".equals(n);
             setGridMappingControlsVisible(showGrid);
         });
-        panelComboBox.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> presenter.onPanelOrModeChanged());
-        markWidthSpinner.valueProperty().addListener((obs, o, n) -> presenter.updateMarkSize(n, markHeightSpinner.getValue()));
-        markHeightSpinner.valueProperty().addListener((obs, o, n) -> presenter.updateMarkSize(markWidthSpinner.getValue(), n));
+        panelComboBox.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
+            presenter.onPanelOrModeChanged();
+            checkAndEnableColumnRowTuningForPanel();
+        });
+        markWidthSpinner.valueProperty().addListener((obs, o, n) -> {
+            String currentMode = getSelectedMappingMode();
+            if ("Scanner Mark".equals(currentMode)) {
+                // For scanner marks in mapping mode, this sets the size for NEW scanner marks
+                // Individual scanner marks are modified via the Selected Mark Controls
+                presenter.setNewScannerMarkSize(n, markHeightSpinner.getValue());
+            } else if ("Global Option".equals(currentMode)) {
+                // For Global Option, update only global option markings without affecting others
+                presenter.updateMarkSizeForMode(n, markHeightSpinner.getValue(), currentMode);
+            } else if ("Quick Pick".equals(currentMode)) {
+                // For Quick Pick, update only quick pick markings without affecting others
+                presenter.updateMarkSizeForMode(n, markHeightSpinner.getValue(), currentMode);
+            } else {
+                // For Main Number and Bonus Number modes, update only those types
+                presenter.updateMarkSizeForCurrentPanel(n, markHeightSpinner.getValue(), currentMode);
+            }
+        });
+        markHeightSpinner.valueProperty().addListener((obs, o, n) -> {
+            String currentMode = getSelectedMappingMode();
+            if ("Scanner Mark".equals(currentMode)) {
+                // For scanner marks in mapping mode, this sets the size for NEW scanner marks
+                // Individual scanner marks are modified via the Selected Mark Controls
+                presenter.setNewScannerMarkSize(markWidthSpinner.getValue(), n);
+            } else if ("Global Option".equals(currentMode)) {
+                // For Global Option, update only global option markings without affecting others
+                presenter.updateMarkSizeForMode(markWidthSpinner.getValue(), n, currentMode);
+            } else if ("Quick Pick".equals(currentMode)) {
+                // For Quick Pick, update only quick pick markings without affecting others
+                presenter.updateMarkSizeForMode(markWidthSpinner.getValue(), n, currentMode);
+            } else {
+                // For Main Number and Bonus Number modes, update only those types
+                presenter.updateMarkSizeForCurrentPanel(markWidthSpinner.getValue(), n, currentMode);
+            }
+        });
 
         selectedMarkWidthSpinner.valueProperty().addListener((obs, o, n) -> {
-            if (selectedRectangle != null && selectedRectangle.getUserData() instanceof ScannerMark) {
-                presenter.updateScannerMarkSize((ScannerMark) selectedRectangle.getUserData(), n, selectedMarkHeightSpinner.getValue());
+            if (selectedRectangle != null) {
+                Object userData = selectedRectangle.getUserData();
+                if (userData instanceof ScannerMark) {
+                    presenter.updateScannerMarkSize((ScannerMark) userData, n, selectedMarkHeightSpinner.getValue());
+                } else if (userData instanceof CoordinateInfo) {
+                    CoordinateInfo coordInfo = (CoordinateInfo) userData;
+                    presenter.updateMarkingSize(coordInfo, n, selectedMarkHeightSpinner.getValue());
+                }
             }
         });
         selectedMarkHeightSpinner.valueProperty().addListener((obs, o, n) -> {
-            if (selectedRectangle != null && selectedRectangle.getUserData() instanceof ScannerMark) {
-                presenter.updateScannerMarkSize((ScannerMark) selectedRectangle.getUserData(), selectedMarkWidthSpinner.getValue(), n);
+            if (selectedRectangle != null) {
+                Object userData = selectedRectangle.getUserData();
+                if (userData instanceof ScannerMark) {
+                    presenter.updateScannerMarkSize((ScannerMark) userData, selectedMarkWidthSpinner.getValue(), n);
+                } else if (userData instanceof CoordinateInfo) {
+                    CoordinateInfo coordInfo = (CoordinateInfo) userData;
+                    presenter.updateMarkingSize(coordInfo, selectedMarkWidthSpinner.getValue(), n);
+                }
             }
         });
     }
@@ -256,7 +455,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
         globalOptionNameLabel.setVisible(isGlobal);
 
         if (!isScanner) {
-            setSelectedMarkControlsVisible(false);
+            setSelectedMarkControlsVisible(false, null);
         }
     }
 
@@ -277,8 +476,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
             dragOffsetX = event.getX() - rect.getX();
             dragOffsetY = event.getY() - rect.getY();
             rect.setCursor(Cursor.MOVE);
-            if (rect.getUserData() instanceof Coordinate) {
-                presenter.startCoordinateMove((Coordinate) rect.getUserData());
+            if (rect.getUserData() instanceof CoordinateInfo) {
+                CoordinateInfo coordInfo = (CoordinateInfo) rect.getUserData();
+                presenter.startCoordinateMove(coordInfo.getCoordinate());
             } else if (rect.getUserData() instanceof ScannerMark) {
                 presenter.startScannerMarkMove((ScannerMark) rect.getUserData());
             }
@@ -312,22 +512,16 @@ public class TemplateCreatorController implements TemplateCreatorView {
                 Object userData = rect.getUserData();
                 double newX = rect.getX();
                 double newY = rect.getY();
-                if (userData instanceof Coordinate) {
-                    presenter.finishCoordinateMove((Coordinate) userData, (int) (newX + rect.getWidth() / 2), (int) (newY + rect.getHeight() / 2));
+                if (userData instanceof CoordinateInfo) {
+                    CoordinateInfo coordInfo = (CoordinateInfo) userData;
+                    presenter.finishCoordinateMove(coordInfo.getCoordinate(), (int) (newX + rect.getWidth() / 2), (int) (newY + rect.getHeight() / 2));
                 } else if (userData instanceof ScannerMark) {
                     presenter.finishScannerMarkMove((ScannerMark) userData, newX, newY);
                 }
             } else {
                 // Handle column/row selection when not dragging
-                System.out.println("Rectangle clicked (not dragged)");
-                System.out.println("columnRowSelectionMode: " + columnRowSelectionMode);
-                System.out.println("userData instanceof Coordinate: " + (rect.getUserData() instanceof Coordinate));
-                
-                if (columnRowSelectionMode && rect.getUserData() instanceof Coordinate) {
-                    System.out.println("Calling handleNumberSelection");
+                if (columnRowSelectionMode && rect.getUserData() instanceof CoordinateInfo) {
                     handleNumberSelection(rect);
-                } else {
-                    System.out.println("Not calling handleNumberSelection");
                 }
             }
             rect.setCursor(Cursor.DEFAULT);
@@ -342,101 +536,131 @@ public class TemplateCreatorController implements TemplateCreatorView {
 
     private void handleRectangleSelection(Rectangle rect) {
         unselectRectangle();
-        if (rect.getUserData() instanceof ScannerMark) {
+        Object userData = rect.getUserData();
+        
+        if (userData instanceof ScannerMark) {
             selectedRectangle = rect;
             selectedRectangle.setStroke(Color.RED);
-            ScannerMark mark = (ScannerMark) rect.getUserData();
+            ScannerMark mark = (ScannerMark) userData;
             setSelectedMarkDimensions(mark.getWidth(), mark.getHeight());
-            setSelectedMarkControlsVisible(true);
+            setSelectedMarkControlsVisible(true, "Scanner Mark #" + mark.getId());
+        } else if (userData instanceof CoordinateInfo) {
+            CoordinateInfo coordInfo = (CoordinateInfo) userData;
+            if ("QUICK_PICK".equals(coordInfo.getType()) || "GLOBAL_OPTION".equals(coordInfo.getType())) {
+                selectedRectangle = rect;
+                selectedRectangle.setStroke(Color.RED);
+                
+                // Get current dimensions from presenter
+                int[] dimensions = presenter.getMarkingDimensions(coordInfo);
+                setSelectedMarkDimensions(dimensions[0], dimensions[1]);
+                setSelectedMarkControlsVisible(true, coordInfo.getType());
+            }
         }
     }
 
     private void unselectRectangle() {
         if (selectedRectangle != null) {
-            if (selectedRectangle.getUserData() instanceof ScannerMark) {
+            Object userData = selectedRectangle.getUserData();
+            if (userData instanceof ScannerMark) {
                 selectedRectangle.setStroke(Color.BLUE);
+            } else if (userData instanceof CoordinateInfo) {
+                CoordinateInfo coordInfo = (CoordinateInfo) userData;
+                switch (coordInfo.getType()) {
+                    case "MAIN_NUMBER":
+                        selectedRectangle.setStroke(Color.BLACK);
+                        break;
+                    case "BONUS_NUMBER":
+                        selectedRectangle.setStroke(Color.GREEN);
+                        break;
+                    case "QUICK_PICK":
+                        selectedRectangle.setStroke(Color.ORANGE);
+                        break;
+                    case "GLOBAL_OPTION":
+                        selectedRectangle.setStroke(Color.PURPLE);
+                        break;
+                    default:
+                        selectedRectangle.setStroke(Color.BLACK);
+                        break;
+                }
             } else {
                 selectedRectangle.setStroke(Color.BLACK);
             }
         }
         selectedRectangle = null;
-        setSelectedMarkControlsVisible(false);
+        setSelectedMarkControlsVisible(false, null);
     }
 
     @Override
     public void drawRectangle(Coordinate coordinate, int width, int height) {
+        drawRectangleWithPanelInfo(coordinate, width, height, "MAIN_NUMBER", null);
+    }
+    
+    @Override
+    public void drawRectangle(Coordinate coordinate, int width, int height, String type) {
+        drawRectangleWithPanelInfo(coordinate, width, height, type, null);
+    }
+    
+    @Override
+    public void drawRectangle(Coordinate coordinate, int width, int height, String type, String panelId) {
+        drawRectangleWithPanelInfo(coordinate, width, height, type, panelId);
+    }
+    
+    /**
+     * Enhanced drawRectangle with panel information for better management
+     */
+    private void drawRectangleWithPanelInfo(Coordinate coordinate, int width, int height, String type, String panelId) {
         double x = coordinate.getX() - (double) width / 2;
         double y = coordinate.getY() - (double) height / 2;
         Rectangle rect = new Rectangle(x, y, width, height);
-        rect.setUserData(coordinate);
+        
+        // Create wrapper to store coordinate + metadata
+        CoordinateInfo coordInfo = new CoordinateInfo(coordinate, type, panelId);
+        rect.setUserData(coordInfo);
         rect.setFill(Color.TRANSPARENT);
-        rect.setStroke(Color.BLACK);
+        
+        // Set color based on type
+        Color strokeColor;
+        switch (type) {
+            case "MAIN_NUMBER":
+                strokeColor = Color.BLACK;
+                break;
+            case "BONUS_NUMBER":
+                strokeColor = Color.GREEN;
+                break;
+            case "QUICK_PICK":
+                strokeColor = Color.ORANGE;
+                break;
+            case "GLOBAL_OPTION":
+                strokeColor = Color.PURPLE;
+                break;
+            default:
+                strokeColor = Color.BLACK;
+                break;
+        }
+        
+        rect.setStroke(strokeColor);
         rect.setStrokeWidth(1);
         
-        // Add direct mouse event handlers for column/row selection
-        rect.setOnMousePressed(e -> {
-            String number = findNumberForCoordinate(coordinate);
-            System.out.println("Rectangle mouse pressed: " + number);
-            pressTarget = rect;
-            wasDragged = false;
-            if (rect instanceof Rectangle) {
-                handleRectangleSelection(rect);
-                dragOffsetX = e.getX() - rect.getX();
-                dragOffsetY = e.getY() - rect.getY();
-                rect.setCursor(Cursor.MOVE);
-                
-                // Initialize coordinate move for individual dragging
-                if (rect.getUserData() instanceof Coordinate) {
-                    presenter.startCoordinateMove((Coordinate) rect.getUserData());
-                }
-            }
-            e.consume();
-        });
-        
-        rect.setOnMouseDragged(e -> {
-            if (pressTarget instanceof Rectangle) {
-                wasDragged = true;
-                Rectangle targetRect = (Rectangle) pressTarget;
-                // Use pane-relative coordinates instead of scene coordinates
-                double newX = e.getX() - dragOffsetX;
-                double newY = e.getY() - dragOffsetY;
-                targetRect.setX(newX);
-                targetRect.setY(newY);
-            }
-            e.consume();
-        });
-        
-        rect.setOnMouseReleased(e -> {
-            String number = findNumberForCoordinate(coordinate);
-            System.out.println("Rectangle mouse released: " + number + ", wasDragged=" + wasDragged);
-            if (pressTarget instanceof Rectangle) {
-                Rectangle targetRect = (Rectangle) pressTarget;
-                if (!wasDragged) {
-                    // Handle column/row selection when not dragging
-                    System.out.println("Rectangle clicked (not dragged) - " + number);
-                    System.out.println("columnRowSelectionMode: " + columnRowSelectionMode);
-                    
-                    if (columnRowSelectionMode && targetRect.getUserData() instanceof Coordinate) {
-                        System.out.println("Calling handleNumberSelection for " + number);
-                        handleNumberSelection(targetRect);
-                    }
-                } else {
-                    // Handle drag completion
-                    Object userData = targetRect.getUserData();
-                    double newX = targetRect.getX();
-                    double newY = targetRect.getY();
-                    if (userData instanceof Coordinate) {
-                        presenter.finishCoordinateMove((Coordinate) userData, (int) (newX + targetRect.getWidth() / 2), (int) (newY + targetRect.getHeight() / 2));
-                    }
-                }
-                targetRect.setCursor(Cursor.DEFAULT);
-            }
-            pressTarget = null;
-            wasDragged = false;
-            e.consume();
-        });
-        
         drawingPane.getChildren().add(rect);
+    }
+    
+    /**
+     * Wrapper class to store coordinate information with metadata
+     */
+    public static class CoordinateInfo {
+        private final Coordinate coordinate;
+        private final String type;
+        private final String panelId;
+        
+        public CoordinateInfo(Coordinate coordinate, String type, String panelId) {
+            this.coordinate = coordinate;
+            this.type = type;
+            this.panelId = panelId;
+        }
+        
+        public Coordinate getCoordinate() { return coordinate; }
+        public String getType() { return type; }
+        public String getPanelId() { return panelId; }
     }
 
 
@@ -462,8 +686,25 @@ public class TemplateCreatorController implements TemplateCreatorView {
     }
 
     @Override
-    public void setSelectedMarkControlsVisible(boolean visible) {
+    public void setSelectedMarkControlsVisible(boolean visible, String markType) {
         selectedMarkControls.setVisible(visible);
+        if (visible && markType != null) {
+            if (markType.startsWith("Scanner Mark #")) {
+                selectedMarkTypeLabel.setText(markType + " Selected");
+            } else {
+                switch (markType) {
+                    case "QUICK_PICK":
+                        selectedMarkTypeLabel.setText("Quick Pick Selected");
+                        break;
+                    case "GLOBAL_OPTION":
+                        selectedMarkTypeLabel.setText("Global Option Selected");
+                        break;
+                    default:
+                        selectedMarkTypeLabel.setText(markType + " Selected");
+                        break;
+                }
+            }
+        }
     }
 
     @Override
@@ -475,6 +716,21 @@ public class TemplateCreatorController implements TemplateCreatorView {
     @Override
     public void setScannerMarkCount(int count) {
         scannerMarkCountLabel.setText("Scanner Marks: " + count);
+    }
+    
+    @Override
+    public void selectScannerMark(ScannerMark mark) {
+        // Find the rectangle that corresponds to this scanner mark and select it
+        for (Node node : drawingPane.getChildren()) {
+            if (node instanceof Rectangle) {
+                Rectangle rect = (Rectangle) node;
+                if (mark.equals(rect.getUserData())) {
+                    // Select this scanner mark rectangle
+                    handleRectangleSelection(rect);
+                    break;
+                }
+            }
+        }
     }
 
     @FXML
@@ -490,6 +746,10 @@ public class TemplateCreatorController implements TemplateCreatorView {
     @FXML
     private void loadTemplate() {
         presenter.loadTemplate();
+        // Refresh panel dropdown after loading, preferring completed panels
+        refreshPanelDropdown(true);
+        // Check if loaded panel has coordinates and enable column/row tuning
+        checkAndEnableColumnRowTuningForPanel();
     }
 
     @FXML
@@ -531,7 +791,89 @@ public class TemplateCreatorController implements TemplateCreatorView {
     }
 
     @FXML
-    private void clearLastMarking() { presenter.removeLastMarking(); }
+    private void clearLastMarking() { 
+        // Use undo stack to remove last marking of any type
+        presenter.removeLastMarking();
+        // Refresh panel dropdown quietly without triggering completion dialogs
+        refreshPanelDropdownQuietly();
+    }
+    
+    /**
+     * Refresh panel dropdown without showing completion dialogs
+     */
+    private void refreshPanelDropdownQuietly() {
+        String currentSelection = getSelectedPanel();
+        populatePanelComboBoxQuietly(false);
+        
+        // Try to maintain current selection
+        if (currentSelection != null) {
+            for (int i = 0; i < panelComboBox.getItems().size(); i++) {
+                String item = panelComboBox.getItems().get(i);
+                if (item.startsWith(currentSelection)) {
+                    panelComboBox.getSelectionModel().select(i);
+                    break;
+                }
+            }
+        }
+    }
+    
+    /**
+     * Populate panel dropdown without showing completion dialogs (for quiet operations)
+     */
+    private void populatePanelComboBoxQuietly(boolean preferCompletedPanel) {
+        List<String> allPanels = Arrays.asList("A", "B", "C", "D", "E");
+        List<String> availablePanels = new ArrayList<>();
+        String nextPanelToSelect = null;
+        String firstCompletedPanel = null;
+        
+        // Check which panels have coordinate mappings
+        for (String panelId : allPanels) {
+            Map<String, Coordinate> mainNumbers = presenter.getMainNumbersForPanel(panelId);
+            boolean hasCoordinates = mainNumbers != null && !mainNumbers.isEmpty();
+            
+            availablePanels.add(panelId + (hasCoordinates ? " ✓" : ""));
+            
+            // Find first completed panel for template loading preference
+            if (firstCompletedPanel == null && hasCoordinates) {
+                firstCompletedPanel = panelId + " ✓";
+            }
+            
+            // Find first panel without coordinates
+            if (nextPanelToSelect == null && !hasCoordinates) {
+                nextPanelToSelect = panelId + (hasCoordinates ? " ✓" : "");
+            }
+        }
+        
+        // Set panel items with status indicators
+        panelComboBox.setItems(FXCollections.observableArrayList(availablePanels));
+        
+        // Determine which panel to select (NO DIALOG SHOWN)
+        String panelToSelect;
+        if (preferCompletedPanel && firstCompletedPanel != null) {
+            panelToSelect = firstCompletedPanel;
+        } else if (nextPanelToSelect == null) {
+            // All panels complete - just select first panel WITHOUT showing dialog
+            panelComboBox.getSelectionModel().selectFirst();
+            return;
+        } else {
+            panelToSelect = nextPanelToSelect;
+        }
+        
+        panelComboBox.getSelectionModel().select(panelToSelect);
+    }
+    
+    /**
+     * Update the size of the currently selected scanner mark in real time
+     * ONLY updates the selected scanner mark - no bulk updates
+     */
+    private void updateSelectedScannerMarkSize(int width, int height) {
+        if (selectedRectangle != null && selectedRectangle.getUserData() instanceof ScannerMark) {
+            // Update ONLY the selected scanner mark using the presenter
+            presenter.updateScannerMarkSize((ScannerMark) selectedRectangle.getUserData(), width, height);
+        }
+        // REMOVED: No longer update all scanner marks - each mark has its own individual size
+        // Each scanner mark must be selected individually to be modified
+    }
 
     @FXML
     private void loadImage() { presenter.loadImage(); }
@@ -564,6 +906,23 @@ public class TemplateCreatorController implements TemplateCreatorView {
     public void clearAllRectangles() {
         drawingPane.getChildren().removeIf(node -> node instanceof Rectangle);
     }
+    
+    /**
+     * Clear rectangles that belong to a specific panel
+     */
+    @Override
+    public void clearPanelRectangles(String panelId) {
+        drawingPane.getChildren().removeIf(node -> {
+            if (node instanceof Rectangle) {
+                Object userData = ((Rectangle) node).getUserData();
+                if (userData instanceof CoordinateInfo) {
+                    CoordinateInfo coordInfo = (CoordinateInfo) userData;
+                    return panelId.equals(coordInfo.getPanelId());
+                }
+            }
+            return false;
+        });
+    }
 
     @Override
     public String getGameName() { return gameNameField.getText(); }
@@ -582,7 +941,16 @@ public class TemplateCreatorController implements TemplateCreatorView {
     public String getSelectedMappingMode() { return mappingModeComboBox.getValue(); }
 
     @Override
-    public String getSelectedPanel() { return panelComboBox.getValue(); }
+    public String getSelectedPanel() { 
+        String selectedValue = panelComboBox.getValue();
+        if (selectedValue == null) return null;
+        
+        // Extract just the panel ID (remove status indicator if present)
+        if (selectedValue.contains(" ✓")) {
+            return selectedValue.substring(0, selectedValue.indexOf(" ✓"));
+        }
+        return selectedValue;
+    }
 
     @Override
     public String getGlobalOptionName() { return globalOptionNameField.getText(); }
@@ -701,22 +1069,38 @@ public class TemplateCreatorController implements TemplateCreatorView {
     
     @FXML
     private void clearGrid() {
-        // Ask user if they want to clear all markings or just grid
+        String currentPanelId = getSelectedPanel();
+        
+        // Ask user if they want to clear current panel, all panels, or just grid
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Clear Grid");
         alert.setHeaderText("Choose what to clear:");
-        alert.setContentText("Do you want to clear everything (all markings, grid, scanner marks) or just the grid overlay?");
         
-        ButtonType clearAllButton = new ButtonType("Clear All");
+        String panelInfo = currentPanelId != null ? 
+            String.format(" (Panel %s has %d coordinates)", 
+                currentPanelId, 
+                getMainNumbersForPanel(currentPanelId).size()) : "";
+        
+        alert.setContentText(
+            "What would you like to clear?\n\n" +
+            "• Current Panel: Clear only Panel " + (currentPanelId != null ? currentPanelId : "?") + panelInfo + "\n" +
+            "• All Panels: Clear all markings from all panels (A-E)\n" +
+            "• Grid Only: Clear just the grid overlay"
+        );
+        
+        ButtonType clearCurrentPanelButton = new ButtonType("Current Panel Only");
+        ButtonType clearAllPanelsButton = new ButtonType("All Panels");
         ButtonType clearGridOnlyButton = new ButtonType("Grid Only");
         ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
         
-        alert.getButtonTypes().setAll(clearAllButton, clearGridOnlyButton, cancelButton);
+        alert.getButtonTypes().setAll(clearCurrentPanelButton, clearAllPanelsButton, clearGridOnlyButton, cancelButton);
         
         Optional<ButtonType> result = alert.showAndWait();
         
         if (result.isPresent()) {
-            if (result.get() == clearAllButton) {
+            if (result.get() == clearCurrentPanelButton) {
+                clearCurrentPanelMarkings();
+            } else if (result.get() == clearAllPanelsButton) {
                 clearAllDrawingsAndMarkings();
             } else if (result.get() == clearGridOnlyButton) {
                 clearGridOnly();
@@ -751,6 +1135,47 @@ public class TemplateCreatorController implements TemplateCreatorView {
         updateGridMappingStatus("Ready");
     }
     
+    /**
+     * Clear markings for the current panel only
+     */
+    private void clearCurrentPanelMarkings() {
+        String currentPanelId = getSelectedPanel();
+        if (currentPanelId == null) {
+            showError("No panel selected");
+            return;
+        }
+        
+        // Clear grid overlay
+        clearGridOnly();
+        
+        // Get current panel's coordinates to remove only those rectangles
+        Map<String, Coordinate> currentPanelNumbers = getMainNumbersForPanel(currentPanelId);
+        
+        // Remove only rectangles belonging to current panel
+        List<Node> rectanglesToRemove = new ArrayList<>();
+        for (Node node : drawingPane.getChildren()) {
+            if (node instanceof Rectangle && node.getUserData() instanceof CoordinateInfo) {
+                if (isRectangleInCurrentPanel((Rectangle) node)) {
+                    rectanglesToRemove.add(node);
+                }
+            }
+        }
+        drawingPane.getChildren().removeAll(rectanglesToRemove);
+        
+        // Clear preview rectangles (these are not panel-specific anyway)
+        clearPreviewRectangles();
+        
+        // Clear model data for current panel only via presenter
+        if (presenter != null) {
+            presenter.clearPanelMarkingsData(currentPanelId);
+        }
+        
+        // Refresh panel dropdown to update status indicators
+        refreshPanelDropdown();
+        
+        updateGridMappingStatus(String.format("Panel %s markings cleared", currentPanelId));
+    }
+    
     private void clearAllDrawingsAndMarkings() {
         // Clear grid first
         clearGridOnly();
@@ -764,6 +1189,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
             presenter.clearAllMarkingsData();
         }
         
+        // Refresh panel dropdown to update status indicators
+        refreshPanelDropdown();
+        
         updateGridMappingStatus("All drawings and markings cleared");
     }
     
@@ -773,26 +1201,93 @@ public class TemplateCreatorController implements TemplateCreatorView {
         
         // Enable column/row fine-tuning after auto-mapping
         enableColumnRowTuning();
+        
+        // Update status with completion info
+        updateGridStatusWithPanelInfo();
+        
+        // Refresh panel dropdown to update status indicators
+        refreshPanelDropdown();
     }
     
     private void enableColumnRowTuning() {
-        System.out.println("enableColumnRowTuning called");
-        System.out.println("columnRowTuningSection != null: " + (columnRowTuningSection != null));
-        
         if (columnRowTuningSection != null) {
             columnRowTuningSection.setVisible(true);
             columnRowTuningSection.setManaged(true);
             columnRowSelectionMode = true;
             
-            System.out.println("Column/Row tuning enabled. columnRowSelectionMode = " + columnRowSelectionMode);
-            
             // Ensure drawing pane can receive focus and keyboard events
             drawingPane.setFocusTraversable(true);
             drawingPane.requestFocus();
             
-            updateGridMappingStatus("Numbers auto-mapped! Click a number to select column/row, then use arrow keys to move.");
+            // Add additional event filtering to ensure keyboard events reach the handler
+            drawingPane.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, this::handleKeyPress);
+            
+            updateGridMappingStatus("Numbers auto-mapped! Click a number to select column/row, then use arrow keys to move (Shift+Arrow for larger steps).");
+        }
+    }
+    
+    /**
+     * Check if current panel has coordinates and enable column/row tuning if needed
+     */
+    private void checkAndEnableColumnRowTuningForPanel() {
+        String currentPanelId = getSelectedPanel();
+        if (currentPanelId == null) return;
+        
+        // Check if current panel has coordinates mapped
+        Map<String, Coordinate> mainNumbers = getMainNumbersForPanel(currentPanelId);
+        if (mainNumbers != null && !mainNumbers.isEmpty()) {
+            // Panel has coordinates - enable column/row tuning
+            if (columnRowTuningSection != null) {
+                columnRowTuningSection.setVisible(true);
+                columnRowTuningSection.setManaged(true);
+                columnRowSelectionMode = true;
+                
+                // Ensure drawing pane can receive focus and keyboard events
+                drawingPane.setFocusTraversable(true);
+                drawingPane.requestFocus();
+                
+                // Add additional event filtering to ensure keyboard events reach the handler
+                drawingPane.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, this::handleKeyPress);
+                
+                // Check if presenter has a valid grid for column/row operations
+                if (presenter.getCurrentGrid() != null && presenter.getCurrentGrid().isValid()) {
+                    updateGridMappingStatus("Panel " + currentPanelId + " loaded. Click a number to select column/row, then use arrow keys to move (Shift+Arrow for larger steps).");
+                } else {
+                    updateGridMappingStatus("Panel " + currentPanelId + " loaded but grid not available. Column/row editing may not work properly.");
+                    // Try to trigger grid reconstruction through panel change
+                    presenter.onPanelOrModeChanged();
+                }
+            }
         } else {
-            System.out.println("columnRowTuningSection is null!");
+            // Panel has no coordinates - disable column/row tuning but keep grid mapping available
+            if (columnRowTuningSection != null) {
+                columnRowTuningSection.setVisible(false);
+                columnRowTuningSection.setManaged(false);
+                columnRowSelectionMode = false;
+                clearColumnRowSelection();
+            }
+            
+            // Keep grid mapping controls visible if we have a saved grid configuration
+            // This allows the grid system to work on new panels
+            if (presenter.hasValidGridConfiguration()) {
+                updateGridMappingStatus("Ready for grid mapping on Panel " + currentPanelId + ". Grid configuration restored.");
+                // Enable the Define Grid button since we have a valid configuration
+                if (defineGridButton != null) {
+                    defineGridButton.setDisable(false);
+                }
+                // Show the grid configuration section
+                if (gridConfigSection != null) {
+                    gridConfigSection.setVisible(true);
+                    gridConfigSection.setManaged(true);
+                }
+                // Enable grid mode checkbox
+                if (useGridModeCheckBox != null && !useGridModeCheckBox.isSelected()) {
+                    useGridModeCheckBox.setSelected(true);
+                }
+            } else {
+                // No grid configuration available, but still allow manual grid setup
+                updateGridMappingStatus("Panel " + currentPanelId + " ready. Configure grid settings to enable auto-mapping.");
+            }
         }
     }
     
@@ -1268,7 +1763,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
         // Remove highlighting from all rectangles
         for (Rectangle rect : highlightedRectangles) {
             // Reset to original color based on type
-            if (rect.getUserData() instanceof Coordinate) {
+            if (rect.getUserData() instanceof CoordinateInfo) {
                 rect.setStroke(Color.BLACK);
                 rect.setStrokeWidth(1);
             }
@@ -1299,29 +1794,20 @@ public class TemplateCreatorController implements TemplateCreatorView {
      * Handle number selection for column/row mode
      */
     private void handleNumberSelection(Rectangle rectangle) {
-        System.out.println("handleNumberSelection called");
-        System.out.println("columnRowSelectionMode: " + columnRowSelectionMode);
-        System.out.println("currentGrid != null: " + (presenter.getCurrentGrid() != null));
-        
         if (!columnRowSelectionMode || presenter.getCurrentGrid() == null) {
-            System.out.println("Early return from handleNumberSelection");
             return;
         }
         
         // Get the coordinate and find the corresponding number
-        if (!(rectangle.getUserData() instanceof Coordinate)) {
-            System.out.println("Rectangle userData is not Coordinate: " + rectangle.getUserData());
+        if (!(rectangle.getUserData() instanceof CoordinateInfo)) {
             return;
         }
         
-        Coordinate coord = (Coordinate) rectangle.getUserData();
-        System.out.println("Found coordinate: " + coord.getX() + ", " + coord.getY());
-        
-        String numberString = findNumberForCoordinate(coord);
-        System.out.println("Found number string: " + numberString);
+        CoordinateInfo coordInfo = (CoordinateInfo) rectangle.getUserData();
+        Coordinate coord = coordInfo.getCoordinate();
+        String numberString = findNumberForCoordinate(coord, coordInfo.getPanelId());
         
         if (numberString == null) {
-            System.out.println("Number string is null - returning");
             return;
         }
         
@@ -1356,8 +1842,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
     /**
      * Find the number string that corresponds to a coordinate
      */
-    private String findNumberForCoordinate(Coordinate target) {
-        String panelId = presenter.getCurrentGrid() != null ? presenter.getCurrentGrid().getPanelId() : getSelectedPanel();
+    private String findNumberForCoordinate(Coordinate target, String panelId) {
         if (panelId == null) return null;
         
         // Check main numbers
@@ -1379,28 +1864,67 @@ public class TemplateCreatorController implements TemplateCreatorView {
         return presenter.getMainNumbersForPanel(panelId);
     }
     
+    /**
+     * Check if a rectangle belongs to the current selected panel
+     */
+    private boolean isRectangleInCurrentPanel(Rectangle rect) {
+        if (!(rect.getUserData() instanceof CoordinateInfo)) {
+            return false;
+        }
+        
+        String currentPanelId = getSelectedPanel();
+        if (currentPanelId == null) {
+            return false;
+        }
+        
+        CoordinateInfo coordInfo = (CoordinateInfo) rect.getUserData();
+        return currentPanelId.equals(coordInfo.getPanelId());
+    }
+    
     private void highlightColumn(int columnIndex) {
         if (columnIndex < 0 || presenter.getCurrentGrid() == null) return;
         
         GridDefinition grid = presenter.getCurrentGrid();
+        String currentPanelId = getSelectedPanel();
         
-        // Instead of finding by number, find rectangles by their position relative to the grid
-        double cellWidth = grid.getCellWidth() + grid.getHorizontalSpacing();
-        double gridLeft = grid.getAdjustedTopLeftX();
+        if (currentPanelId == null) {
+            return;
+        }
         
-        // Calculate the approximate X range for this column
-        double columnLeft = gridLeft + (columnIndex * cellWidth) - (cellWidth / 4); // Allow some tolerance
-        double columnRight = gridLeft + ((columnIndex + 1) * cellWidth) + (cellWidth / 4);
+        // Get all numbers in the specified column using GridCalculator
+        List<Integer> numbersInColumn = GridCalculator.getNumbersInColumn(columnIndex, grid);
+        Map<String, Coordinate> currentPanelNumbers = getMainNumbersForPanel(currentPanelId);
         
-        // Find all rectangles whose center X coordinate falls in this column's range
+        // Find rectangles that correspond to numbers in this column AND belong to current panel
         for (Node node : drawingPane.getChildren()) {
-            if (node instanceof Rectangle && node.getUserData() instanceof Coordinate) {
+            if (node instanceof Rectangle && node.getUserData() instanceof CoordinateInfo) {
                 Rectangle rect = (Rectangle) node;
-                Coordinate coord = (Coordinate) rect.getUserData();
                 
-                // Check if this rectangle's center X is in this column's range
-                double rectCenterX = coord.getX();
-                if (rectCenterX >= columnLeft && rectCenterX <= columnRight) {
+                // Only process rectangles that belong to the current panel
+                if (!isRectangleInCurrentPanel(rect)) {
+                    continue;
+                }
+                
+                CoordinateInfo coordInfo = (CoordinateInfo) rect.getUserData();
+                Coordinate coord = coordInfo.getCoordinate();
+                
+                // Check if this coordinate matches any number in the specified column
+                String matchedNumber = null;
+                for (Map.Entry<String, Coordinate> entry : currentPanelNumbers.entrySet()) {
+                    if (entry.getValue().getX() == coord.getX() && entry.getValue().getY() == coord.getY()) {
+                        try {
+                            int number = Integer.parseInt(entry.getKey());
+                            if (numbersInColumn.contains(number)) {
+                                matchedNumber = entry.getKey();
+                                break;
+                            }
+                        } catch (NumberFormatException e) {
+                            // Skip non-numeric keys
+                        }
+                    }
+                }
+                
+                if (matchedNumber != null) {
                     rect.setStroke(Color.ORANGE);
                     rect.setStrokeWidth(3);
                     highlightedRectangles.add(rect);
@@ -1408,32 +1932,52 @@ public class TemplateCreatorController implements TemplateCreatorView {
                 }
             }
         }
-        
-        System.out.println("Highlighted column " + columnIndex + " with " + selectedRectangles.size() + " rectangles");
     }
     
     private void highlightRow(int rowIndex) {
         if (rowIndex < 0 || presenter.getCurrentGrid() == null) return;
         
         GridDefinition grid = presenter.getCurrentGrid();
+        String currentPanelId = getSelectedPanel();
         
-        // Find rectangles by their Y position relative to the grid
-        double cellHeight = grid.getCellHeight() + grid.getVerticalSpacing();
-        double gridTop = grid.getAdjustedTopLeftY();
+        if (currentPanelId == null) {
+            return;
+        }
         
-        // Calculate the approximate Y range for this row
-        double rowTop = gridTop + (rowIndex * cellHeight) - (cellHeight / 4); // Allow some tolerance
-        double rowBottom = gridTop + ((rowIndex + 1) * cellHeight) + (cellHeight / 4);
+        // Get all numbers in the specified row using GridCalculator
+        List<Integer> numbersInRow = GridCalculator.getNumbersInRow(rowIndex, grid);
+        Map<String, Coordinate> currentPanelNumbers = getMainNumbersForPanel(currentPanelId);
         
-        // Find all rectangles whose center Y coordinate falls in this row's range
+        // Find rectangles that correspond to numbers in this row AND belong to current panel
         for (Node node : drawingPane.getChildren()) {
-            if (node instanceof Rectangle && node.getUserData() instanceof Coordinate) {
+            if (node instanceof Rectangle && node.getUserData() instanceof CoordinateInfo) {
                 Rectangle rect = (Rectangle) node;
-                Coordinate coord = (Coordinate) rect.getUserData();
                 
-                // Check if this rectangle's center Y is in this row's range
-                double rectCenterY = coord.getY();
-                if (rectCenterY >= rowTop && rectCenterY <= rowBottom) {
+                // Only process rectangles that belong to the current panel
+                if (!isRectangleInCurrentPanel(rect)) {
+                    continue;
+                }
+                
+                CoordinateInfo coordInfo = (CoordinateInfo) rect.getUserData();
+                Coordinate coord = coordInfo.getCoordinate();
+                
+                // Check if this coordinate matches any number in the specified row
+                String matchedNumber = null;
+                for (Map.Entry<String, Coordinate> entry : currentPanelNumbers.entrySet()) {
+                    if (entry.getValue().getX() == coord.getX() && entry.getValue().getY() == coord.getY()) {
+                        try {
+                            int number = Integer.parseInt(entry.getKey());
+                            if (numbersInRow.contains(number)) {
+                                matchedNumber = entry.getKey();
+                                break;
+                            }
+                        } catch (NumberFormatException e) {
+                            // Skip non-numeric keys
+                        }
+                    }
+                }
+                
+                if (matchedNumber != null) {
                     rect.setStroke(Color.LIME);
                     rect.setStrokeWidth(3);
                     highlightedRectangles.add(rect);
@@ -1441,8 +1985,6 @@ public class TemplateCreatorController implements TemplateCreatorView {
                 }
             }
         }
-        
-        System.out.println("Highlighted row " + rowIndex + " with " + selectedRectangles.size() + " rectangles");
     }
     
     /**
@@ -1458,8 +2000,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
         
         // Find rectangle with matching coordinate
         for (Node node : drawingPane.getChildren()) {
-            if (node instanceof Rectangle && node.getUserData() instanceof Coordinate) {
-                Coordinate coord = (Coordinate) node.getUserData();
+            if (node instanceof Rectangle && node.getUserData() instanceof CoordinateInfo) {
+                CoordinateInfo coordInfo = (CoordinateInfo) node.getUserData();
+                Coordinate coord = coordInfo.getCoordinate();
                 if (coord.getX() == targetCoord.getX() && coord.getY() == targetCoord.getY()) {
                     return (Rectangle) node;
                 }
@@ -1470,18 +2013,14 @@ public class TemplateCreatorController implements TemplateCreatorView {
     }
     
     private void handleKeyPress(javafx.scene.input.KeyEvent event) {
-        System.out.println("handleKeyPress called: " + event.getCode() + 
-                          ", columnRowSelectionMode=" + columnRowSelectionMode +
-                          ", selectedColumn=" + selectedColumn + ", selectedRow=" + selectedRow);
         
-        // Always consume arrow key events when in column/row mode to prevent scroll pane movement
+        // Handle both arrow keys and shift+arrow keys for column/row movement
         if (columnRowSelectionMode) {
             switch (event.getCode()) {
                 case LEFT:
                 case RIGHT:
                 case UP:
                 case DOWN:
-                    System.out.println("Consuming arrow key event: " + event.getCode());
                     event.consume(); // Consume first to prevent scrolling
                     break;
                 default:
@@ -1490,21 +2029,25 @@ public class TemplateCreatorController implements TemplateCreatorView {
             
             // Only proceed with movement if we have a selection
             if (selectedColumn < 0 && selectedRow < 0) {
-                System.out.println("No selection - returning early");
                 return;
             }
             
-            int stepSize = getAdjustmentStep();
+            // Use different step sizes for fine vs coarse adjustment
+            int stepSize = event.isShiftDown() ? getAdjustmentStep() * 5 : getAdjustmentStep();
             
             switch (event.getCode()) {
                 case LEFT:
                     if (isColumnMode && selectedColumn >= 0) {
                         moveColumn(-stepSize, 0);
+                    } else if (!isColumnMode && selectedRow >= 0) {
+                        moveRow(-stepSize, 0);
                     }
                     break;
                 case RIGHT:
                     if (isColumnMode && selectedColumn >= 0) {
                         moveColumn(stepSize, 0);
+                    } else if (!isColumnMode && selectedRow >= 0) {
+                        moveRow(stepSize, 0);
                     }
                     break;
                 case UP:
@@ -1526,11 +2069,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
     }
     
     private void moveColumn(int deltaX, int deltaY) {
-        System.out.println("moveColumn called: deltaX=" + deltaX + ", deltaY=" + deltaY + 
-                          ", selectedColumn=" + selectedColumn + ", rectangles=" + selectedRectangles.size());
-        
         if (selectedColumn < 0 || selectedRectangles.isEmpty()) {
-            System.out.println("moveColumn: Early return - no selection or empty rectangles");
             return;
         }
         
@@ -1538,8 +2077,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
         
         // Move all rectangles in selected column
         for (Rectangle rect : selectedRectangles) {
-            if (rect.getUserData() instanceof Coordinate) {
-                Coordinate coord = (Coordinate) rect.getUserData();
+            if (rect.getUserData() instanceof CoordinateInfo) {
+                CoordinateInfo coordInfo = (CoordinateInfo) rect.getUserData();
+                Coordinate coord = coordInfo.getCoordinate();
                 
                 // Store old position for undo
                 oldPositions.add(new Coordinate(coord.getX(), coord.getY()));
@@ -1561,8 +2101,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
             for (int i = 0; i < finalRectangles.size(); i++) {
                 Rectangle rect = finalRectangles.get(i);
                 Coordinate oldPos = finalOldPositions.get(i);
-                if (rect.getUserData() instanceof Coordinate && oldPos != null) {
-                    Coordinate coord = (Coordinate) rect.getUserData();
+                if (rect.getUserData() instanceof CoordinateInfo && oldPos != null) {
+                    CoordinateInfo coordInfo = (CoordinateInfo) rect.getUserData();
+                    Coordinate coord = coordInfo.getCoordinate();
                     coord.setX(oldPos.getX());
                     coord.setY(oldPos.getY());
                     rect.setX(oldPos.getX() - rect.getWidth() / 2);
@@ -1583,8 +2124,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
         
         // Move all rectangles in selected row
         for (Rectangle rect : selectedRectangles) {
-            if (rect.getUserData() instanceof Coordinate) {
-                Coordinate coord = (Coordinate) rect.getUserData();
+            if (rect.getUserData() instanceof CoordinateInfo) {
+                CoordinateInfo coordInfo = (CoordinateInfo) rect.getUserData();
+                Coordinate coord = coordInfo.getCoordinate();
                 
                 // Store old position for undo
                 oldPositions.add(new Coordinate(coord.getX(), coord.getY()));
@@ -1606,8 +2148,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
             for (int i = 0; i < finalRectangles.size(); i++) {
                 Rectangle rect = finalRectangles.get(i);
                 Coordinate oldPos = finalOldPositions.get(i);
-                if (rect.getUserData() instanceof Coordinate && oldPos != null) {
-                    Coordinate coord = (Coordinate) rect.getUserData();
+                if (rect.getUserData() instanceof CoordinateInfo && oldPos != null) {
+                    CoordinateInfo coordInfo = (CoordinateInfo) rect.getUserData();
+                    Coordinate coord = coordInfo.getCoordinate();
                     coord.setX(oldPos.getX());
                     coord.setY(oldPos.getY());
                     rect.setX(oldPos.getX() - rect.getWidth() / 2);
