@@ -18,4 +18,23 @@ public class BetslipTemplate {
     private List<PlayPanel> playPanels;
     private Map<String, Coordinate> globalOptions;
     private List<ScannerMark> scannerMarks;
+    private GridConfiguration gridConfig; // Grid settings for this template
+    
+    // Constructor for backward compatibility (without gridConfig)
+    public BetslipTemplate(String gameName, String jurisdiction, String imagePath, Mark mark,
+                          List<PlayPanel> playPanels, Map<String, Coordinate> globalOptions,
+                          List<ScannerMark> scannerMarks) {
+        this.gameName = gameName;
+        this.jurisdiction = jurisdiction;
+        this.imagePath = imagePath;
+        this.mark = mark;
+        this.playPanels = playPanels;
+        this.globalOptions = globalOptions;
+        this.scannerMarks = scannerMarks;
+        this.gridConfig = null; // No grid config in old format
+    }
+    
+    // Getter and setter for gridConfig (Lombok will generate the others)
+    public GridConfiguration getGridConfig() { return gridConfig; }
+    public void setGridConfig(GridConfiguration gridConfig) { this.gridConfig = gridConfig; }
 }

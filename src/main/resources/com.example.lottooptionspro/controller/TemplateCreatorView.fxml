@@ -2,11 +2,16 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.Spinner?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.control.ToggleGroup?>
 <?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.BorderPane?>
@@ -27,6 +32,11 @@
                   <TextField fx:id="jurisdictionField" />
                   <Button onAction="#loadImage" text="Load Image" />
                   <Button onAction="#loadTemplate" text="Load Template" />
+                  <Label text="Zoom:" />
+                  <Button fx:id="zoomOutButton" onAction="#zoomOut" text="-" prefWidth="25.0" />
+                  <Label fx:id="zoomLabel" text="100%" prefWidth="35.0" style="-fx-alignment: center;" />
+                  <Button fx:id="zoomInButton" onAction="#zoomIn" text="+" prefWidth="25.0" />
+                  <Button fx:id="resetZoomButton" onAction="#resetZoom" text="Fit" prefWidth="35.0" />
                </children>
                <padding>
                   <Insets left="10.0" right="10.0" />
@@ -46,7 +56,9 @@
             </ScrollPane>
          </center>
          <right>
-            <VBox alignment="TOP_CENTER" prefWidth="200.0" spacing="10.0" styleClass="side-panel" BorderPane.alignment="CENTER">
+            <ScrollPane fitToWidth="true" prefWidth="220.0" BorderPane.alignment="CENTER">
+               <content>
+                  <VBox alignment="TOP_CENTER" prefWidth="200.0" spacing="10.0" styleClass="side-panel">
                <children>
                   <Label text="Mark Width:" />
                   <Spinner fx:id="markWidthSpinner" />
@@ -56,10 +68,111 @@
                   <ComboBox fx:id="panelComboBox" prefWidth="150.0" />
                   <Label text="Mapping Mode:" />
                   <ComboBox fx:id="mappingModeComboBox" prefWidth="150.0" />
-                  <Label text="Next Number:" />
-                  <TextField fx:id="nextNumberField" />
                   <Label fx:id="globalOptionNameLabel" text="Global Option Name:" />
                   <TextField fx:id="globalOptionNameField" />
+                  
+                  <!-- Grid Mapping Section -->
+                  <Separator />
+                  <VBox fx:id="gridMappingSection" spacing="3.0" visible="true" managed="true">
+                     <children>
+                        <Label text="Grid Mapping" style="-fx-font-weight: bold; -fx-font-size: 11px;" />
+                        <CheckBox fx:id="useGridModeCheckBox" text="Use Grid Mode" style="-fx-font-size: 10px;" />
+                        
+                        <VBox fx:id="gridConfigSection" spacing="3.0" visible="true">
+                           <children>
+                              <Label text="Range:" style="-fx-font-size: 10px;" />
+                              <TextField fx:id="gridRangeField" promptText="1-35" prefHeight="20.0" />
+                              
+                              <VBox spacing="2.0">
+                                 <children>
+                                    <Label text="Columns:" style="-fx-font-size: 10px;" />
+                                    <Spinner fx:id="gridColumnsSpinner" prefWidth="70.0" prefHeight="25.0" editable="true" />
+                                    <Label text="Rows:" style="-fx-font-size: 10px;" />
+                                    <Spinner fx:id="gridRowsSpinner" prefWidth="70.0" prefHeight="25.0" editable="true" />
+                                 </children>
+                              </VBox>
+                              
+                              <Label text="Fill Order:" style="-fx-font-size: 10px;" />
+                              <VBox spacing="1.0">
+                                 <children>
+                                    <RadioButton fx:id="columnBottomTopRadio" text="Col (bot→top)" selected="true" style="-fx-font-size: 9px;">
+                                       <toggleGroup>
+                                          <ToggleGroup fx:id="fillOrderGroup" />
+                                       </toggleGroup>
+                                    </RadioButton>
+                                    <RadioButton fx:id="columnTopBottomRadio" text="Col (top→bot)" toggleGroup="$fillOrderGroup" style="-fx-font-size: 9px;" />
+                                    <RadioButton fx:id="rowLeftRightRadio" text="Row (L→R)" toggleGroup="$fillOrderGroup" style="-fx-font-size: 9px;" />
+                                    <RadioButton fx:id="rowRightLeftRadio" text="Row (R→L)" toggleGroup="$fillOrderGroup" style="-fx-font-size: 9px;" />
+                                 </children>
+                              </VBox>
+                              
+                              <HBox spacing="3.0">
+                                 <children>
+                                    <Button fx:id="defineGridButton" text="Define Grid" onAction="#startGridDefinition" prefHeight="25.0" style="-fx-font-size: 10px;" />
+                                    <Button fx:id="clearGridButton" text="Clear" onAction="#clearGrid" visible="false" prefHeight="25.0" style="-fx-font-size: 10px;" />
+                                 </children>
+                              </HBox>
+                              
+                              <!-- Grid Fine-Tuning Controls -->
+                              <VBox fx:id="gridAdjustmentSection" spacing="2.0" visible="false" managed="false">
+                                 <children>
+                                    <Label text="Fine-Tune Grid:" style="-fx-font-weight: bold; -fx-font-size: 10px;" />
+                                    <HBox spacing="2.0" alignment="CENTER" prefHeight="65.0">
+                                       <children>
+                                          <Button fx:id="moveLeftButton" text="◄" onAction="#moveGridLeft" prefWidth="35.0" prefHeight="28.0" styleClass="nav-button" />
+                                          <VBox spacing="3.0" alignment="CENTER" prefHeight="65.0">
+                                             <children>
+                                                <Button fx:id="moveUpButton" text="▲" onAction="#moveGridUp" prefWidth="35.0" prefHeight="28.0" styleClass="nav-button" />
+                                                <Button fx:id="moveDownButton" text="▼" onAction="#moveGridDown" prefWidth="35.0" prefHeight="28.0" styleClass="nav-button" />
+                                             </children>
+                                          </VBox>
+                                          <Button fx:id="moveRightButton" text="►" onAction="#moveGridRight" prefWidth="35.0" prefHeight="28.0" styleClass="nav-button" />
+                                       </children>
+                                    </HBox>
+                                    <HBox spacing="3.0">
+                                       <children>
+                                          <Label text="Step:" style="-fx-font-size: 11px; -fx-font-weight: bold;" />
+                                          <Spinner fx:id="adjustmentStepSpinner" prefWidth="60.0" prefHeight="23.0" editable="true" style="-fx-font-size: 11px;" />
+                                          <Label text="px" style="-fx-font-size: 11px;" />
+                                       </children>
+                                    </HBox>
+                                    <HBox spacing="2.0">
+                                       <children>
+                                          <Button fx:id="expandButton" text="Expand" onAction="#expandGrid" prefHeight="20.0" style="-fx-font-size: 9px;" />
+                                          <Button fx:id="shrinkButton" text="Shrink" onAction="#shrinkGrid" prefHeight="20.0" style="-fx-font-size: 9px;" />
+                                       </children>
+                                    </HBox>
+                                    <Button fx:id="resetGridButton" text="Reset Grid" onAction="#resetGridPosition" prefHeight="20.0" style="-fx-font-size: 9px;" />
+                                    <Button fx:id="refineGridButton" text="Refine Grid" onAction="#refineGrid" prefHeight="20.0" style="-fx-font-size: 9px; -fx-background-color: #4CAF50; -fx-text-fill: white;" />
+                                 </children>
+                              </VBox>
+                              
+                              
+                              <!-- Column/Row Fine-Tuning -->
+                              <VBox fx:id="columnRowTuningSection" spacing="4.0" visible="false" managed="false">
+                                 <children>
+                                    <Label text="Column/Row Tuning:" style="-fx-font-weight: bold; -fx-font-size: 10px;" />
+                                    <HBox spacing="3.0" alignment="CENTER_LEFT">
+                                       <children>
+                                          <ToggleButton fx:id="columnModeButton" text="Column" onAction="#toggleColumnMode" prefHeight="22.0" style="-fx-font-size: 9px;" selected="true" />
+                                          <ToggleButton fx:id="rowModeButton" text="Row" onAction="#toggleRowMode" prefHeight="22.0" style="-fx-font-size: 9px;" />
+                                          <Button fx:id="clearSelectionButton" text="Clear" onAction="#clearColumnRowSelection" prefHeight="22.0" style="-fx-font-size: 9px;" />
+                                       </children>
+                                    </HBox>
+                                    <Label fx:id="selectionStatusLabel" text="Click a number to select its column/row" style="-fx-font-size: 9px; -fx-text-fill: #666;" />
+                                 </children>
+                              </VBox>
+                              
+                              <Button fx:id="autoMapButton" text="Auto-Map All" onAction="#autoMapNumbers" visible="false" prefHeight="25.0" style="-fx-font-size: 10px;" />
+                              
+                              <Label fx:id="gridStatusLabel" text="Ready" style="-fx-text-fill: #666; -fx-font-size: 9px;" wrapText="true" />
+                              
+                              <Button fx:id="gridHelpButton" text="?" onAction="#showGridHelp" prefWidth="25.0" prefHeight="20.0" style="-fx-font-size: 10px;" />
+                           </children>
+                        </VBox>
+                     </children>
+                  </VBox>
+                  <Separator />
                   <VBox fx:id="selectedMarkControls" alignment="TOP_CENTER" spacing="10.0" visible="false">
                      <children>
                         <Label text="Selected Mark Width:" />
@@ -71,10 +184,12 @@
                   <Label fx:id="scannerMarkCountLabel" text="Scanner Marks: 0" />
                   <Button onAction="#clearLastMarking" text="Clear Last Marking" />
                </children>
-               <padding>
-                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
-               </padding>
-            </VBox>
+                     <padding>
+                        <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                     </padding>
+                  </VBox>
+               </content>
+            </ScrollPane>
          </right>
          <bottom>
             <HBox alignment="CENTER_RIGHT" prefHeight="50.0" prefWidth="200.0" spacing="10.0" styleClass="bottom-bar" BorderPane.alignment="CENTER">

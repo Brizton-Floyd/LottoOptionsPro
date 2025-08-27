@@ -1,6 +1,8 @@
 package com.example.lottooptionspro.presenter;
 
 import com.example.lottooptionspro.models.Coordinate;
+import com.example.lottooptionspro.models.GridDefinition;
+import com.example.lottooptionspro.models.GridMappingMode;
 import com.example.lottooptionspro.models.ScannerMark;
 
 import java.io.File;
@@ -21,8 +23,6 @@ public interface TemplateCreatorView {
     String getJurisdiction();
     void setGameName(String name);
     void setJurisdiction(String name);
-    String getNextNumber();
-    void setNextNumber(String number);
     String getSelectedMappingMode();
     String getSelectedPanel();
     String getGlobalOptionName();
@@ -33,4 +33,26 @@ public interface TemplateCreatorView {
     void setSelectedMarkDimensions(double width, double height);
     void setScannerMarkCount(int count);
     void updateScannerMarkRectangle(ScannerMark mark, double width, double height);
+    
+    // Grid mapping methods
+    void setGridMappingControlsVisible(boolean visible);
+    void setGridMappingMode(GridMappingMode mode);
+    void showGridCornerMarker(double x, double y, boolean isFirst);
+    void showGridOverlay(GridDefinition grid);
+    void clearGridVisuals();
+    void updateGridMappingStatus(String status);
+    String getGridNumberRange();
+    int getGridColumns();
+    int getGridRows();
+    String getGridFillOrder();
+    boolean isGridModeEnabled();
+    void showGridPreview(GridDefinition grid);
+    boolean confirmGridMapping(String message);
+    void setGridMappingProgress(int current, int total);
+    
+    // Grid configuration setters (for auto-population)
+    void setGridNumberRange(String range);
+    void setGridColumns(int columns);
+    void setGridRows(int rows);
+    void setGridFillOrder(String fillOrder);
 }
