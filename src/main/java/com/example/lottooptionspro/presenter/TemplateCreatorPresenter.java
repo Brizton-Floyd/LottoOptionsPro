@@ -42,6 +42,21 @@ public class TemplateCreatorPresenter {
         // Initialize new scanner mark size from current model defaults
         this.newScannerMarkWidth = this.model.getMark().getWidth();
         this.newScannerMarkHeight = this.model.getMark().getHeight();
+        
+        // Only renumber Scanner Marks if they exist and have inconsistent IDs
+        if (this.model.getScannerMarks() != null && !this.model.getScannerMarks().isEmpty()) {
+            boolean needsRenumbering = false;
+            for (int i = 0; i < this.model.getScannerMarks().size(); i++) {
+                if (this.model.getScannerMarks().get(i).getId() != i + 1) {
+                    needsRenumbering = true;
+                    break;
+                }
+            }
+            if (needsRenumbering) {
+                System.out.println("Renumbering Scanner Marks during initialization due to inconsistent IDs");
+                renumberScannerMarks();
+            }
+        }
     }
 
     public void onPanelOrModeChanged() {
@@ -75,22 +90,45 @@ public class TemplateCreatorPresenter {
         if (model != null) {
             // Try grid config first, then fall back to coordinate inference
             boolean hasGridConfig = model.getGridConfig() != null && model.getGridConfig().isValid();
+            
+            // Debug: Print grid config details
+            if (model.getGridConfig() != null) {
+                GridConfiguration config = model.getGridConfig();
+                System.out.println("DEBUG: Grid config found - Range: " + config.getNumberRange() + 
+                    ", Columns: " + config.getColumns() + 
+                    ", Rows: " + config.getRows() + 
+                    ", FillOrder: " + config.getFillOrder() + 
+                    ", Valid: " + config.isValid());
+            } else {
+                System.out.println("DEBUG: No grid config found in model");
+            }
             PlayPanel currentPanel = getOrCreatePlayPanel(currentPanelId);
             
             // If current panel has coordinates, reconstruct grid from coordinates
             if (currentPanel.getMainNumbers() != null && !currentPanel.getMainNumbers().isEmpty()) {
                 
-                // First try to reconstruct from saved grid config if available
-                if (currentGrid == null && hasGridConfig) {
+                // ALWAYS try to reconstruct from saved grid config first if available
+                if (hasGridConfig) {
+                    // Clear current grid to force reconstruction from saved config
+                    currentGrid = null;
                     reconstructGridDefinitionFromData();
+                    
+                    if (currentGrid != null) {
+                        System.out.println("Reconstructed grid from saved config for panel " + currentPanelId + ": " + 
+                            currentGrid.getColumns() + "x" + currentGrid.getRows());
+                    }
                 }
                 
-                // If still no grid, try to create one from saved grid config or coordinate analysis
+                // If no saved config or reconstruction failed, try coordinate inference as fallback
                 if (currentGrid == null) {
+                    System.out.println("DEBUG: Saved config reconstruction failed, trying fallback methods...");
                     currentGrid = createGridFromExistingData(currentPanel, currentPanelId);
                     if (currentGrid != null) {
-                        System.out.println("Created grid for panel " + currentPanelId + ": " + 
+                        System.out.println("Created grid via fallback method for panel " + currentPanelId + ": " + 
                             currentGrid.getColumns() + "x" + currentGrid.getRows());
+                    } else {
+                        System.out.println("FAILED: Could not create grid for panel " + currentPanelId + 
+                            " - saved config invalid and coordinate inference failed");
                     }
                 }
                 
@@ -204,22 +242,73 @@ public class TemplateCreatorPresenter {
     }
     
     private void captureGridConfiguration() {
-        // Only save grid config if the user has configured it
-        if (view.isGridModeEnabled()) {
-            String numberRange = view.getGridNumberRange();
-            int columns = view.getGridColumns();
-            int rows = view.getGridRows();
-            String fillOrder = view.getGridFillOrder();
-            
-            // Only save if we have valid configuration
-            if (numberRange != null && !numberRange.trim().isEmpty() && columns > 0 && rows > 0) {
-                GridConfiguration gridConfig = new GridConfiguration(numberRange, columns, rows, fillOrder);
-                model.setGridConfig(gridConfig);
-            }
-        } else {
-            // Grid mode is disabled, don't save any grid config
-            model.setGridConfig(null);
+        // First priority: Try to save grid config from UI fields (whether grid mode is enabled or not)
+        String numberRange = view.getGridNumberRange();
+        int columns = view.getGridColumns();
+        int rows = view.getGridRows();
+        String fillOrder = view.getGridFillOrder();
+        
+        // Save if we have valid configuration in the UI fields
+        if (numberRange != null && !numberRange.trim().isEmpty() && columns > 0 && rows > 0) {
+            GridConfiguration gridConfig = new GridConfiguration(numberRange, columns, rows, fillOrder);
+            model.setGridConfig(gridConfig);
+            String source = view.isGridModeEnabled() ? "grid mode" : "UI fields";
+            System.out.println("Saved grid config from " + source + ": " + columns + "x" + rows + " range " + numberRange);
+            return;
         }
+        
+        // Second priority: Try to infer and save grid config from coordinate patterns (if coordinates exist)
+        // This ensures templates created manually will have grid config for future loading
+        GridConfiguration inferredConfig = inferGridConfigurationFromCoordinates();
+        if (inferredConfig != null) {
+            model.setGridConfig(inferredConfig);
+            System.out.println("Inferred and saved grid config: " + inferredConfig.getColumns() + "x" + 
+                inferredConfig.getRows() + " range " + inferredConfig.getNumberRange());
+        } else {
+            // No grid configuration available - don't save any grid config
+            model.setGridConfig(null);
+            System.out.println("No grid configuration available to save");
+        }
+    }
+    
+    /**
+     * Infer grid configuration from existing coordinate patterns for saving
+     */
+    private GridConfiguration inferGridConfigurationFromCoordinates() {
+        if (model == null || model.getPlayPanels() == null || model.getPlayPanels().isEmpty()) {
+            return null;
+        }
+        
+        // Find the first panel with sufficient coordinates
+        for (PlayPanel panel : model.getPlayPanels()) {
+            if (panel.getMainNumbers() != null && panel.getMainNumbers().size() >= 10) {
+                Map<String, Coordinate> mainNumbers = panel.getMainNumbers();
+                
+                try {
+                    // Determine number range
+                    int minNumber = mainNumbers.keySet().stream()
+                        .filter(key -> key.matches("\\d+"))
+                        .mapToInt(Integer::parseInt)
+                        .min().orElse(1);
+                    int maxNumber = mainNumbers.keySet().stream()
+                        .filter(key -> key.matches("\\d+"))
+                        .mapToInt(Integer::parseInt)
+                        .max().orElse(35);
+                    
+                    // Analyze grid structure from coordinate patterns
+                    GridConfig gridStructure = analyzeExistingCoordinates(mainNumbers, minNumber, maxNumber);
+                    if (gridStructure != null) {
+                        String numberRange = minNumber + "-" + maxNumber;
+                        return new GridConfiguration(numberRange, gridStructure.columns, gridStructure.rows, gridStructure.fillOrder);
+                    }
+                    
+                } catch (Exception e) {
+                    System.err.println("Error inferring grid config for save: " + e.getMessage());
+                }
+            }
+        }
+        
+        return null;
     }
 
     public void loadTemplate() {
@@ -332,7 +421,7 @@ public class TemplateCreatorPresenter {
             return;
         }
         
-        // Use saved grid config if available
+        // ALWAYS prioritize saved grid config if available - don't fall back to coordinate inference
         if (model.getGridConfig() != null && model.getGridConfig().isValid()) {
             GridConfiguration config = model.getGridConfig();
             
@@ -362,41 +451,42 @@ public class TemplateCreatorPresenter {
                     currentGrid = new GridDefinition(
                         minX - padding, minY - padding,
                         maxX + padding, maxY + padding,
-                        config.getColumns(), config.getRows(),
+                        config.getColumns(), config.getRows(), // ALWAYS use saved config dimensions
                         startNumber, endNumber,
                         FillOrder.valueOf(config.getFillOrder()),
                         targetPanelId // Use the panel that actually has coordinates
                     );
                     
-                    System.out.println("Successfully reconstructed grid: " + 
+                    System.out.println("Successfully reconstructed grid from SAVED CONFIG: " + 
                         config.getColumns() + "x" + config.getRows() + 
                         " for panel " + targetPanelId + 
                         " with " + targetPanel.getMainNumbers().size() + " coordinates");
+                    return; // Successfully used saved config - don't try coordinate inference
                         
                 } catch (Exception e) {
-                    System.err.println("Grid reconstruction failed: " + e.getMessage());
+                    System.err.println("Grid reconstruction from saved config failed: " + e.getMessage());
                     e.printStackTrace();
-                    currentGrid = null;
+                    // Don't set currentGrid to null here - still try coordinate inference as final fallback
                 }
             }
-        } else {
-            // No grid config available, try to infer grid structure from coordinates
-            // This is a fallback for older templates that don't have grid config
-            System.out.println("No saved grid config found. Attempting to infer grid from coordinate patterns...");
-            
-            if (targetPanel != null) {
-                GridDefinition inferredGrid = inferGridFromCoordinates(targetPanel, targetPanelId);
-                if (inferredGrid != null && inferredGrid.isValid()) {
-                    currentGrid = inferredGrid;
-                    System.out.println("Successfully inferred grid: " + inferredGrid.getColumns() + "x" + inferredGrid.getRows() + " for panel " + targetPanelId);
-                } else {
-                    System.out.println("Failed to infer grid from coordinate patterns - column/row fine-tuning will not be available");
-                    currentGrid = null;
-                }
+        }
+        
+        // Only try coordinate inference if saved config is not available or failed to parse
+        // This is a fallback for older templates that don't have grid config
+        System.out.println("No saved grid config found or config failed. Attempting to infer grid from coordinate patterns as fallback...");
+        
+        if (targetPanel != null) {
+            GridDefinition inferredGrid = inferGridFromCoordinates(targetPanel, targetPanelId);
+            if (inferredGrid != null && inferredGrid.isValid()) {
+                currentGrid = inferredGrid;
+                System.out.println("Successfully inferred grid as FALLBACK: " + inferredGrid.getColumns() + "x" + inferredGrid.getRows() + " for panel " + targetPanelId);
             } else {
-                System.out.println("No panels with coordinates found - column/row fine-tuning will not be available");
+                System.out.println("Failed to infer grid from coordinate patterns - column/row fine-tuning will not be available");
                 currentGrid = null;
             }
+        } else {
+            System.out.println("No panels with coordinates found - column/row fine-tuning will not be available");
+            currentGrid = null;
         }
     }
     
@@ -406,10 +496,17 @@ public class TemplateCreatorPresenter {
     private GridDefinition createGridFromExistingData(PlayPanel panel, String panelId) {
         // First priority: Use saved grid configuration if available
         if (model.getGridConfig() != null && model.getGridConfig().isValid()) {
-            return createGridFromSavedConfig(panel, panelId);
+            GridDefinition gridFromConfig = createGridFromSavedConfig(panel, panelId);
+            if (gridFromConfig != null) {
+                System.out.println("Using SAVED grid config: " + 
+                    model.getGridConfig().getColumns() + "x" + model.getGridConfig().getRows() + 
+                    " for panel " + panelId);
+                return gridFromConfig;
+            }
         }
         
         // Second priority: Try to infer from coordinate patterns (fallback for old templates)
+        System.out.println("Falling back to coordinate inference for panel " + panelId);
         return inferGridFromCoordinates(panel, panelId);
     }
     
@@ -504,7 +601,9 @@ public class TemplateCreatorPresenter {
             
             if (Math.abs(gridCells - totalNumbers) > totalNumbers * 0.2) {
                 // Grid structure doesn't match well
-                System.out.println("Inferred grid " + inferredColumns + "x" + inferredRows + " doesn't match " + totalNumbers + " numbers");
+                System.out.println("WARNING: Inferred grid " + inferredColumns + "x" + inferredRows + 
+                    " doesn't match " + totalNumbers + " numbers well (" + mainNumbers.size() + " coordinates available). " +
+                    "This suggests saved grid config should be used instead of coordinate inference.");
                 return null;
             }
             
@@ -636,26 +735,52 @@ public class TemplateCreatorPresenter {
             // Analyze the grid structure
             int columns = coordinatesByX.size();
             int rows = coordinatesByY.size();
-            
-            // Validate the grid makes sense
             int totalNumbers = maxNumber - minNumber + 1;
             int expectedCells = columns * rows;
             
-            // Allow for some flexibility - grid might be partially filled or have extras
+            System.out.println("Grid analysis: Found " + columns + " unique X positions, " + rows + " unique Y positions");
+            System.out.println("Grid analysis: Expected " + totalNumbers + " numbers (" + minNumber + "-" + maxNumber + "), calculated grid " + columns + "x" + rows + "=" + expectedCells + " cells");
+            
+            // For texas-lottotexas case: 54 numbers should be 9x6, not 20x15
+            // The inference might be wrong due to slight coordinate variations
+            // Let's try to detect the correct grid size for common lottery formats
+            
+            // First check if this matches common lottery patterns
+            GridConfig knownPattern = detectKnownLotteryPattern(totalNumbers, coordinates);
+            if (knownPattern != null) {
+                System.out.println("Detected known lottery pattern: " + knownPattern.columns + "x" + knownPattern.rows);
+                return knownPattern;
+            }
+            
+            // Validate the inferred grid makes sense
             if (Math.abs(expectedCells - totalNumbers) > totalNumbers * 0.3) {
-                System.out.println("Grid analysis: cell count (" + expectedCells + ") doesn't match number count (" + totalNumbers + ")");
+                System.out.println("Grid analysis: cell count (" + expectedCells + ") doesn't match number count (" + totalNumbers + ") well - difference too large");
+                
+                // Try to find a better grid size that matches the number count
+                GridConfig betterGrid = findBetterGridSize(totalNumbers, coordinatesByX, coordinatesByY);
+                if (betterGrid != null) {
+                    System.out.println("Found better grid size: " + betterGrid.columns + "x" + betterGrid.rows);
+                    return betterGrid;
+                }
+                
                 return null; // Grid structure doesn't match the data well
             }
             
             // Check if coordinates are reasonably distributed across grid positions
             boolean wellDistributed = coordinatesByX.values().stream()
-                .allMatch(list -> list.size() >= Math.max(1, rows * 0.3)) && // Each column has at least 30% of expected numbers
+                .allMatch(list -> list.size() >= Math.max(1, rows * 0.2)) && // Each column has at least 20% of expected numbers (more lenient)
                 coordinatesByY.values().stream()
-                .allMatch(list -> list.size() >= Math.max(1, columns * 0.3)); // Each row has at least 30% of expected numbers
+                .allMatch(list -> list.size() >= Math.max(1, columns * 0.2)); // Each row has at least 20% of expected numbers (more lenient)
             
             if (!wellDistributed) {
                 System.out.println("Grid analysis: coordinates not well distributed across grid");
-                return null; // Coordinates don't seem to follow a regular grid pattern
+                // Still try to provide a reasonable grid size even if distribution is poor
+                GridConfig reasonableGrid = findReasonableGridSize(totalNumbers);
+                if (reasonableGrid != null) {
+                    System.out.println("Using reasonable grid size fallback: " + reasonableGrid.columns + "x" + reasonableGrid.rows);
+                    return reasonableGrid;
+                }
+                return null;
             }
             
             // Analyze the fill pattern by looking at the arrangement
@@ -668,6 +793,68 @@ public class TemplateCreatorPresenter {
             System.err.println("Error analyzing coordinates: " + e.getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Detect known lottery patterns based on total numbers
+     */
+    private GridConfig detectKnownLotteryPattern(int totalNumbers, Map<String, Coordinate> coordinates) {
+        switch (totalNumbers) {
+            case 35: // Cash Five
+                return new GridConfig(7, 5, "COLUMN_BOTTOM_TO_TOP");
+            case 54: // Lotto Texas
+                return new GridConfig(9, 6, "COLUMN_BOTTOM_TO_TOP");
+            case 69: // Powerball main numbers
+                return new GridConfig(10, 7, "ROW_LEFT_TO_RIGHT");
+            case 70: // Mega Millions
+                return new GridConfig(10, 7, "ROW_LEFT_TO_RIGHT");
+            default:
+                return null;
+        }
+    }
+    
+    /**
+     * Find a better grid size that matches the number count more closely
+     */
+    private GridConfig findBetterGridSize(int totalNumbers, Map<Integer, List<Coordinate>> coordinatesByX, Map<Integer, List<Coordinate>> coordinatesByY) {
+        // Try to find factors of totalNumbers that make more sense
+        for (int cols = 1; cols <= 20; cols++) {
+            if (totalNumbers % cols == 0) {
+                int rows = totalNumbers / cols;
+                if (rows > 0 && rows <= 20) {
+                    // Check if this grid size is reasonable given the coordinate distribution
+                    boolean reasonable = Math.abs(coordinatesByX.size() - cols) <= 2 && 
+                                       Math.abs(coordinatesByY.size() - rows) <= 2;
+                    if (reasonable) {
+                        return new GridConfig(cols, rows, "COLUMN_BOTTOM_TO_TOP");
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * Provide a reasonable grid size based on total numbers
+     */
+    private GridConfig findReasonableGridSize(int totalNumbers) {
+        // Find a reasonable grid size for the number count
+        int bestCols = 7, bestRows = 5; // Default
+        int bestDiff = Math.abs(bestCols * bestRows - totalNumbers);
+        
+        for (int cols = 5; cols <= 12; cols++) {
+            for (int rows = 4; rows <= 8; rows++) {
+                int cells = cols * rows;
+                int diff = Math.abs(cells - totalNumbers);
+                if (diff < bestDiff && cells >= totalNumbers) {
+                    bestCols = cols;
+                    bestRows = rows;
+                    bestDiff = diff;
+                }
+            }
+        }
+        
+        return new GridConfig(bestCols, bestRows, "COLUMN_BOTTOM_TO_TOP");
     }
     
     private String determineFillOrderFromCoordinates(Map<String, Coordinate> coordinates, 
@@ -820,6 +1007,10 @@ public class TemplateCreatorPresenter {
         // Update scanner mark count and ensure consistent numbering
         view.setScannerMarkCount(model.getScannerMarks().size());
         
+        // Update new mark size tracking
+        lastScannerMarkWidth = (int) newMark.getWidth();
+        lastScannerMarkHeight = (int) newMark.getHeight();
+        
         // Auto-select the newly placed scanner mark so controls appear immediately
         view.selectScannerMark(newMark);
     }
@@ -866,8 +1057,20 @@ public class TemplateCreatorPresenter {
             view.showError("Please enter a name for the Global Option.");
             return;
         }
+        
+        // Record the size for this specific Global Option name
+        int currentWidth = model.getMark().getWidth();
+        int currentHeight = model.getMark().getHeight();
+        globalOptionSizes.put(optionName, new int[]{currentWidth, currentHeight});
+        
         Coordinate oldGlobal = model.getGlobalOptions().put(optionName, coordinate);
-        undoStack.add(() -> model.getGlobalOptions().put(optionName, oldGlobal));
+        undoStack.add(() -> {
+            model.getGlobalOptions().put(optionName, oldGlobal);
+            // Also restore the size mapping
+            if (oldGlobal == null) {
+                globalOptionSizes.remove(optionName);
+            }
+        });
         redrawAllMarkings();
     }
 
@@ -1067,16 +1270,19 @@ public class TemplateCreatorPresenter {
     }
 
     public void updateScannerMarkSize(ScannerMark mark, int width, int height) {
-        final double oldWidth = mark.getWidth();
-        final double oldHeight = mark.getHeight();
-        undoStack.add(() -> {
-            mark.setWidth(oldWidth);
-            mark.setHeight(oldHeight);
-            view.updateScannerMarkRectangle(mark, oldWidth, oldHeight);
-        });
+        // Update the Scanner Mark size directly without adding to undo stack
+        // Size adjustments are not creation/removal operations, so they shouldn't be undoable
+        // This prevents size changes from interfering with the "Clear Last Marking" functionality
         mark.setWidth(width);
         mark.setHeight(height);
         view.updateScannerMarkRectangle(mark, width, height);
+        
+        // Remember the last used Scanner Mark size for new marks
+        lastScannerMarkWidth = width;
+        lastScannerMarkHeight = height;
+        
+        // Update the size for new Scanner Marks to match the current adjustment
+        setNewScannerMarkSize(width, height);
     }
     
     public void updateScannerMarkDefaultSize(int width, int height) {
@@ -1584,6 +1790,10 @@ public class TemplateCreatorPresenter {
     private int newScannerMarkWidth = 20;  // Default size for new scanner marks
     private int newScannerMarkHeight = 20;
     
+    // Track the last used Scanner Mark size to maintain consistency
+    private int lastScannerMarkWidth = 20;
+    private int lastScannerMarkHeight = 20;
+    
     /**
      * Get the current dimensions for a marking (Quick Pick or Global Option)
      */
@@ -1679,9 +1889,13 @@ public class TemplateCreatorPresenter {
         }
         
         // Update the nextId counter to the next available ID
-        ScannerMark.setNextId(model.getScannerMarks().size() + 1);
+        int nextAvailableId = model.getScannerMarks().size() + 1;
+        ScannerMark.setNextId(nextAvailableId);
         
-        // Update scanner mark count display
+        // Debug logging to track ID assignment
+        System.out.println("Scanner Marks renumbered: Count=" + model.getScannerMarks().size() + ", NextID=" + nextAvailableId);
+        
+        // Update scanner mark count display (once after renumbering)
         view.setScannerMarkCount(model.getScannerMarks().size());
     }
     

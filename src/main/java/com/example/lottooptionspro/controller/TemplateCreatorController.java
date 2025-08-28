@@ -2033,7 +2033,8 @@ public class TemplateCreatorController implements TemplateCreatorView {
             }
             
             // Use different step sizes for fine vs coarse adjustment
-            int stepSize = event.isShiftDown() ? getAdjustmentStep() * 5 : getAdjustmentStep();
+            // Shift+Arrow = Fine adjustment (smaller steps), Arrow alone = Normal steps
+            int stepSize = event.isShiftDown() ? Math.max(1, getAdjustmentStep() / 2) : getAdjustmentStep();
             
             switch (event.getCode()) {
                 case LEFT:
