@@ -6,13 +6,21 @@ import com.example.lottooptionspro.models.GridDefinition;
 import com.example.lottooptionspro.models.GridMappingMode;
 import com.example.lottooptionspro.models.FillOrder;
 import com.example.lottooptionspro.util.GridCalculator;
+import com.example.lottooptionspro.util.TemplateValidator;
 import com.example.lottooptionspro.models.ScannerMark;
 import com.example.lottooptionspro.models.GlobalOption;
+import com.example.lottooptionspro.models.TemplateValidationResult;
+import com.example.lottooptionspro.models.PanelValidationResult;
 import com.example.lottooptionspro.presenter.TemplateCreatorPresenter;
 import com.example.lottooptionspro.presenter.TemplateCreatorView;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.Cursor;
+import javafx.animation.Timeline;
+import javafx.animation.KeyFrame;
+import javafx.util.Duration;
+import javafx.concurrent.Task;
+import javafx.application.Platform;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.ButtonBar.ButtonData;
@@ -36,6 +44,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Set;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/TemplateCreatorView.fxml")
@@ -96,6 +108,14 @@ public class TemplateCreatorController implements TemplateCreatorView {
     @FXML
     private Label zoomLabel;
     
+    // Validation controls
+    @FXML
+    private Button validateTemplateButton;
+    @FXML
+    private Label validationStatusLabel;
+    @FXML
+    private ProgressBar validationProgressBar;
+    
     
     // Column/Row fine-tuning controls
     @FXML
@@ -133,6 +153,12 @@ public class TemplateCreatorController implements TemplateCreatorView {
     private final double MIN_ZOOM = 0.25;
     private final double MAX_ZOOM = 4.0;
     private final double ZOOM_STEP = 0.25;
+    
+    // Validation state
+    private boolean validationInProgress = false;
+    private Timeline validationTimeline;
+    private final List<Rectangle> validationMarks = new ArrayList<>();
+    private double originalZoom;
 
     @FXML
     public void initialize() {
@@ -155,6 +181,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
         setGridMappingControlsVisible(true);
         // Initialize zoom controls
         initializeZoomControls();
+        
+        // Set initial button states - disable template-dependent controls
+        setTemplateControlsEnabled(false);
     }
 
     private void populateComboBoxes() {
@@ -808,6 +837,18 @@ public class TemplateCreatorController implements TemplateCreatorView {
     }
 
     @FXML
+    private void validateTemplate() {
+        if (validationInProgress) {
+            return; // Prevent multiple validations running simultaneously
+        }
+        
+        // Debug Global Options access if needed
+        // (Debug output removed for cleaner console)
+        
+        startValidation();
+    }
+    
+    @FXML
     private void previewTemplate() {
         presenter.previewTemplate();
     }
@@ -956,6 +997,8 @@ public class TemplateCreatorController implements TemplateCreatorView {
     @Override
     public void displayImage(String imagePath) {
         betslipImageView.setImage(new javafx.scene.image.Image(imagePath));
+        // Enable template controls once an image is loaded
+        setTemplateControlsEnabled(true);
     }
 
     @Override
@@ -1018,7 +1061,14 @@ public class TemplateCreatorController implements TemplateCreatorView {
     public void showError(String message) { new Alert(Alert.AlertType.ERROR, message).showAndWait(); }
 
     @Override
-    public void showSuccess(String message) { new Alert(Alert.AlertType.INFORMATION, message).showAndWait(); }
+    public void showSuccess(String message) { 
+        new Alert(Alert.AlertType.INFORMATION, message).showAndWait(); 
+        
+        // If this is a template loading success, enable controls
+        if (message.contains("Template loaded")) {
+            setTemplateControlsEnabled(true);
+        }
+    }
 
     private Stage getStage() { return (Stage) gameNameField.getScene().getWindow(); }
     
@@ -2222,5 +2272,542 @@ public class TemplateCreatorController implements TemplateCreatorView {
         });
         
         updateGridMappingStatus("Row " + (selectedRow + 1) + " moved by (" + deltaX + ", " + deltaY + ")");
+    }
+    
+    // ===== VALIDATION METHODS =====
+    
+    /**
+     * Start the template validation process
+     */
+    private void startValidation() {
+        validationInProgress = true;
+        originalZoom = currentZoom;
+        
+        // Clear any existing validation marks
+        clearValidationMarks();
+        
+        // Auto-fit to scroll pane after a small delay to ensure UI is ready
+        Platform.runLater(() -> fitToScrollPane());
+        
+        // Set initial status
+        setValidationStatus("Preparing validation...");
+        showValidationProgress(true);
+        
+        // Collect panel data
+        Map<String, Map<String, Coordinate>> panelCoordinates = collectPanelCoordinates();
+        
+        if (panelCoordinates.isEmpty()) {
+            showError("No panels with coordinate data found. Please map some coordinates first.");
+            endValidation();
+            return;
+        }
+        
+        // Start validation in background thread
+        Task<TemplateValidationResult> validationTask = new Task<TemplateValidationResult>() {
+            @Override
+            protected TemplateValidationResult call() throws Exception {
+                TemplateValidator validator = new TemplateValidator();
+                return validator.validateTemplate(panelCoordinates);
+            }
+            
+            @Override
+            protected void succeeded() {
+                Platform.runLater(() -> {
+                    TemplateValidationResult result = getValue();
+                    runVisualValidation(result, panelCoordinates);
+                });
+            }
+            
+            @Override
+            protected void failed() {
+                Platform.runLater(() -> {
+                    showError("Validation failed: " + getException().getMessage());
+                    endValidation();
+                });
+            }
+        };
+        
+        Thread validationThread = new Thread(validationTask);
+        validationThread.setDaemon(true);
+        validationThread.start();
+    }
+    
+    /**
+     * Auto-fit betslip to scroll pane for better visibility during validation
+     */
+    private void fitToScrollPane() {
+        if (betslipImageView.getImage() != null) {
+            // Find the scroll pane containing the image by traversing up the scene graph
+            Node current = betslipImageView;
+            javafx.scene.control.ScrollPane scrollPane = null;
+            
+            // Traverse up the parent hierarchy to find ScrollPane
+            while (current != null) {
+                current = current.getParent();
+                if (current instanceof javafx.scene.control.ScrollPane) {
+                    scrollPane = (javafx.scene.control.ScrollPane) current;
+                    break;
+                }
+            }
+            
+            if (scrollPane != null) {
+                // Get the actual viewport dimensions
+                double viewportWidth = scrollPane.getViewportBounds().getWidth();
+                double viewportHeight = scrollPane.getViewportBounds().getHeight();
+                
+                // If viewport bounds aren't available, use the scroll pane size
+                if (viewportWidth <= 0) {
+                    viewportWidth = scrollPane.getWidth() - 20; // Account for scrollbars
+                }
+                if (viewportHeight <= 0) {
+                    viewportHeight = scrollPane.getHeight() - 20; // Account for scrollbars
+                }
+                
+                double imageWidth = betslipImageView.getImage().getWidth();
+                double imageHeight = betslipImageView.getImage().getHeight();
+                
+                if (viewportWidth > 0 && viewportHeight > 0 && imageWidth > 0 && imageHeight > 0) {
+                    // Calculate the scale needed to fit the image in the viewport
+                    double scaleX = viewportWidth / imageWidth;
+                    double scaleY = viewportHeight / imageHeight;
+                    double optimalScale = Math.min(scaleX, scaleY) * 0.90; // 90% to leave margin
+                    
+                    // Ensure the scale is within our zoom limits
+                    optimalScale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, optimalScale));
+                    
+                    // Only change zoom if it's significantly different to avoid tiny adjustments
+                    if (Math.abs(currentZoom - optimalScale) > 0.1) {
+                        currentZoom = optimalScale;
+                        applyZoom();
+                        
+                        // Center the image in the scroll pane after zoom
+                        final javafx.scene.control.ScrollPane finalScrollPane = scrollPane;
+                        Platform.runLater(() -> centerImageInScrollPane(finalScrollPane));
+                        
+                        setValidationStatus("Auto-fitted to scroll pane (zoom: " + 
+                                          String.format("%.0f", currentZoom * 100) + "%)");
+                    } else {
+                        // Even if zoom doesn't change, center the image
+                        final javafx.scene.control.ScrollPane finalScrollPane = scrollPane;
+                        Platform.runLater(() -> centerImageInScrollPane(finalScrollPane));
+                        setValidationStatus("Image centered for validation");
+                    }
+                } else {
+                    setValidationStatus("Could not determine optimal zoom - using current size");
+                }
+            } else {
+                setValidationStatus("Scroll pane not found - using current zoom level");
+            }
+        }
+    }
+    
+    /**
+     * Center the image in the scroll pane viewport
+     */
+    private void centerImageInScrollPane(javafx.scene.control.ScrollPane scrollPane) {
+        if (scrollPane != null && betslipImageView.getImage() != null) {
+            // Get the scaled image dimensions
+            double scaledImageWidth = betslipImageView.getImage().getWidth() * currentZoom;
+            double scaledImageHeight = betslipImageView.getImage().getHeight() * currentZoom;
+            
+            // Get viewport dimensions
+            double viewportWidth = scrollPane.getViewportBounds().getWidth();
+            double viewportHeight = scrollPane.getViewportBounds().getHeight();
+            
+            if (viewportWidth <= 0) {
+                viewportWidth = scrollPane.getWidth() - 20;
+            }
+            if (viewportHeight <= 0) {
+                viewportHeight = scrollPane.getHeight() - 20;
+            }
+            
+            // Calculate center positions for proper centering
+            double hValue = 0.5; // Center horizontally
+            double vValue = 0.5; // Center vertically
+            
+            // If image is smaller than viewport, keep it centered
+            if (scaledImageWidth <= viewportWidth) {
+                hValue = 0.5;
+            }
+            if (scaledImageHeight <= viewportHeight) {
+                vValue = 0.5;
+            }
+            
+            // Set scroll positions
+            scrollPane.setHvalue(hValue);
+            scrollPane.setVvalue(vValue);
+        }
+    }
+    
+    /**
+     * Collect coordinate data from all configured panels and global options
+     */
+    private Map<String, Map<String, Coordinate>> collectPanelCoordinates() {
+        Map<String, Map<String, Coordinate>> panelCoordinates = new HashMap<>();
+        
+        // Collect panel-specific coordinates
+        for (String panelId : Arrays.asList("A", "B", "C", "D", "E")) {
+            Map<String, Coordinate> coordinates = presenter.getMainNumbersForPanel(panelId);
+            if (coordinates != null && !coordinates.isEmpty()) {
+                panelCoordinates.put(panelId, coordinates);
+            }
+        }
+        
+        // Collect Global Options as a special "panel"
+        Map<String, Coordinate> globalOptionCoordinates = collectGlobalOptionCoordinates();
+        if (!globalOptionCoordinates.isEmpty()) {
+            panelCoordinates.put("GLOBAL", globalOptionCoordinates);
+            setValidationStatus("Found " + globalOptionCoordinates.size() + " Global Options for validation");
+        }
+        
+        return panelCoordinates;
+    }
+    
+    /**
+     * Collect Global Option coordinates
+     */
+    private Map<String, Coordinate> collectGlobalOptionCoordinates() {
+        Map<String, Coordinate> globalCoordinates = new HashMap<>();
+        
+        // Get Global Options from the presenter/template
+        try {
+            List<GlobalOption> globalOptions = presenter.getTemplateGlobalOptions();
+            if (globalOptions != null && !globalOptions.isEmpty()) {
+                for (GlobalOption option : globalOptions) {
+                    // Create a coordinate from the GlobalOption using proper double-to-int conversion
+                    Coordinate coord = new Coordinate((int)Math.round(option.getX()), (int)Math.round(option.getY()));
+                    globalCoordinates.put(option.getName(), coord);
+                }
+            }
+        } catch (Exception e) {
+            setValidationStatus("Note: Could not access Global Options for validation: " + e.getMessage());
+        }
+        
+        return globalCoordinates;
+    }
+    
+    /**
+     * Run visual validation with animated feedback
+     */
+    private void runVisualValidation(TemplateValidationResult result, 
+                                   Map<String, Map<String, Coordinate>> panelCoordinates) {
+        setValidationStatus("Running visual validation tests...");
+        
+        List<String> configuredPanels = result.getConfiguredPanelResults()
+                .stream()
+                .map(PanelValidationResult::getPanelId)
+                .collect(Collectors.toList());
+        
+        // Ensure Global Options are included if they exist in panelCoordinates
+        if (panelCoordinates.containsKey("GLOBAL") && !configuredPanels.contains("GLOBAL")) {
+            configuredPanels.add("GLOBAL");
+        }
+        
+        // Color scheme for different panels and global options
+        Map<String, String> panelColors = new HashMap<>();
+        panelColors.put("A", "#0066CC");      // Blue
+        panelColors.put("B", "#00AA00");      // Green  
+        panelColors.put("C", "#FF8800");      // Orange
+        panelColors.put("D", "#8800CC");      // Purple
+        panelColors.put("E", "#CC6600");      // Brown
+        panelColors.put("GLOBAL", "#FF0000"); // Bright Red for Global Options (highly visible)
+        
+        final int[] testCount = {0};
+        final int maxTests = 100;
+        
+        // Create timeline for animated validation
+        validationTimeline = new Timeline();
+        
+        for (int i = 0; i < maxTests; i++) {
+            final int testNumber = i + 1;
+            
+            KeyFrame keyFrame = new KeyFrame(Duration.millis(i * 100), e -> {
+                clearValidationMarks();
+                testCount[0] = testNumber;
+                
+                // Update progress
+                double progress = (double) testNumber / maxTests;
+                setValidationProgress(progress);
+                // Count regular panels vs Global Options
+                int regularPanelCount = (int) configuredPanels.stream()
+                        .filter(id -> !"GLOBAL".equals(id))
+                        .count();
+                boolean hasGlobalOptions = configuredPanels.contains("GLOBAL");
+                
+                String statusMessage = "Running test " + testNumber + "/" + maxTests + " across " + 
+                                     regularPanelCount + " panel" + (regularPanelCount != 1 ? "s" : "");
+                
+                if (hasGlobalOptions) {
+                    statusMessage += " + Global Options";
+                }
+                
+                setValidationStatus(statusMessage);
+                
+                // Draw test marks for each configured panel
+                for (String panelId : configuredPanels) {
+                    Map<String, Coordinate> coordinates = panelCoordinates.get(panelId);
+                    if (coordinates != null) {
+                        List<String> testItems;
+                        
+                        if ("GLOBAL".equals(panelId)) {
+                            // For Global Options, test all available options
+                            testItems = new ArrayList<>(coordinates.keySet());
+                        } else {
+                            // For regular panels, generate random test numbers
+                            testItems = generateTestNumbers(coordinates.keySet(), 6);
+                        }
+                        
+                        // Draw marks for test items
+                        for (String item : testItems) {
+                            Coordinate coord = coordinates.get(item);
+                            if (coord != null) {
+                                String color = panelColors.getOrDefault(panelId, "#666666");
+                                
+                                // Use different mark sizes for Global Options
+                                int markWidth = "GLOBAL".equals(panelId) ? 45 : 38;
+                                int markHeight = "GLOBAL".equals(panelId) ? 30 : 36;
+                                
+                                drawValidationMark(coord, markWidth, markHeight, panelId, color);
+                            }
+                        }
+                    }
+                }
+            });
+            
+            validationTimeline.getKeyFrames().add(keyFrame);
+        }
+        
+        // Final keyframe to show results
+        KeyFrame finalFrame = new KeyFrame(Duration.millis(maxTests * 100 + 500), e -> {
+            setValidationProgress(1.0);
+            // Use Platform.runLater to avoid animation thread issues
+            Platform.runLater(() -> {
+                showValidationResults(result);
+                endValidation();
+            });
+        });
+        
+        validationTimeline.getKeyFrames().add(finalFrame);
+        validationTimeline.play();
+    }
+    
+    /**
+     * Generate random test numbers from available numbers
+     */
+    private List<String> generateTestNumbers(Set<String> availableNumbers, int count) {
+        List<String> numbers = new ArrayList<>(availableNumbers);
+        Collections.shuffle(numbers);
+        return numbers.subList(0, Math.min(count, numbers.size()));
+    }
+    
+    /**
+     * Clear all validation marks from the drawing pane
+     */
+    private void clearValidationMarks() {
+        drawingPane.getChildren().removeAll(validationMarks);
+        validationMarks.clear();
+    }
+    
+    /**
+     * Show validation results in a dialog
+     */
+    private void showValidationResults(TemplateValidationResult result) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Template Validation Results");
+        alert.setHeaderText("Validation " + (result.isOverallPass() ? "PASSED" : "FAILED"));
+        
+        // Create a scrollable text area for the report
+        TextArea textArea = new TextArea(result.generateReport());
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+        textArea.setMaxWidth(Double.MAX_VALUE);
+        textArea.setMaxHeight(Double.MAX_VALUE);
+        
+        // Set font to monospace for better formatting
+        textArea.setStyle("-fx-font-family: 'Courier New', monospace; -fx-font-size: 12px;");
+        
+        // Create a scroll pane for the text area
+        javafx.scene.control.ScrollPane scrollPane = new javafx.scene.control.ScrollPane(textArea);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setPrefSize(700, 500);
+        
+        // Set the scroll pane as the expandable content
+        alert.getDialogPane().setExpandableContent(scrollPane);
+        alert.getDialogPane().setExpanded(true);
+        
+        // Make dialog resizable
+        alert.setResizable(true);
+        alert.getDialogPane().setPrefWidth(750);
+        alert.getDialogPane().setPrefHeight(600);
+        
+        // Create a brief summary for the main content area
+        String summary = String.format("Overall: %s\nPanels Tested: %d\nTotal Tests: %d\nTime: %dms\n\n" +
+                                      "Click 'Show Details' below for full report.",
+                result.isOverallPass() ? "✅ PASSED" : "❌ FAILED",
+                result.getConfiguredPanels(),
+                result.getTotalTestsRun(),
+                result.getValidationTimeMs());
+        
+        alert.setContentText(summary);
+        
+        alert.showAndWait();
+    }
+    
+    /**
+     * End validation process and clean up
+     */
+    private void endValidation() {
+        validationInProgress = false;
+        showValidationProgress(false);
+        
+        // Stop timeline if still running
+        if (validationTimeline != null) {
+            validationTimeline.stop();
+        }
+        
+        // Restore original zoom
+        currentZoom = originalZoom;
+        applyZoom();
+        
+        // Clear validation marks after a delay
+        Timeline cleanup = new Timeline(new KeyFrame(Duration.seconds(3), e -> clearValidationMarks()));
+        cleanup.play();
+        
+        setValidationStatus("Validation complete - Ready for new validation");
+    }
+    
+    // ===== VALIDATION VIEW METHODS =====
+    
+    @Override
+    public void setValidationStatus(String status) {
+        if (validationStatusLabel != null) {
+            validationStatusLabel.setText(status);
+        }
+    }
+    
+    @Override
+    public void setValidationProgress(double progress) {
+        if (validationProgressBar != null) {
+            validationProgressBar.setProgress(progress);
+        }
+    }
+    
+    @Override
+    public void showValidationProgress(boolean visible) {
+        if (validationProgressBar != null) {
+            validationProgressBar.setVisible(visible);
+        }
+        if (validateTemplateButton != null) {
+            validateTemplateButton.setDisable(visible);
+        }
+    }
+    
+    @Override
+    public void drawValidationMark(Coordinate coordinate, int width, int height, String panelId, String color) {
+        double x = coordinate.getX() - (double) width / 2;
+        double y = coordinate.getY() - (double) height / 2;
+        Rectangle rect = new Rectangle(x, y, width, height);
+        
+        // Set fill color based on panel
+        rect.setFill(Color.web(color));
+        
+        // Make Global Options more prominent
+        if ("GLOBAL".equals(panelId)) {
+            rect.setOpacity(0.9); // More opaque
+            rect.setStroke(Color.BLACK); // Black border for contrast
+            rect.setStrokeWidth(3); // Thicker border
+        } else {
+            rect.setOpacity(0.7);
+            rect.setStroke(Color.web(color).darker());
+            rect.setStrokeWidth(2);
+        }
+        
+        // Add style class for identification
+        rect.getStyleClass().add("validation-mark");
+        rect.getStyleClass().add("validation-mark-" + panelId.toLowerCase());
+        
+        validationMarks.add(rect);
+        drawingPane.getChildren().add(rect);
+    }
+    
+    /**
+     * Enable or disable template-dependent controls
+     */
+    private void setTemplateControlsEnabled(boolean enabled) {
+        // Validation controls
+        if (validateTemplateButton != null) validateTemplateButton.setDisable(!enabled);
+        
+        // Zoom controls (need image loaded)
+        if (zoomInButton != null) zoomInButton.setDisable(!enabled);
+        if (zoomOutButton != null) zoomOutButton.setDisable(!enabled);
+        if (resetZoomButton != null) resetZoomButton.setDisable(!enabled);
+        
+        // Mapping controls (need template context)
+        if (panelComboBox != null) panelComboBox.setDisable(!enabled);
+        if (mappingModeComboBox != null) mappingModeComboBox.setDisable(!enabled);
+        if (globalOptionNameField != null) globalOptionNameField.setDisable(!enabled);
+        
+        // Mark controls (template defines dimensions)
+        if (markWidthSpinner != null) markWidthSpinner.setDisable(!enabled);
+        if (markHeightSpinner != null) markHeightSpinner.setDisable(!enabled);
+        
+        // Grid mapping controls
+        if (useGridModeCheckBox != null) useGridModeCheckBox.setDisable(!enabled);
+        if (gridRangeField != null) gridRangeField.setDisable(!enabled);
+        if (gridColumnsSpinner != null) gridColumnsSpinner.setDisable(!enabled);
+        if (gridRowsSpinner != null) gridRowsSpinner.setDisable(!enabled);
+        if (defineGridButton != null) defineGridButton.setDisable(!enabled);
+        if (clearGridButton != null) clearGridButton.setDisable(!enabled);
+        if (autoMapButton != null) autoMapButton.setDisable(!enabled);
+        
+        // Grid adjustment controls
+        if (moveLeftButton != null) moveLeftButton.setDisable(!enabled);
+        if (moveRightButton != null) moveRightButton.setDisable(!enabled);
+        if (moveUpButton != null) moveUpButton.setDisable(!enabled);
+        if (moveDownButton != null) moveDownButton.setDisable(!enabled);
+        if (adjustmentStepSpinner != null) adjustmentStepSpinner.setDisable(!enabled);
+        if (expandButton != null) expandButton.setDisable(!enabled);
+        if (shrinkButton != null) shrinkButton.setDisable(!enabled);
+        if (resetGridButton != null) resetGridButton.setDisable(!enabled);
+        if (refineGridButton != null) refineGridButton.setDisable(!enabled);
+        
+        // Column/row tuning controls
+        if (columnModeButton != null) columnModeButton.setDisable(!enabled);
+        if (rowModeButton != null) rowModeButton.setDisable(!enabled);
+        if (clearSelectionButton != null) clearSelectionButton.setDisable(!enabled);
+        
+        // Update save button states based on whether we have saveable data
+        updateSaveButtonStates();
+    }
+    
+    /**
+     * Update save/save-as button states based on whether there's data to save
+     */
+    private void updateSaveButtonStates() {
+        boolean hasData = betslipImageView.getImage() != null || hasTemplateData();
+        // Note: Save buttons are not defined as @FXML fields in the current implementation
+        // They are accessed through the scene graph if needed, but typically handled by presenter
+    }
+    
+    /**
+     * Check if template has any coordinate data worth saving
+     */
+    private boolean hasTemplateData() {
+        // Check if we have any coordinate mappings
+        for (String panelId : Arrays.asList("A", "B", "C", "D", "E")) {
+            Map<String, Coordinate> coords = presenter.getMainNumbersForPanel(panelId);
+            if (coords != null && !coords.isEmpty()) {
+                return true;
+            }
+        }
+        
+        // Check for Global Options
+        List<GlobalOption> globalOptions = presenter.getTemplateGlobalOptions();
+        if (globalOptions != null && !globalOptions.isEmpty()) {
+            return true;
+        }
+        
+        return false;
     }
 }

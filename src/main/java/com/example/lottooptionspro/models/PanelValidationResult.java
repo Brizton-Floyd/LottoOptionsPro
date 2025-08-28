@@ -104,7 +104,13 @@ public class PanelValidationResult {
      */
     public String getSummary() {
         StringBuilder sb = new StringBuilder();
-        sb.append("Panel ").append(panelId).append(": ");
+        
+        // Handle special case for Global Options
+        if ("GLOBAL".equals(panelId)) {
+            sb.append("Global Options: ");
+        } else {
+            sb.append("Panel ").append(panelId).append(": ");
+        }
         
         if (passed) {
             sb.append("✓ PASSED");
@@ -115,9 +121,13 @@ public class PanelValidationResult {
         }
         
         if (coordinatesMapped > 0) {
-            sb.append("\n- Coordinates mapped: ").append(coordinatesMapped);
-            if (expectedNumbers > 0) {
-                sb.append("/").append(expectedNumbers);
+            if ("GLOBAL".equals(panelId)) {
+                sb.append("\n- Global Options configured: ").append(coordinatesMapped);
+            } else {
+                sb.append("\n- Coordinates mapped: ").append(coordinatesMapped);
+                if (expectedNumbers > 0) {
+                    sb.append("/").append(expectedNumbers);
+                }
             }
             sb.append("\n- Coverage: ").append(String.format("%.1f", coveragePercentage)).append("%");
             sb.append("\n- Tests passed: ").append(testsRun);

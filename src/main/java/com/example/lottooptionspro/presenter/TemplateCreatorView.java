@@ -35,6 +35,12 @@ public interface TemplateCreatorView {
     void showError(String message);
     void showSuccess(String message);
     Optional<String> askForPreviewNumbers();
+    
+    // Validation methods
+    void setValidationStatus(String status);
+    void setValidationProgress(double progress);
+    void showValidationProgress(boolean visible);
+    void drawValidationMark(Coordinate coordinate, int width, int height, String panelId, String color);
     void setSelectedMarkControlsVisible(boolean visible, String markType);
     void setSelectedMarkDimensions(double width, double height);
     void setScannerMarkCount(int count);

@@ -139,6 +139,12 @@ public class TemplateValidationResult {
             }
         }
         
+        // Global Options details (if present)
+        PanelValidationResult globalResult = panelResults.get("GLOBAL");
+        if (globalResult != null) {
+            report.append(globalResult.getSummary()).append("\n\n");
+        }
+        
         // Error summary
         List<PanelValidationResult> panelsWithErrors = getPanelsWithErrors();
         if (!panelsWithErrors.isEmpty()) {

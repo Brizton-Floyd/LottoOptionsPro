@@ -738,43 +738,55 @@
       "bonusNumbers": {}
     }
   ],
-  "globalOptions": {},
+  "globalOptions": [],
   "scannerMarks": [
     {
+      "id": 8,
       "x": 36.0,
       "y": 2449.5,
       "width": 28.0,
       "height": 29.0
     },
     {
+      "id": 9,
       "x": 561.0,
       "y": 2417.5,
       "width": 35.0,
       "height": 24.0
     },
     {
+      "id": 10,
       "x": 614.0,
       "y": 2416.5,
       "width": 36.0,
       "height": 25.0
     },
     {
+      "id": 11,
       "x": 669.0,
       "y": 2416.5,
       "width": 35.0,
       "height": 24.0
     },
     {
+      "id": 12,
       "x": 723.0,
       "y": 2416.5,
       "width": 36.0,
       "height": 24.0
     },
     {
+      "id": 13,
       "x": 39.0,
       "y": 62.0,
       "width": 28.0,
       "height": 29.0
     }
-  ]
+  ],
+  "gridConfig": {
+    "numberRange": "1-35",
+    "columns": 7,
+    "rows": 5,
+    "fillOrder": "COLUMN_BOTTOM_TO_TOP"
+  }
 }

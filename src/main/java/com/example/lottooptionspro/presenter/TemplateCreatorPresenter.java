@@ -1807,6 +1807,13 @@ public class TemplateCreatorPresenter {
     }
     
     /**
+     * Get Global Options for validation purposes
+     */
+    public List<GlobalOption> getTemplateGlobalOptions() {
+        return model.getGlobalOptions();
+    }
+    
+    /**
      * Get main numbers for a specific panel
      */
     public Map<String, Coordinate> getMainNumbersForPanel(String panelId) {
