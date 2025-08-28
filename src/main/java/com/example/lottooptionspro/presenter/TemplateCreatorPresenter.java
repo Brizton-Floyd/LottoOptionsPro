@@ -2,9 +2,11 @@ package com.example.lottooptionspro.presenter;
 
 import com.example.lottooptionspro.models.*;
 import com.example.lottooptionspro.util.GridCalculator;
+import com.example.lottooptionspro.util.GlobalOptionsDeserializer;
 import com.example.lottooptionspro.controller.TemplateCreatorController;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 
 import java.io.File;
 import java.io.FileReader;
@@ -36,7 +38,7 @@ public class TemplateCreatorPresenter {
         this.view = view;
         if (this.model.getMark() == null) this.model.setMark(new Mark(20, 20));
         if (this.model.getPlayPanels() == null) this.model.setPlayPanels(new ArrayList<>());
-        if (this.model.getGlobalOptions() == null) this.model.setGlobalOptions(new HashMap<>());
+        if (this.model.getGlobalOptions() == null) this.model.setGlobalOptions(new ArrayList<>());
         if (this.model.getScannerMarks() == null) this.model.setScannerMarks(new ArrayList<>());
         
         // Initialize new scanner mark size from current model defaults
@@ -315,10 +317,16 @@ public class TemplateCreatorPresenter {
         File file = view.showOpenTemplateDialog();
         if (file != null) {
             try (FileReader reader = new FileReader(file)) {
-                Gson gson = new Gson();
+                // Create Gson with custom deserializer for backward compatibility
+                Gson gson = new GsonBuilder()
+                    .registerTypeAdapter(new TypeToken<List<GlobalOption>>(){}.getType(), new GlobalOptionsDeserializer())
+                    .create();
                 this.model = gson.fromJson(reader, BetslipTemplate.class);
                 if (model.getScannerMarks() == null) {
                     model.setScannerMarks(new ArrayList<>());
+                }
+                if (model.getGlobalOptions() == null) {
+                    model.setGlobalOptions(new ArrayList<>());
                 }
                 this.currentFile = file; // Remember the file path
                 updateViewFromModel();
@@ -381,6 +389,7 @@ public class TemplateCreatorPresenter {
         // Auto-populate grid settings based on template data
         autoPopulateGridSettings();
         
+        // Force complete clear and redraw to ensure all Global Options use new userData
         redrawAllMarkings();
         onPanelOrModeChanged();
         
@@ -1058,20 +1067,48 @@ public class TemplateCreatorPresenter {
             return;
         }
         
-        // Record the size for this specific Global Option name
-        int currentWidth = model.getMark().getWidth();
-        int currentHeight = model.getMark().getHeight();
-        globalOptionSizes.put(optionName, new int[]{currentWidth, currentHeight});
+        // Get current size (use individual size if set, otherwise use global mark size)
+        int[] savedSize = globalOptionSizes.get(optionName);
+        int currentWidth = savedSize != null ? savedSize[0] : model.getMark().getWidth();
+        int currentHeight = savedSize != null ? savedSize[1] : model.getMark().getHeight();
         
-        Coordinate oldGlobal = model.getGlobalOptions().put(optionName, coordinate);
+        // Create new GlobalOption with coordinates and size
+        GlobalOption newGlobalOption = new GlobalOption(optionName, coordinate, currentWidth, currentHeight);
+        
+        // Check if this Global Option already exists (by name)
+        GlobalOption existingGlobalOption = null;
+        for (GlobalOption go : model.getGlobalOptions()) {
+            if (optionName.equals(go.getName())) {
+                existingGlobalOption = go;
+                break;
+            }
+        }
+        
+        // Add to undo stack
+        final GlobalOption finalExisting = existingGlobalOption;
         undoStack.add(() -> {
-            model.getGlobalOptions().put(optionName, oldGlobal);
-            // Also restore the size mapping
-            if (oldGlobal == null) {
+            if (finalExisting != null) {
+                // Replace with old version
+                model.getGlobalOptions().remove(newGlobalOption);
+                model.getGlobalOptions().add(finalExisting);
+            } else {
+                // Remove newly added Global Option
+                model.getGlobalOptions().remove(newGlobalOption);
                 globalOptionSizes.remove(optionName);
             }
+            redrawAllMarkingsPreservingSizes();
         });
-        redrawAllMarkings();
+        
+        // Update the model
+        if (existingGlobalOption != null) {
+            model.getGlobalOptions().remove(existingGlobalOption);
+        }
+        model.getGlobalOptions().add(newGlobalOption);
+        
+        // Record the size for this specific Global Option name
+        globalOptionSizes.put(optionName, new int[]{currentWidth, currentHeight});
+        
+        view.drawGlobalOption(newGlobalOption);
     }
 
     /**
@@ -1145,12 +1182,9 @@ public class TemplateCreatorPresenter {
             }
         }
         
-        // Redraw global options with individual sizes if set
+        // Redraw global options with their individual sizes stored in the GlobalOption objects
         if (model.getGlobalOptions() != null) {
-            model.getGlobalOptions().forEach((optionName, coord) -> {
-                int[] goSize = globalOptionSizes.getOrDefault(optionName, new int[]{w, h});
-                view.drawRectangle(coord, goSize[0], goSize[1], "GLOBAL_OPTION", null);
-            });
+            model.getGlobalOptions().forEach(view::drawGlobalOption);
         }
         
         // Redraw scanner marks with their individual sizes (NOT standard mark size)
@@ -1224,9 +1258,8 @@ public class TemplateCreatorPresenter {
                 }
             }
             
-            // Redraw global options and scanner marks with their own sizes
-            model.getGlobalOptions().values().forEach(c -> 
-                view.drawRectangle(c, model.getMark().getWidth(), model.getMark().getHeight(), "GLOBAL_OPTION", null));
+            // Redraw global options with their individual sizes and scanner marks
+            model.getGlobalOptions().forEach(view::drawGlobalOption);
             model.getScannerMarks().forEach(view::drawScannerMark);
             view.setScannerMarkCount(model.getScannerMarks().size());
         }
@@ -1253,8 +1286,8 @@ public class TemplateCreatorPresenter {
             view.drawRectangle(currentPanel.getQuickPick(), w, h, "QUICK_PICK", currentPanelId);
         }
         
-        // Also redraw global options and scanner marks since they're not panel-specific
-        model.getGlobalOptions().values().forEach(c -> view.drawRectangle(c, w, h, "GLOBAL_OPTION", null));
+        // Also redraw global options with their individual sizes and scanner marks since they're not panel-specific
+        model.getGlobalOptions().forEach(view::drawGlobalOption);
         model.getScannerMarks().forEach(view::drawScannerMark);
         view.setScannerMarkCount(model.getScannerMarks().size());
     }
@@ -1283,6 +1316,23 @@ public class TemplateCreatorPresenter {
         
         // Update the size for new Scanner Marks to match the current adjustment
         setNewScannerMarkSize(width, height);
+    }
+    
+    /**
+     * Update the size of a specific Global Option in real-time
+     * Updates both the GlobalOption object and the size cache for future Global Options
+     */
+    public void updateGlobalOptionSize(GlobalOption globalOption, int width, int height) {
+        // Update the Global Option size directly without adding to undo stack
+        // Size adjustments are not creation/removal operations, so they shouldn't be undoable
+        globalOption.setWidth(width);
+        globalOption.setHeight(height);
+        
+        // Update the visual rectangle in real-time
+        view.updateGlobalOptionRectangle(globalOption, width, height);
+        
+        // Update the size cache for this Global Option name
+        globalOptionSizes.put(globalOption.getName(), new int[]{width, height});
     }
     
     public void updateScannerMarkDefaultSize(int width, int height) {
@@ -1334,9 +1384,12 @@ public class TemplateCreatorPresenter {
             }
         }
         
-        // Redraw global options with custom size
-        model.getGlobalOptions().values().forEach(c -> 
-            view.drawRectangle(c, width, height, "GLOBAL_OPTION", null));
+        // Redraw global options with the specified size (update their stored sizes too)
+        model.getGlobalOptions().forEach(go -> {
+            go.setWidth(width);
+            go.setHeight(height);
+            view.drawGlobalOption(go);
+        });
             
         // Redraw scanner marks with their individual sizes
         model.getScannerMarks().forEach(view::drawScannerMark);
@@ -1363,9 +1416,8 @@ public class TemplateCreatorPresenter {
             }
         }
         
-        // Redraw global options with normal size
-        model.getGlobalOptions().values().forEach(c -> 
-            view.drawRectangle(c, w, h, "GLOBAL_OPTION", null));
+        // Redraw global options with their individual sizes
+        model.getGlobalOptions().forEach(view::drawGlobalOption);
             
         // Redraw scanner marks with their individual sizes
         model.getScannerMarks().forEach(view::drawScannerMark);
@@ -1422,7 +1474,7 @@ public class TemplateCreatorPresenter {
             panel.getBonusNumbers().values().forEach(c -> view.drawRectangle(c, w, h, "BONUS_NUMBER", panel.getPanelId()));
             if (panel.getQuickPick() != null) view.drawRectangle(panel.getQuickPick(), w, h, "QUICK_PICK", panel.getPanelId());
         }
-        model.getGlobalOptions().values().forEach(c -> view.drawRectangle(c, w, h, "GLOBAL_OPTION", null));
+        model.getGlobalOptions().forEach(view::drawGlobalOption);
         model.getScannerMarks().forEach(view::drawScannerMark);
         view.setScannerMarkCount(model.getScannerMarks().size());
     }
@@ -1855,10 +1907,9 @@ public class TemplateCreatorPresenter {
      */
     private String findGlobalOptionName(Coordinate targetCoord) {
         if (model.getGlobalOptions() != null) {
-            for (Map.Entry<String, Coordinate> entry : model.getGlobalOptions().entrySet()) {
-                Coordinate coord = entry.getValue();
-                if (coord.getX() == targetCoord.getX() && coord.getY() == targetCoord.getY()) {
-                    return entry.getKey();
+            for (GlobalOption go : model.getGlobalOptions()) {
+                if (go.getX() == targetCoord.getX() && go.getY() == targetCoord.getY()) {
+                    return go.getName();
                 }
             }
         }

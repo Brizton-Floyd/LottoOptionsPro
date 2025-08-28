@@ -1118,16 +1118,22 @@
       "bonusNumbers": {}
     }
   ],
-  "globalOptions": {
-    "Cash ": {
-      "x": 542,
-      "y": 2382
+  "globalOptions": [
+    {
+      "name": "Cash ",
+      "x": 542.0,
+      "y": 2382.0,
+      "width": 36.0,
+      "height": 36.0
     },
-    "Annuity ": {
-      "x": 148,
-      "y": 2385
+    {
+      "name": "Annuity ",
+      "x": 148.0,
+      "y": 2385.0,
+      "width": 36.0,
+      "height": 36.0
     }
-  },
+  ],
   "scannerMarks": [
     {
       "id": 1,

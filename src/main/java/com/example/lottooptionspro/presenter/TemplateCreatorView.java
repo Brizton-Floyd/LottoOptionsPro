@@ -1,6 +1,7 @@
 package com.example.lottooptionspro.presenter;
 
 import com.example.lottooptionspro.models.Coordinate;
+import com.example.lottooptionspro.models.GlobalOption;
 import com.example.lottooptionspro.models.GridDefinition;
 import com.example.lottooptionspro.models.GridMappingMode;
 import com.example.lottooptionspro.models.ScannerMark;
@@ -20,6 +21,7 @@ public interface TemplateCreatorView {
     void drawRectangle(Coordinate coordinate, int width, int height, String type);
     void drawRectangle(Coordinate coordinate, int width, int height, String type, String panelId);
     void drawScannerMark(ScannerMark mark);
+    void drawGlobalOption(GlobalOption globalOption);
     void drawPreviewRectangle(Coordinate coordinate, int width, int height);
     void clearPreviewRectangles();
     String getGameName();
@@ -29,6 +31,7 @@ public interface TemplateCreatorView {
     String getSelectedMappingMode();
     String getSelectedPanel();
     String getGlobalOptionName();
+    void setGlobalOptionName(String name);
     void showError(String message);
     void showSuccess(String message);
     Optional<String> askForPreviewNumbers();
@@ -36,6 +39,7 @@ public interface TemplateCreatorView {
     void setSelectedMarkDimensions(double width, double height);
     void setScannerMarkCount(int count);
     void updateScannerMarkRectangle(ScannerMark mark, double width, double height);
+    void updateGlobalOptionRectangle(GlobalOption globalOption, double width, double height);
     void selectScannerMark(ScannerMark mark);  // Auto-select newly placed scanner mark
     
     // Grid mapping methods

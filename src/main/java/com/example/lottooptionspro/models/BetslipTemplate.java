@@ -16,13 +16,13 @@ public class BetslipTemplate {
     private String imagePath;
     private Mark mark;
     private List<PlayPanel> playPanels;
-    private Map<String, Coordinate> globalOptions;
+    private List<GlobalOption> globalOptions;
     private List<ScannerMark> scannerMarks;
     private GridConfiguration gridConfig; // Grid settings for this template
     
     // Constructor for backward compatibility (without gridConfig)
     public BetslipTemplate(String gameName, String jurisdiction, String imagePath, Mark mark,
-                          List<PlayPanel> playPanels, Map<String, Coordinate> globalOptions,
+                          List<PlayPanel> playPanels, List<GlobalOption> globalOptions,
                           List<ScannerMark> scannerMarks) {
         this.gameName = gameName;
         this.jurisdiction = jurisdiction;

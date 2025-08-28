@@ -7,6 +7,7 @@ import com.example.lottooptionspro.models.GridMappingMode;
 import com.example.lottooptionspro.models.FillOrder;
 import com.example.lottooptionspro.util.GridCalculator;
 import com.example.lottooptionspro.models.ScannerMark;
+import com.example.lottooptionspro.models.GlobalOption;
 import com.example.lottooptionspro.presenter.TemplateCreatorPresenter;
 import com.example.lottooptionspro.presenter.TemplateCreatorView;
 import javafx.collections.FXCollections;
@@ -427,6 +428,10 @@ public class TemplateCreatorController implements TemplateCreatorView {
                 Object userData = selectedRectangle.getUserData();
                 if (userData instanceof ScannerMark) {
                     presenter.updateScannerMarkSize((ScannerMark) userData, n, selectedMarkHeightSpinner.getValue());
+                } else if (userData instanceof GlobalOption) {
+                    // Real-time Global Option resize
+                    GlobalOption globalOption = (GlobalOption) userData;
+                    presenter.updateGlobalOptionSize(globalOption, n, selectedMarkHeightSpinner.getValue());
                 } else if (userData instanceof CoordinateInfo) {
                     CoordinateInfo coordInfo = (CoordinateInfo) userData;
                     presenter.updateMarkingSize(coordInfo, n, selectedMarkHeightSpinner.getValue());
@@ -438,6 +443,10 @@ public class TemplateCreatorController implements TemplateCreatorView {
                 Object userData = selectedRectangle.getUserData();
                 if (userData instanceof ScannerMark) {
                     presenter.updateScannerMarkSize((ScannerMark) userData, selectedMarkWidthSpinner.getValue(), n);
+                } else if (userData instanceof GlobalOption) {
+                    // Real-time Global Option resize
+                    GlobalOption globalOption = (GlobalOption) userData;
+                    presenter.updateGlobalOptionSize(globalOption, selectedMarkWidthSpinner.getValue(), n);
                 } else if (userData instanceof CoordinateInfo) {
                     CoordinateInfo coordInfo = (CoordinateInfo) userData;
                     presenter.updateMarkingSize(coordInfo, selectedMarkWidthSpinner.getValue(), n);
@@ -544,6 +553,23 @@ public class TemplateCreatorController implements TemplateCreatorView {
             ScannerMark mark = (ScannerMark) userData;
             setSelectedMarkDimensions(mark.getWidth(), mark.getHeight());
             setSelectedMarkControlsVisible(true, "Scanner Mark #" + mark.getId());
+        } else if (userData instanceof GlobalOption) {
+            // Enhanced Global Option selection with auto-population
+            selectedRectangle = rect;
+            selectedRectangle.setStroke(Color.RED);
+            GlobalOption globalOption = (GlobalOption) userData;
+            
+            // Auto-populate name field
+            setGlobalOptionName(globalOption.getName());
+            
+            // Auto-populate size dimensions  
+            setSelectedMarkDimensions(globalOption.getWidth(), globalOption.getHeight());
+            
+            // Switch to Global Option mapping mode
+            mappingModeComboBox.setValue("Global Option");
+            
+            // Show controls with specific label
+            setSelectedMarkControlsVisible(true, "Global Option '" + globalOption.getName() + "'");
         } else if (userData instanceof CoordinateInfo) {
             CoordinateInfo coordInfo = (CoordinateInfo) userData;
             if ("QUICK_PICK".equals(coordInfo.getType()) || "GLOBAL_OPTION".equals(coordInfo.getType())) {
@@ -675,11 +701,40 @@ public class TemplateCreatorController implements TemplateCreatorView {
     }
 
     @Override
+    public void drawGlobalOption(GlobalOption globalOption) {
+        double x = globalOption.getX() - globalOption.getWidth() / 2;
+        double y = globalOption.getY() - globalOption.getHeight() / 2;
+        Rectangle rect = new Rectangle(x, y, globalOption.getWidth(), globalOption.getHeight());
+        rect.setUserData(globalOption);
+        rect.setFill(Color.TRANSPARENT);
+        rect.setStroke(Color.PURPLE);
+        rect.setStrokeWidth(1);
+        drawingPane.getChildren().add(rect);
+    }
+
+    @Override
     public void updateScannerMarkRectangle(ScannerMark mark, double width, double height) {
         for (Node node : drawingPane.getChildren()) {
             if (node instanceof Rectangle && mark.equals(node.getUserData())) {
                 ((Rectangle) node).setWidth(width);
                 ((Rectangle) node).setHeight(height);
+                break;
+            }
+        }
+    }
+
+    @Override
+    public void updateGlobalOptionRectangle(GlobalOption globalOption, double width, double height) {
+        boolean found = false;
+        for (Node node : drawingPane.getChildren()) {
+            if (node instanceof Rectangle && globalOption.equals(node.getUserData())) {
+                Rectangle rect = (Rectangle) node;
+                rect.setWidth(width);
+                rect.setHeight(height);
+                // Center the rectangle on its coordinate
+                rect.setX(globalOption.getX() - width / 2);
+                rect.setY(globalOption.getY() - height / 2);
+                found = true;
                 break;
             }
         }
@@ -874,6 +929,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
         // REMOVED: No longer update all scanner marks - each mark has its own individual size
         // Each scanner mark must be selected individually to be modified
     }
+    
 
     @FXML
     private void loadImage() { presenter.loadImage(); }
@@ -954,6 +1010,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
 
     @Override
     public String getGlobalOptionName() { return globalOptionNameField.getText(); }
+
+    @Override
+    public void setGlobalOptionName(String name) { globalOptionNameField.setText(name); }
 
     @Override
     public void showError(String message) { new Alert(Alert.AlertType.ERROR, message).showAndWait(); }
