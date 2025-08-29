@@ -176,6 +176,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
         addListeners();
         configureGridMapping();
         presenter.onPanelOrModeChanged();
+        updateClearButtonVisibility();
         setSelectedMarkControlsVisible(false, null);
         // Make grid mapping visible by default for testing
         setGridMappingControlsVisible(true);
@@ -412,10 +413,12 @@ public class TemplateCreatorController implements TemplateCreatorView {
             // Show grid mapping for main/bonus numbers only
             boolean showGrid = "Main Number".equals(n) || "Bonus Number".equals(n);
             setGridMappingControlsVisible(showGrid);
+            updateClearButtonVisibility();
         });
         panelComboBox.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
             presenter.onPanelOrModeChanged();
             checkAndEnableColumnRowTuningForPanel();
+            updateClearButtonVisibility();
         });
         markWidthSpinner.valueProperty().addListener((obs, o, n) -> {
             String currentMode = getSelectedMappingMode();
@@ -519,6 +522,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
                 presenter.startCoordinateMove(coordInfo.getCoordinate());
             } else if (rect.getUserData() instanceof ScannerMark) {
                 presenter.startScannerMarkMove((ScannerMark) rect.getUserData());
+            } else if (rect.getUserData() instanceof GlobalOption) {
+                // Global Options don't need a start method - they're handled in finish method
+                // Just allow the drag to proceed
             }
         } else {
             unselectRectangle();
@@ -555,6 +561,11 @@ public class TemplateCreatorController implements TemplateCreatorView {
                     presenter.finishCoordinateMove(coordInfo.getCoordinate(), (int) (newX + rect.getWidth() / 2), (int) (newY + rect.getHeight() / 2));
                 } else if (userData instanceof ScannerMark) {
                     presenter.finishScannerMarkMove((ScannerMark) userData, newX, newY);
+                } else if (userData instanceof GlobalOption) {
+                    GlobalOption globalOption = (GlobalOption) userData;
+                    double centerX = newX + rect.getWidth() / 2;
+                    double centerY = newY + rect.getHeight() / 2;
+                    presenter.finishGlobalOptionMove(globalOption, centerX, centerY);
                 }
             } else {
                 // Handle column/row selection when not dragging
@@ -563,9 +574,12 @@ public class TemplateCreatorController implements TemplateCreatorView {
                 }
             }
             rect.setCursor(Cursor.DEFAULT);
-        } else if (pressTarget == drawingPane && !wasDragged && !isGridModeEnabled()) {
-            // Only allow normal clicking when grid mode is disabled
-            presenter.onPaneClicked(event.getX(), event.getY(), markWidthSpinner.getValue(), markHeightSpinner.getValue());
+        } else if (pressTarget == drawingPane && !wasDragged) {
+            // Allow normal clicking for Global Options and Scanner Marks even when grid mode is enabled
+            String mappingMode = getSelectedMappingMode();
+            if (!isGridModeEnabled() || "Global Option".equals(mappingMode) || "Scanner Mark".equals(mappingMode)) {
+                presenter.onPaneClicked(event.getX(), event.getY(), markWidthSpinner.getValue(), markHeightSpinner.getValue());
+            }
         }
         pressTarget = null;
         wasDragged = false;
@@ -1080,6 +1094,24 @@ public class TemplateCreatorController implements TemplateCreatorView {
             return;
         }
         
+        // Check if coordinates already exist for current mode and panel
+        String currentMode = getSelectedMappingMode();
+        String currentPanel = getSelectedPanel();
+        
+        if ("Main Number".equals(currentMode) || "Bonus Number".equals(currentMode)) {
+            Map<String, Coordinate> existingCoords = getCurrentModeCoordinatesForPanel(currentPanel);
+            if (existingCoords != null && !existingCoords.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Cannot Define New Grid");
+                alert.setHeaderText("Existing coordinates found");
+                alert.setContentText("Cannot define a new grid: " + currentMode + " coordinates already exist for Panel " + currentPanel + 
+                                   " (" + existingCoords.size() + " numbers mapped).\n\n" +
+                                   "Please clear existing coordinates first using the Clear button before defining a new grid.");
+                alert.showAndWait();
+                return;
+            }
+        }
+        
         // Validate grid configuration before starting
         String validationError = validateGridConfiguration();
         if (validationError != null) {
@@ -1214,6 +1246,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
             } else if (result.get() == clearGridOnlyButton) {
                 clearGridOnly();
             }
+            updateClearButtonVisibility();
             // If cancel, do nothing
         }
     }
@@ -1300,6 +1333,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
         
         // Refresh panel dropdown to update status indicators
         refreshPanelDropdown();
+        updateClearButtonVisibility();
         
         updateGridMappingStatus("All drawings and markings cleared");
     }
@@ -1316,6 +1350,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
         
         // Refresh panel dropdown to update status indicators
         refreshPanelDropdown();
+        updateClearButtonVisibility();
     }
     
     private void enableColumnRowTuning() {
@@ -1342,9 +1377,9 @@ public class TemplateCreatorController implements TemplateCreatorView {
         String currentPanelId = getSelectedPanel();
         if (currentPanelId == null) return;
         
-        // Check if current panel has coordinates mapped
-        Map<String, Coordinate> mainNumbers = getMainNumbersForPanel(currentPanelId);
-        if (mainNumbers != null && !mainNumbers.isEmpty()) {
+        // Check if current panel has coordinates mapped for the current mode
+        Map<String, Coordinate> currentModeNumbers = getCurrentModeCoordinatesForPanel(currentPanelId);
+        if (currentModeNumbers != null && !currentModeNumbers.isEmpty()) {
             // Panel has coordinates - enable column/row tuning
             if (columnRowTuningSection != null) {
                 columnRowTuningSection.setVisible(true);
@@ -1954,8 +1989,8 @@ public class TemplateCreatorController implements TemplateCreatorView {
     private String findNumberForCoordinate(Coordinate target, String panelId) {
         if (panelId == null) return null;
         
-        // Check main numbers
-        for (Map.Entry<String, Coordinate> entry : getMainNumbersForPanel(panelId).entrySet()) {
+        // Check coordinates for current mapping mode
+        for (Map.Entry<String, Coordinate> entry : getCurrentModeCoordinatesForPanel(panelId).entrySet()) {
             Coordinate coord = entry.getValue();
             if (coord.getX() == target.getX() && coord.getY() == target.getY()) {
                 return entry.getKey();
@@ -1971,6 +2006,43 @@ public class TemplateCreatorController implements TemplateCreatorView {
     private Map<String, Coordinate> getMainNumbersForPanel(String panelId) {
         // Access through presenter to get the current panel's main numbers
         return presenter.getMainNumbersForPanel(panelId);
+    }
+    
+    /**
+     * Get coordinates for the current mapping mode and panel
+     */
+    private Map<String, Coordinate> getCurrentModeCoordinatesForPanel(String panelId) {
+        String currentMode = getSelectedMappingMode();
+        if ("Bonus Number".equals(currentMode)) {
+            return presenter.getBonusNumbersForPanel(panelId);
+        } else {
+            return presenter.getMainNumbersForPanel(panelId);
+        }
+    }
+
+    /**
+     * Update Clear button visibility based on whether coordinates exist
+     */
+    private void updateClearButtonVisibility() {
+        if (clearGridButton == null) return;
+        
+        String currentMode = getSelectedMappingMode();
+        String currentPanel = getSelectedPanel();
+        
+        boolean hasCoordinates = false;
+        if (currentPanel != null && ("Main Number".equals(currentMode) || "Bonus Number".equals(currentMode))) {
+            Map<String, Coordinate> existingCoords = getCurrentModeCoordinatesForPanel(currentPanel);
+            hasCoordinates = existingCoords != null && !existingCoords.isEmpty();
+        }
+        
+        // Show Clear button if coordinates exist
+        clearGridButton.setVisible(hasCoordinates);
+        
+        if (hasCoordinates) {
+            System.out.println("DEBUG: Showing Clear button - found coordinates for " + currentMode + " in panel " + currentPanel);
+        } else {
+            System.out.println("DEBUG: Hiding Clear button - no coordinates for " + currentMode + " in panel " + currentPanel);
+        }
     }
     
     /**
@@ -2002,7 +2074,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
         
         // Get all numbers in the specified column using GridCalculator
         List<Integer> numbersInColumn = GridCalculator.getNumbersInColumn(columnIndex, grid);
-        Map<String, Coordinate> currentPanelNumbers = getMainNumbersForPanel(currentPanelId);
+        Map<String, Coordinate> currentPanelNumbers = getCurrentModeCoordinatesForPanel(currentPanelId);
         
         // Find rectangles that correspond to numbers in this column AND belong to current panel
         for (Node node : drawingPane.getChildren()) {
@@ -2055,7 +2127,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
         
         // Get all numbers in the specified row using GridCalculator
         List<Integer> numbersInRow = GridCalculator.getNumbersInRow(rowIndex, grid);
-        Map<String, Coordinate> currentPanelNumbers = getMainNumbersForPanel(currentPanelId);
+        Map<String, Coordinate> currentPanelNumbers = getCurrentModeCoordinatesForPanel(currentPanelId);
         
         // Find rectangles that correspond to numbers in this row AND belong to current panel
         for (Node node : drawingPane.getChildren()) {
@@ -2103,8 +2175,8 @@ public class TemplateCreatorController implements TemplateCreatorView {
         String panelId = getSelectedPanel();
         if (panelId == null) return null;
         
-        Map<String, Coordinate> mainNumbers = getMainNumbersForPanel(panelId);
-        Coordinate targetCoord = mainNumbers.get(number);
+        Map<String, Coordinate> currentNumbers = getCurrentModeCoordinatesForPanel(panelId);
+        Coordinate targetCoord = currentNumbers.get(number);
         if (targetCoord == null) return null;
         
         // Find rectangle with matching coordinate
@@ -2445,11 +2517,23 @@ public class TemplateCreatorController implements TemplateCreatorView {
     private Map<String, Map<String, Coordinate>> collectPanelCoordinates() {
         Map<String, Map<String, Coordinate>> panelCoordinates = new HashMap<>();
         
-        // Collect panel-specific coordinates
+        // Collect main numbers for each panel
         for (String panelId : Arrays.asList("A", "B", "C", "D", "E")) {
-            Map<String, Coordinate> coordinates = presenter.getMainNumbersForPanel(panelId);
-            if (coordinates != null && !coordinates.isEmpty()) {
-                panelCoordinates.put(panelId, coordinates);
+            Map<String, Coordinate> mainCoordinates = presenter.getMainNumbersForPanel(panelId);
+            if (mainCoordinates != null && !mainCoordinates.isEmpty()) {
+                panelCoordinates.put(panelId, mainCoordinates);
+            }
+        }
+        
+        // Collect bonus numbers for each panel (if any exist)
+        for (String panelId : Arrays.asList("A", "B", "C", "D", "E")) {
+            Map<String, Coordinate> bonusCoordinates = presenter.getBonusNumbersForPanel(panelId);
+            if (bonusCoordinates != null && !bonusCoordinates.isEmpty()) {
+                // Use a special naming convention for bonus number panels
+                panelCoordinates.put(panelId + "_BONUS", bonusCoordinates);
+                System.out.println("DEBUG: Found " + bonusCoordinates.size() + " bonus numbers for panel " + panelId);
+            } else {
+                System.out.println("DEBUG: No bonus numbers found for panel " + panelId);
             }
         }
         
@@ -2460,6 +2544,7 @@ public class TemplateCreatorController implements TemplateCreatorView {
             setValidationStatus("Found " + globalOptionCoordinates.size() + " Global Options for validation");
         }
         
+        System.out.println("DEBUG: Total panels collected: " + panelCoordinates.keySet());
         return panelCoordinates;
     }
     
@@ -2503,14 +2588,32 @@ public class TemplateCreatorController implements TemplateCreatorView {
             configuredPanels.add("GLOBAL");
         }
         
-        // Color scheme for different panels and global options
+        // Ensure bonus number panels are included if they exist in panelCoordinates
+        for (String panelKey : panelCoordinates.keySet()) {
+            if (panelKey.contains("_BONUS") && !configuredPanels.contains(panelKey)) {
+                configuredPanels.add(panelKey);
+                System.out.println("DEBUG: Added bonus panel to validation: " + panelKey);
+            }
+        }
+        
+        System.out.println("DEBUG: Final configured panels for validation: " + configuredPanels);
+        
+        // Color scheme for different panels, bonus numbers, and global options
         Map<String, String> panelColors = new HashMap<>();
+        // Main number panels
         panelColors.put("A", "#0066CC");      // Blue
         panelColors.put("B", "#00AA00");      // Green  
         panelColors.put("C", "#FF8800");      // Orange
         panelColors.put("D", "#8800CC");      // Purple
         panelColors.put("E", "#CC6600");      // Brown
-        panelColors.put("GLOBAL", "#FF0000"); // Bright Red for Global Options (highly visible)
+        // Bonus number panels (darker variants of main colors)
+        panelColors.put("A_BONUS", "#003366"); // Dark Blue
+        panelColors.put("B_BONUS", "#006600"); // Dark Green
+        panelColors.put("C_BONUS", "#CC4400"); // Dark Orange  
+        panelColors.put("D_BONUS", "#550066"); // Dark Purple
+        panelColors.put("E_BONUS", "#994400"); // Dark Brown
+        // Global Options
+        panelColors.put("GLOBAL", "#FF0000");  // Bright Red for Global Options (highly visible)
         
         final int[] testCount = {0};
         final int maxTests = 100;
@@ -2528,17 +2631,29 @@ public class TemplateCreatorController implements TemplateCreatorView {
                 // Update progress
                 double progress = (double) testNumber / maxTests;
                 setValidationProgress(progress);
-                // Count regular panels vs Global Options
-                int regularPanelCount = (int) configuredPanels.stream()
-                        .filter(id -> !"GLOBAL".equals(id))
+                // Count main panels, bonus panels, and global options
+                int mainPanelCount = (int) configuredPanels.stream()
+                        .filter(id -> !id.contains("_BONUS") && !"GLOBAL".equals(id))
+                        .count();
+                int bonusPanelCount = (int) configuredPanels.stream()
+                        .filter(id -> id.contains("_BONUS"))
                         .count();
                 boolean hasGlobalOptions = configuredPanels.contains("GLOBAL");
                 
-                String statusMessage = "Running test " + testNumber + "/" + maxTests + " across " + 
-                                     regularPanelCount + " panel" + (regularPanelCount != 1 ? "s" : "");
+                String statusMessage = "Running test " + testNumber + "/" + maxTests + " across ";
+                
+                if (mainPanelCount > 0) {
+                    statusMessage += mainPanelCount + " main panel" + (mainPanelCount != 1 ? "s" : "");
+                }
+                
+                if (bonusPanelCount > 0) {
+                    if (mainPanelCount > 0) statusMessage += ", ";
+                    statusMessage += bonusPanelCount + " bonus panel" + (bonusPanelCount != 1 ? "s" : "");
+                }
                 
                 if (hasGlobalOptions) {
-                    statusMessage += " + Global Options";
+                    if (mainPanelCount > 0 || bonusPanelCount > 0) statusMessage += ", ";
+                    statusMessage += "Global Options";
                 }
                 
                 setValidationStatus(statusMessage);
@@ -2547,13 +2662,18 @@ public class TemplateCreatorController implements TemplateCreatorView {
                 for (String panelId : configuredPanels) {
                     Map<String, Coordinate> coordinates = panelCoordinates.get(panelId);
                     if (coordinates != null) {
+                        System.out.println("DEBUG: Drawing validation marks for panel " + panelId + " with " + coordinates.size() + " coordinates");
                         List<String> testItems;
                         
                         if ("GLOBAL".equals(panelId)) {
                             // For Global Options, test all available options
                             testItems = new ArrayList<>(coordinates.keySet());
+                        } else if (panelId.contains("_BONUS")) {
+                            // For bonus number panels, generate fewer test numbers (typically 1-2 bonus numbers)
+                            int bonusTestCount = Math.min(coordinates.size(), 2);
+                            testItems = generateTestNumbers(coordinates.keySet(), bonusTestCount);
                         } else {
-                            // For regular panels, generate random test numbers
+                            // For regular main number panels, generate 6 random test numbers
                             testItems = generateTestNumbers(coordinates.keySet(), 6);
                         }
                         
@@ -2563,9 +2683,28 @@ public class TemplateCreatorController implements TemplateCreatorView {
                             if (coord != null) {
                                 String color = panelColors.getOrDefault(panelId, "#666666");
                                 
-                                // Use different mark sizes for Global Options
-                                int markWidth = "GLOBAL".equals(panelId) ? 45 : 38;
-                                int markHeight = "GLOBAL".equals(panelId) ? 30 : 36;
+                                // Use different mark sizes based on panel type
+                                int markWidth, markHeight;
+                                if ("GLOBAL".equals(panelId)) {
+                                    // Global Options - use actual dimensions from the JSON
+                                    GlobalOption globalOption = findGlobalOptionByName(item);
+                                    if (globalOption != null) {
+                                        markWidth = (int) globalOption.getWidth();
+                                        markHeight = (int) globalOption.getHeight();
+                                    } else {
+                                        // Fallback to default if not found
+                                        markWidth = 40;
+                                        markHeight = 40;
+                                    }
+                                } else if (panelId.contains("_BONUS")) {
+                                    // Bonus numbers - use standard template mark size
+                                    markWidth = 42;
+                                    markHeight = 39;
+                                } else {
+                                    // Main numbers - use standard template mark size
+                                    markWidth = 38;
+                                    markHeight = 36;
+                                }
                                 
                                 drawValidationMark(coord, markWidth, markHeight, panelId, color);
                             }
@@ -2589,6 +2728,20 @@ public class TemplateCreatorController implements TemplateCreatorView {
         
         validationTimeline.getKeyFrames().add(finalFrame);
         validationTimeline.play();
+    }
+    
+    /**
+     * Find a Global Option by name
+     */
+    private GlobalOption findGlobalOptionByName(String name) {
+        if (presenter != null) {
+            for (GlobalOption globalOption : presenter.getTemplateGlobalOptions()) {
+                if (name.equals(globalOption.getName())) {
+                    return globalOption;
+                }
+            }
+        }
+        return null;
     }
     
     /**
@@ -2712,12 +2865,19 @@ public class TemplateCreatorController implements TemplateCreatorView {
         // Set fill color based on panel
         rect.setFill(Color.web(color));
         
-        // Make Global Options more prominent
+        // Apply different styling based on panel type
         if ("GLOBAL".equals(panelId)) {
-            rect.setOpacity(0.9); // More opaque
-            rect.setStroke(Color.BLACK); // Black border for contrast
-            rect.setStrokeWidth(3); // Thicker border
+            // Global Options - most prominent
+            rect.setOpacity(0.9);
+            rect.setStroke(Color.BLACK);
+            rect.setStrokeWidth(3);
+        } else if (panelId.contains("_BONUS")) {
+            // Bonus numbers - prominent with distinctive styling
+            rect.setOpacity(0.8);
+            rect.setStroke(Color.WHITE); // White border to distinguish from main numbers
+            rect.setStrokeWidth(2.5);
         } else {
+            // Main numbers - standard styling
             rect.setOpacity(0.7);
             rect.setStroke(Color.web(color).darker());
             rect.setStrokeWidth(2);

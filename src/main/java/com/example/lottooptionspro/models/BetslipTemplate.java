@@ -18,7 +18,9 @@ public class BetslipTemplate {
     private List<PlayPanel> playPanels;
     private List<GlobalOption> globalOptions;
     private List<ScannerMark> scannerMarks;
-    private GridConfiguration gridConfig; // Grid settings for this template
+    private GridConfiguration gridConfig; // Grid settings for main numbers (backward compatibility)
+    private GridConfiguration mainNumberGridConfig; // Grid settings for main numbers
+    private GridConfiguration bonusNumberGridConfig; // Grid settings for bonus numbers
     
     // Constructor for backward compatibility (without gridConfig)
     public BetslipTemplate(String gameName, String jurisdiction, String imagePath, Mark mark,
@@ -34,7 +36,22 @@ public class BetslipTemplate {
         this.gridConfig = null; // No grid config in old format
     }
     
-    // Getter and setter for gridConfig (Lombok will generate the others)
-    public GridConfiguration getGridConfig() { return gridConfig; }
-    public void setGridConfig(GridConfiguration gridConfig) { this.gridConfig = gridConfig; }
+    // Getters and setters for grid configurations
+    public GridConfiguration getGridConfig() { 
+        // For backward compatibility, return mainNumberGridConfig if available, otherwise gridConfig
+        return mainNumberGridConfig != null ? mainNumberGridConfig : gridConfig; 
+    }
+    public void setGridConfig(GridConfiguration gridConfig) { 
+        this.gridConfig = gridConfig; 
+        // Also set as main number config if not already set
+        if (this.mainNumberGridConfig == null) {
+            this.mainNumberGridConfig = gridConfig;
+        }
+    }
+    
+    public GridConfiguration getMainNumberGridConfig() { return mainNumberGridConfig; }
+    public void setMainNumberGridConfig(GridConfiguration config) { this.mainNumberGridConfig = config; }
+    
+    public GridConfiguration getBonusNumberGridConfig() { return bonusNumberGridConfig; }
+    public void setBonusNumberGridConfig(GridConfiguration config) { this.bonusNumberGridConfig = config; }
 }

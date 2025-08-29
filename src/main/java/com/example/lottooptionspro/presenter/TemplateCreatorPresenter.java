@@ -66,7 +66,8 @@ public class TemplateCreatorPresenter {
         String currentMode = view.getSelectedMappingMode();
         if (currentPanelId == null || currentMode == null) return;
 
-        // Panel/mode changed - no longer need to update Next Number field
+        // Update grid UI settings for the current mode
+        autoPopulateGridSettings();
         
         // Update grid definition for new panel to enable column/row selection
         updateGridDefinitionForCurrentPanel();
@@ -90,12 +91,13 @@ public class TemplateCreatorPresenter {
         
         // Update grid for both existing panels and new panels  
         if (model != null) {
-            // Try grid config first, then fall back to coordinate inference
-            boolean hasGridConfig = model.getGridConfig() != null && model.getGridConfig().isValid();
+            // Try mode-specific grid config first, then fall back to coordinate inference
+            GridConfiguration modeConfig = getCurrentModeGridConfig();
+            boolean hasGridConfig = modeConfig != null && modeConfig.isValid();
             
             // Debug: Print grid config details
-            if (model.getGridConfig() != null) {
-                GridConfiguration config = model.getGridConfig();
+            if (modeConfig != null) {
+                GridConfiguration config = modeConfig;
                 System.out.println("DEBUG: Grid config found - Range: " + config.getNumberRange() + 
                     ", Columns: " + config.getColumns() + 
                     ", Rows: " + config.getRows() + 
@@ -244,7 +246,8 @@ public class TemplateCreatorPresenter {
     }
     
     private void captureGridConfiguration() {
-        // First priority: Try to save grid config from UI fields (whether grid mode is enabled or not)
+        // Save the current mode's grid configuration from UI fields
+        String currentMode = view.getSelectedMappingMode();
         String numberRange = view.getGridNumberRange();
         int columns = view.getGridColumns();
         int rows = view.getGridRows();
@@ -253,23 +256,17 @@ public class TemplateCreatorPresenter {
         // Save if we have valid configuration in the UI fields
         if (numberRange != null && !numberRange.trim().isEmpty() && columns > 0 && rows > 0) {
             GridConfiguration gridConfig = new GridConfiguration(numberRange, columns, rows, fillOrder);
-            model.setGridConfig(gridConfig);
-            String source = view.isGridModeEnabled() ? "grid mode" : "UI fields";
-            System.out.println("Saved grid config from " + source + ": " + columns + "x" + rows + " range " + numberRange);
+            setCurrentModeGridConfig(gridConfig);
+            System.out.println("Saved " + currentMode + " grid config: " + columns + "x" + rows + " range " + numberRange);
             return;
         }
         
-        // Second priority: Try to infer and save grid config from coordinate patterns (if coordinates exist)
-        // This ensures templates created manually will have grid config for future loading
+        // Fallback: Try to infer grid config from coordinate patterns
         GridConfiguration inferredConfig = inferGridConfigurationFromCoordinates();
         if (inferredConfig != null) {
-            model.setGridConfig(inferredConfig);
-            System.out.println("Inferred and saved grid config: " + inferredConfig.getColumns() + "x" + 
+            setCurrentModeGridConfig(inferredConfig);
+            System.out.println("Inferred " + currentMode + " grid config: " + inferredConfig.getColumns() + "x" + 
                 inferredConfig.getRows() + " range " + inferredConfig.getNumberRange());
-        } else {
-            // No grid configuration available - don't save any grid config
-            model.setGridConfig(null);
-            System.out.println("No grid configuration available to save");
         }
     }
     
@@ -689,14 +686,22 @@ public class TemplateCreatorPresenter {
             return; // No model, let user configure manually
         }
         
-        // First priority: Use saved grid configuration from the template
-        if (model.getGridConfig() != null && model.getGridConfig().isValid()) {
-            GridConfiguration savedConfig = model.getGridConfig();
+        String currentMode = view.getSelectedMappingMode();
+        System.out.println("DEBUG: Auto-populating grid settings for mode: " + currentMode);
+        
+        // First priority: Use saved grid configuration for the current mode
+        GridConfiguration savedConfig = getCurrentModeGridConfig();
+        if (savedConfig != null && savedConfig.isValid()) {
+            System.out.println("DEBUG: Found grid config for " + currentMode + ": " + 
+                savedConfig.getNumberRange() + ", " + 
+                savedConfig.getColumns() + "x" + savedConfig.getRows());
             view.setGridNumberRange(savedConfig.getNumberRange());
             view.setGridColumns(savedConfig.getColumns());
             view.setGridRows(savedConfig.getRows());
             view.setGridFillOrder(savedConfig.getFillOrder());
             return;
+        } else {
+            System.out.println("DEBUG: No valid grid config found for " + currentMode);
         }
         
         // Second priority: Try to analyze existing coordinate data (fallback for old templates)
@@ -1057,7 +1062,7 @@ public class TemplateCreatorPresenter {
                 });
             }
         }
-        redrawAllMarkings();
+        redrawAllMarkingsPreservingSizes();
     }
 
     private void handleGlobalOptionMapping(Coordinate coordinate) {
@@ -1132,7 +1137,7 @@ public class TemplateCreatorPresenter {
                 
             if (lastNumber != null) {
                 panel.getMainNumbers().remove(lastNumber);
-                redrawAllMarkings();
+                redrawAllMarkingsPreservingSizes();
             }
         }
     }
@@ -1211,57 +1216,15 @@ public class TemplateCreatorPresenter {
      * Update mark size for the current panel and mode only, without affecting other panels or modes
      */
     public void updateMarkSizeForCurrentPanel(int width, int height, String mode) {
-        String currentPanelId = view.getSelectedPanel();
-        if (currentPanelId == null) return;
-        
-        PlayPanel currentPanel = getOrCreatePlayPanel(currentPanelId);
-        
-        // For Main/Bonus number modes, we need to redraw all markings but only update
-        // the specific type with the new size
+        // For Main/Bonus number modes, update the template default size and preserve individual sizes
         if ("Main Number".equals(mode) || "Bonus Number".equals(mode)) {
-            // Clear all rectangles and redraw everything to maintain consistency
-            view.clearAllRectangles();
+            // Update the model's default mark size to the new size
+            // This ensures new numbers will use this size while preserving existing custom sizes
+            model.getMark().setWidth(width);
+            model.getMark().setHeight(height);
             
-            // Redraw all panels with their original sizes, except current panel's specific type
-            for (PlayPanel panel : model.getPlayPanels()) {
-                int w = model.getMark().getWidth();
-                int h = model.getMark().getHeight();
-                
-                // Use custom size only for the current panel and mode
-                if (panel.getPanelId().equals(currentPanelId)) {
-                    if ("Main Number".equals(mode)) {
-                        // Use custom size for main numbers in current panel
-                        panel.getMainNumbers().values().forEach(c -> 
-                            view.drawRectangle(c, width, height, "MAIN_NUMBER", panel.getPanelId()));
-                        // Use normal size for bonus numbers in current panel
-                        panel.getBonusNumbers().values().forEach(c -> 
-                            view.drawRectangle(c, w, h, "BONUS_NUMBER", panel.getPanelId()));
-                    } else if ("Bonus Number".equals(mode)) {
-                        // Use normal size for main numbers in current panel
-                        panel.getMainNumbers().values().forEach(c -> 
-                            view.drawRectangle(c, w, h, "MAIN_NUMBER", panel.getPanelId()));
-                        // Use custom size for bonus numbers in current panel
-                        panel.getBonusNumbers().values().forEach(c -> 
-                            view.drawRectangle(c, width, height, "BONUS_NUMBER", panel.getPanelId()));
-                    }
-                } else {
-                    // Use normal size for all other panels
-                    panel.getMainNumbers().values().forEach(c -> 
-                        view.drawRectangle(c, w, h, "MAIN_NUMBER", panel.getPanelId()));
-                    panel.getBonusNumbers().values().forEach(c -> 
-                        view.drawRectangle(c, w, h, "BONUS_NUMBER", panel.getPanelId()));
-                }
-                
-                // Redraw quick pick with normal size
-                if (panel.getQuickPick() != null) {
-                    view.drawRectangle(panel.getQuickPick(), w, h, "QUICK_PICK", panel.getPanelId());
-                }
-            }
-            
-            // Redraw global options with their individual sizes and scanner marks
-            model.getGlobalOptions().forEach(view::drawGlobalOption);
-            model.getScannerMarks().forEach(view::drawScannerMark);
-            view.setScannerMarkCount(model.getScannerMarks().size());
+            // Use the size-preserving redraw to maintain any custom sizes that were set
+            redrawAllMarkingsPreservingSizes();
         }
     }
     
@@ -1366,62 +1329,25 @@ public class TemplateCreatorPresenter {
     }
     
     private void redrawGlobalOptionsOnly(int width, int height) {
-        // Clear and redraw everything to maintain visual consistency
-        view.clearAllRectangles();
-        
-        // Redraw all markings with normal sizes except global options
-        int w = model.getMark().getWidth();
-        int h = model.getMark().getHeight();
-        
-        // Redraw all panels with normal sizes
-        for (PlayPanel panel : model.getPlayPanels()) {
-            panel.getMainNumbers().values().forEach(c -> 
-                view.drawRectangle(c, w, h, "MAIN_NUMBER", panel.getPanelId()));
-            panel.getBonusNumbers().values().forEach(c -> 
-                view.drawRectangle(c, w, h, "BONUS_NUMBER", panel.getPanelId()));
-            if (panel.getQuickPick() != null) {
-                view.drawRectangle(panel.getQuickPick(), w, h, "QUICK_PICK", panel.getPanelId());
-            }
-        }
-        
-        // Redraw global options with the specified size (update their stored sizes too)
+        // Update global option sizes in the model
         model.getGlobalOptions().forEach(go -> {
             go.setWidth(width);
             go.setHeight(height);
-            view.drawGlobalOption(go);
         });
-            
-        // Redraw scanner marks with their individual sizes
-        model.getScannerMarks().forEach(view::drawScannerMark);
-        view.setScannerMarkCount(model.getScannerMarks().size());
+        
+        // Use size-preserving redraw to maintain any custom sizes for other markings
+        redrawAllMarkingsPreservingSizes();
     }
     
     private void redrawQuickPickMarksOnly(int width, int height) {
-        // Clear and redraw everything to maintain visual consistency
-        view.clearAllRectangles();
-        
-        // Redraw all markings with normal sizes except quick pick
-        int w = model.getMark().getWidth();
-        int h = model.getMark().getHeight();
-        
-        // Redraw all panels
-        for (PlayPanel panel : model.getPlayPanels()) {
-            panel.getMainNumbers().values().forEach(c -> 
-                view.drawRectangle(c, w, h, "MAIN_NUMBER", panel.getPanelId()));
-            panel.getBonusNumbers().values().forEach(c -> 
-                view.drawRectangle(c, w, h, "BONUS_NUMBER", panel.getPanelId()));
-            // Use custom size for quick pick marks
-            if (panel.getQuickPick() != null) {
-                view.drawRectangle(panel.getQuickPick(), width, height, "QUICK_PICK", panel.getPanelId());
-            }
+        // Update quick pick sizes for all panels
+        String currentPanel = view.getSelectedPanel();
+        if (currentPanel != null) {
+            quickPickSizes.put(currentPanel, new int[]{width, height});
         }
         
-        // Redraw global options with their individual sizes
-        model.getGlobalOptions().forEach(view::drawGlobalOption);
-            
-        // Redraw scanner marks with their individual sizes
-        model.getScannerMarks().forEach(view::drawScannerMark);
-        view.setScannerMarkCount(model.getScannerMarks().size());
+        // Use size-preserving redraw to maintain any custom sizes for other markings
+        redrawAllMarkingsPreservingSizes();
     }
     
 
@@ -1435,14 +1361,14 @@ public class TemplateCreatorPresenter {
         undoStack.add(() -> {
             coordToMove.setX(oldX);
             coordToMove.setY(oldY);
-            redrawAllMarkings();
+            redrawAllMarkingsPreservingSizes();
         });
 
         coordToMove.setX(newX);
         coordToMove.setY(newY);
 
         this.originalCoordinate = null;
-        redrawAllMarkings();
+        redrawAllMarkingsPreservingSizes();
     }
 
     public void startScannerMarkMove(ScannerMark mark) {
@@ -1455,14 +1381,14 @@ public class TemplateCreatorPresenter {
         undoStack.add(() -> {
             markToMove.setX(oldX);
             markToMove.setY(oldY);
-            redrawAllMarkings();
+            redrawAllMarkingsPreservingSizes();
         });
 
         markToMove.setX(newX);
         markToMove.setY(newY);
 
         this.originalScannerMark = null;
-        redrawAllMarkings();
+        redrawAllMarkingsPreservingSizes();
     }
 
     public void redrawAllMarkings() {
@@ -1488,6 +1414,25 @@ public class TemplateCreatorPresenter {
                     model.getPlayPanels().add(newPanel);
                     return newPanel;
                 });
+    }
+
+    public void finishGlobalOptionMove(GlobalOption globalOption, double newX, double newY) {
+        // Store original position for undo
+        double oldX = globalOption.getX();
+        double oldY = globalOption.getY();
+        
+        undoStack.add(() -> {
+            globalOption.setX(oldX);
+            globalOption.setY(oldY);
+            redrawAllMarkingsPreservingSizes();
+        });
+
+        // Update the Global Option's position
+        globalOption.setX(newX);
+        globalOption.setY(newY);
+
+        // Redraw to reflect the new position
+        redrawAllMarkingsPreservingSizes();
     }
     
     // Grid mapping methods
@@ -1550,7 +1495,7 @@ public class TemplateCreatorPresenter {
             return;
         }
         
-        // Calculate all positions using optimized method if existing coordinates are available
+        // Check if coordinates already exist for this mode and panel
         PlayPanel currentPanel = getOrCreatePlayPanel(view.getSelectedPanel());
         Map<String, Coordinate> existingCoords = null;
         
@@ -1560,14 +1505,17 @@ public class TemplateCreatorPresenter {
             existingCoords = currentPanel.getBonusNumbers();
         }
         
-        // Use optimized calculation if we have existing coordinates, otherwise use standard method
-        Map<String, Coordinate> positions;
+        // Prevent applying new grid if coordinates already exist
         if (existingCoords != null && !existingCoords.isEmpty()) {
-            // For now, fall back to standard method - we can enhance this later
-            positions = GridCalculator.calculateNumberPositions(currentGrid);
-        } else {
-            positions = GridCalculator.calculateNumberPositions(currentGrid);
+            String panelId = view.getSelectedPanel();
+            view.showError("Cannot apply new grid: " + mappingMode + " coordinates already exist for Panel " + panelId + 
+                         " (" + existingCoords.size() + " numbers mapped). " +
+                         "Please clear existing coordinates first using the Clear button.");
+            return;
         }
+        
+        // Calculate all grid positions since we've verified no existing coordinates exist
+        Map<String, Coordinate> positions = GridCalculator.calculateNumberPositions(currentGrid);
         
         if (positions.isEmpty()) {
             view.showError("Failed to calculate number positions");
@@ -1577,13 +1525,8 @@ public class TemplateCreatorPresenter {
         // Get or create panel
         PlayPanel panel = getOrCreatePlayPanel(currentGrid.getPanelId());
         
-        // Store old state for undo
-        Map<String, Coordinate> oldPositions;
-        if ("Main Number".equals(mappingMode)) {
-            oldPositions = new HashMap<>(panel.getMainNumbers());
-        } else {
-            oldPositions = new HashMap<>(panel.getBonusNumbers());
-        }
+        // Store old state for undo (will be empty since we verified no existing coordinates)
+        Map<String, Coordinate> oldPositions = new HashMap<>();
         
         // Apply new positions
         int count = 0;
@@ -1645,8 +1588,38 @@ public class TemplateCreatorPresenter {
      */
     public boolean hasValidGridConfiguration() {
         return model != null && 
-               model.getGridConfig() != null && 
-               model.getGridConfig().isValid();
+               getCurrentModeGridConfig() != null && 
+               getCurrentModeGridConfig().isValid();
+    }
+    
+    /**
+     * Get the grid configuration for the current mapping mode
+     */
+    private GridConfiguration getCurrentModeGridConfig() {
+        if (model == null) return null;
+        
+        String currentMode = view.getSelectedMappingMode();
+        if ("Bonus Number".equals(currentMode)) {
+            return model.getBonusNumberGridConfig();
+        } else {
+            // Default to main number grid config for "Main Number" and other modes
+            return model.getMainNumberGridConfig() != null ? model.getMainNumberGridConfig() : model.getGridConfig();
+        }
+    }
+    
+    /**
+     * Set the grid configuration for the current mapping mode
+     */
+    private void setCurrentModeGridConfig(GridConfiguration config) {
+        if (model == null) return;
+        
+        String currentMode = view.getSelectedMappingMode();
+        if ("Bonus Number".equals(currentMode)) {
+            model.setBonusNumberGridConfig(config);
+        } else {
+            // Default to main number grid config for "Main Number" and other modes
+            model.setMainNumberGridConfig(config);
+        }
     }
     
     public void updateGridDefinition(GridDefinition newGrid) {
@@ -1697,11 +1670,11 @@ public class TemplateCreatorPresenter {
                 panel.getMainNumbers().putAll(currentMainNumbers);
                 panel.getBonusNumbers().clear();
                 panel.getBonusNumbers().putAll(currentBonusNumbers);
-                redrawAllMarkings();
+                redrawAllMarkingsPreservingSizes();
             });
             
             // Redraw with restored positions
-            redrawAllMarkings();
+            redrawAllMarkingsPreservingSizes();
         }
     }
     
@@ -1825,6 +1798,20 @@ public class TemplateCreatorPresenter {
                 .orElse(null);
                 
         return panel != null ? panel.getMainNumbers() : new HashMap<>();
+    }
+    
+    /**
+     * Get bonus numbers for a specific panel
+     */
+    public Map<String, Coordinate> getBonusNumbersForPanel(String panelId) {
+        if (panelId == null) return new HashMap<>();
+        
+        PlayPanel panel = model.getPlayPanels().stream()
+                .filter(p -> panelId.equals(p.getPanelId()))
+                .findFirst()
+                .orElse(null);
+                
+        return panel != null ? panel.getBonusNumbers() : new HashMap<>();
     }
     
     /**
