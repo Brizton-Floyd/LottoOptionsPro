@@ -220,3 +220,156 @@
     -fx-font-style: italic;
     -fx-padding: 2 0 0 0;
 }
+
+/* --- 2x2 Dashboard Styles --- */
+.results-dashboard {
+    -fx-padding: 20;
+    -fx-background-color: #F8F9FA;
+    -fx-background-radius: 8;
+}
+
+.results-summary {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2C3E50;
+    -fx-padding: 10;
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 6;
+    -fx-border-color: #E8F4F8;
+    -fx-border-radius: 6;
+    -fx-border-width: 2;
+}
+
+.dashboard-panel {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 8;
+    -fx-border-color: #E3E8ED;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 4, 0, 0, 2);
+}
+
+.dashboard-panel .title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #34495E;
+}
+
+.performance-panel, .historical-panel, .tickets-panel, .strategy-panel {
+    -fx-padding: 16;
+    -fx-spacing: 12;
+}
+
+/* --- Performance Dashboard (Top Left) --- */
+.performance-panel .metric-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: #7F8C8D;
+    -fx-font-weight: normal;
+}
+
+.quality-grade-large {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+}
+
+.grade-a { -fx-text-fill: #27AE60; }
+.grade-b { -fx-text-fill: #F39C12; }
+.grade-c { -fx-text-fill: #E67E22; }
+.grade-d { -fx-text-fill: #E74C3C; }
+.grade-f { -fx-text-fill: #C0392B; }
+
+.improvement-excellent { 
+    -fx-text-fill: #27AE60; 
+    -fx-background-color: rgba(39, 174, 96, 0.1);
+    -fx-background-radius: 4;
+    -fx-padding: 2 6;
+}
+.improvement-good { 
+    -fx-text-fill: #F39C12; 
+    -fx-background-color: rgba(243, 156, 18, 0.1);
+    -fx-background-radius: 4;
+    -fx-padding: 2 6;
+}
+.improvement-poor { 
+    -fx-text-fill: #E74C3C; 
+    -fx-background-color: rgba(231, 76, 60, 0.1);
+    -fx-background-radius: 4;
+    -fx-padding: 2 6;
+}
+
+/* --- Historical Analysis (Top Right) --- */
+.historical-panel .metric-small {
+    -fx-font-size: 10px;
+    -fx-text-fill: #95A5A6;
+}
+
+.prize-breakdown-table {
+    -fx-background-color: #FAFBFC;
+    -fx-border-color: #E1E8ED;
+    -fx-border-radius: 4;
+}
+
+/* --- Strategy & Insights (Bottom Right) --- */
+.drought-status {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.drought-normal { -fx-text-fill: #27AE60; }
+.drought-moderate { -fx-text-fill: #F39C12; }
+.drought-critical { -fx-text-fill: #E74C3C; }
+
+.drought-detail {
+    -fx-font-size: 11px;
+    -fx-text-fill: #7F8C8D;
+    -fx-padding: 2 0;
+}
+
+.recommendation-item {
+    -fx-font-size: 11px;
+    -fx-text-fill: #2C3E50;
+    -fx-wrap-text: true;
+    -fx-padding: 3 0;
+}
+
+.insight-item {
+    -fx-font-size: 11px;
+    -fx-text-fill: #34495E;
+    -fx-wrap-text: true;
+    -fx-padding: 3 0;
+    -fx-background-color: rgba(52, 152, 219, 0.05);
+    -fx-background-radius: 3;
+    -fx-padding: 6 8;
+    -fx-border-color: rgba(52, 152, 219, 0.2);
+    -fx-border-radius: 3;
+    -fx-border-width: 1;
+}
+
+/* --- Small Button Style --- */
+.small-button {
+    -fx-font-size: 10px;
+    -fx-padding: 4 8;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+}
+
+/* --- Enhanced Metric Styling --- */
+.metric-value {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2C3E50;
+}
+
+/* --- Responsive Layout Classes --- */
+.dashboard-mobile {
+    -fx-spacing: 8;
+}
+
+.dashboard-mobile .dashboard-panel {
+    -fx-max-height: 300;
+}
+
+/* --- Hover Effects --- */
+.dashboard-panel:hover {
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 6, 0, 0, 3);
+}

@@ -16,6 +16,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
@@ -30,6 +31,7 @@ import java.io.File;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -80,12 +82,13 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     @FXML private Label patternDistLabel;
     @FXML private Label timeElapsedLabel;
     @FXML private VBox resultsSection;
-    @FXML private TableView<TicketDisplay> generatedTicketsTable;
-    @FXML private TableColumn<TicketDisplay, Integer> ticketNumberColumn;
-    @FXML private TableColumn<TicketDisplay, String> numbersColumn;
-    @FXML private TableColumn<TicketDisplay, String> qualityColumn;
+    @FXML private Label resultsSummaryLabel;
+    @FXML private GridPane resultsGrid;
+    
+    // Top Left - Performance Dashboard
+    @FXML private TitledPane performancePane;
+    @FXML private VBox performancePanel;
     @FXML private Label qualityGradeDisplay;
-    @FXML private ProgressBar optimizationScoreBar;
     @FXML private Label optimizationScoreLabel;
     @FXML private Label improvementLabel;
     @FXML private ProgressBar hotPatternBar;
@@ -94,13 +97,48 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     @FXML private Label warmPatternLabel;
     @FXML private ProgressBar coldPatternBar;
     @FXML private Label coldPatternLabel;
-    @FXML private Label coveragePercentageLabel;
     @FXML private Label uniquenessScoreLabel;
+    @FXML private Label coveragePercentageLabel;
+    
+    // Top Right - Historical Analysis
+    @FXML private TitledPane historicalPane;
+    @FXML private VBox historicalPanel;
+    @FXML private Label analysisTypeLabel;
+    @FXML private Label analysisScopeLabel;
+    @FXML private Label totalWinsLabel;
+    @FXML private Label winRateLabel;
+    @FXML private Label vsRandomLabel;
+    @FXML private Label percentileLabel;
+    @FXML private TableView<PrizeBreakdownDisplay> prizeBreakdownTable;
+    @FXML private TableColumn<PrizeBreakdownDisplay, String> tierColumn;
+    @FXML private TableColumn<PrizeBreakdownDisplay, Integer> winsColumn;
+    @FXML private TableColumn<PrizeBreakdownDisplay, String> frequencyColumn;
+    
+    // Bottom Left - Generated Tickets
+    @FXML private TitledPane ticketsPane;
+    @FXML private VBox ticketsPanel;
+    @FXML private TableView<TicketDisplay> generatedTicketsTable;
+    @FXML private TableColumn<TicketDisplay, Integer> ticketNumberColumn;
+    @FXML private TableColumn<TicketDisplay, String> numbersColumn;
+    @FXML private TableColumn<TicketDisplay, String> qualityColumn;
+    @FXML private Label ticketsCountLabel;
+    
+    // Bottom Right - Strategy & Insights
+    @FXML private TitledPane strategyPane;
+    @FXML private VBox strategyPanel;
+    @FXML private VBox droughtStatusBox;
+    @FXML private Label droughtStatusLabel;
+    @FXML private VBox droughtDetailsBox;
+    @FXML private VBox recommendationsBox;
+    @FXML private VBox insightsBox;
     @FXML private Label generationTimeLabel;
     @FXML private Label successRateLabel;
+    
+    // Action Buttons
     @FXML private Button generateBetslipsButton;
     @FXML private Button exportCsvButton;
     @FXML private Button saveTicketsButton;
+    @FXML private Button refreshAnalysisButton;
     @FXML private ProgressIndicator loadingIndicator;
 
     private final FxWeaver fxWeaver;
@@ -129,6 +167,7 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         setupSliders();
         setupTableColumns();
         setupEventHandlers();
+        setupResponsiveLayout();
     }
 
     private void setupStrategyRadioButtons() {
@@ -156,9 +195,21 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     }
 
     private void setupTableColumns() {
+        // Setup tickets table columns
         ticketNumberColumn.setCellValueFactory(new PropertyValueFactory<>("ticketNumber"));
         numbersColumn.setCellValueFactory(new PropertyValueFactory<>("numbersDisplay"));
         qualityColumn.setCellValueFactory(new PropertyValueFactory<>("qualityDisplay"));
+        
+        // Setup prize breakdown table columns
+        if (tierColumn != null) {
+            tierColumn.setCellValueFactory(new PropertyValueFactory<>("tier"));
+        }
+        if (winsColumn != null) {
+            winsColumn.setCellValueFactory(new PropertyValueFactory<>("wins"));
+        }
+        if (frequencyColumn != null) {
+            frequencyColumn.setCellValueFactory(new PropertyValueFactory<>("frequency"));
+        }
     }
 
     private void setupEventHandlers() {
@@ -549,11 +600,6 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
             
             patternDistLabel.setText(String.format("HOT: %.0f%% | WARM: %.0f%%", 
                     metrics.getHotPatternPercentage(), metrics.getWarmPatternPercentage()));
-            
-            // If results section is visible, also update the detailed metrics
-            if (resultsSection.isVisible()) {
-                updateQualityMetricsDisplay(metrics);
-            }
         }
     }
 
@@ -570,106 +616,41 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         this.currentResult = result;
         resultsSection.setVisible(true);
         
-        // Update comprehensive quality metrics
-        updateQualityMetricsDisplay(result.getQualityMetrics());
+        // Update summary label
+        updateResultsSummary(result);
         
-        if (result.getGenerationSummary() != null) {
-            generationTimeLabel.setText(String.format("%.1fs", 
-                    result.getGenerationSummary().getElapsedTimeSeconds()));
-            successRateLabel.setText(String.format("%.1f%%", 
-                    result.getGenerationSummary().getSuccessRate()));
-        }
-
-        // Update tickets table
+        // Update all quadrants of the 2x2 dashboard
+        updatePerformanceDashboard(result);
+        updateHistoricalAnalysis(result);
         updateTicketsTable(result.getTickets());
+        updateStrategyAndInsights(result);
         
         // Enable action buttons
         generateBetslipsButton.setDisable(false);
         exportCsvButton.setDisable(false);
         saveTicketsButton.setDisable(false);
+        refreshAnalysisButton.setDisable(false);
     }
     
     private void clearPreviousResults() {
         if (generatedTicketsTable.getItems() != null) {
             generatedTicketsTable.getItems().clear();
         }
-        resetQualityMetricsDisplay();
+        
+        // Clear dynamic content boxes
+        if (droughtDetailsBox != null) droughtDetailsBox.getChildren().clear();
+        if (recommendationsBox != null) recommendationsBox.getChildren().clear();
+        if (insightsBox != null) insightsBox.getChildren().clear();
         
         // Clear large objects from memory
         System.gc(); // Suggest garbage collection
     }
 
-    private void updateQualityMetricsDisplay(QualityMetrics metrics) {
-        if (metrics == null) {
-            resetQualityMetricsDisplay();
-            return;
-        }
-
-        // Quality Grade Display
-        qualityGradeDisplay.setText(metrics.getQualityGrade());
-        qualityGradeDisplay.getStyleClass().removeAll("grade-a", "grade-b", "grade-c", "grade-d", "grade-f");
-        qualityGradeDisplay.getStyleClass().add("grade-" + metrics.getQualityGrade().toLowerCase());
-
-        // Optimization Score Bar and Label
-        double optimizationScore = metrics.getOptimizationScore();
-        optimizationScoreBar.setProgress(optimizationScore / 100.0);
-        optimizationScoreLabel.setText(String.format("%.1f%%", optimizationScore));
-
-        // Pattern Distribution Bars
-        double hotPercentage = metrics.getHotPatternPercentage();
-        double warmPercentage = metrics.getWarmPatternPercentage();
-        double coldPercentage = metrics.getColdPatternPercentage();
-
-        hotPatternBar.setProgress(hotPercentage / 100.0);
-        hotPatternLabel.setText(String.format("%.0f%%", hotPercentage));
-
-        warmPatternBar.setProgress(warmPercentage / 100.0);
-        warmPatternLabel.setText(String.format("%.0f%%", warmPercentage));
-
-        coldPatternBar.setProgress(coldPercentage / 100.0);
-        coldPatternLabel.setText(String.format("%.0f%%", coldPercentage));
-
-        // Additional Metrics
-        coveragePercentageLabel.setText(String.format("%.1f%%", metrics.getCoveragePercentage()));
-        uniquenessScoreLabel.setText(String.format("%.1f", metrics.getUniquenessScore()));
-
-        // Improvement Metrics
-        if (metrics.getImprovementMetrics() != null) {
-            double improvementPercentage = metrics.getImprovementMetrics().getImprovementPercentage();
-            improvementLabel.setText(String.format("%.0f%%", improvementPercentage));
-            
-            // Add visual styling based on improvement level
-            improvementLabel.getStyleClass().removeAll("improvement-excellent", "improvement-good", "improvement-poor");
-            if (improvementPercentage > 1000) {
-                improvementLabel.getStyleClass().add("improvement-excellent");
-            } else if (improvementPercentage > 100) {
-                improvementLabel.getStyleClass().add("improvement-good");
-            } else {
-                improvementLabel.getStyleClass().add("improvement-poor");
-            }
-        }
-    }
-
-    private void resetQualityMetricsDisplay() {
-        qualityGradeDisplay.setText("-");
-        optimizationScoreBar.setProgress(0);
-        optimizationScoreLabel.setText("- %");
-        
-        hotPatternBar.setProgress(0);
-        hotPatternLabel.setText("0%");
-        warmPatternBar.setProgress(0);
-        warmPatternLabel.setText("0%");
-        coldPatternBar.setProgress(0);
-        coldPatternLabel.setText("0%");
-        
-        coveragePercentageLabel.setText("-");
-        uniquenessScoreLabel.setText("-");
-        improvementLabel.setText("- %");
-    }
 
     private void updateTicketsTable(List<List<Integer>> tickets) {
         if (tickets == null || tickets.isEmpty()) {
             generatedTicketsTable.getItems().clear();
+            ticketsCountLabel.setText("Showing 0 tickets");
             return;
         }
         
@@ -689,6 +670,276 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
                 .collect(Collectors.toList());
         
         existingItems.addAll(newItems);
+        ticketsCountLabel.setText(String.format("Showing %d tickets", tickets.size()));
+    }
+    
+    private void updateResultsSummary(TicketGenerationResult result) {
+        if (result.getDisplaySummary() != null) {
+            String summary = String.format("✅ %s | %s | %s", 
+                result.getDisplaySummary(),
+                result.isMeetsQualityCriteria() ? "Quality Criteria Met ✅" : "Quality Below Threshold ⚠️",
+                result.isSuccessful() ? "SUCCESS" : "FAILED");
+            resultsSummaryLabel.setText(summary);
+        }
+    }
+    
+    private void updatePerformanceDashboard(TicketGenerationResult result) {
+        QualityMetrics metrics = result.getQualityMetrics();
+        if (metrics != null) {
+            // Quality Grade and Score
+            qualityGradeDisplay.setText(metrics.getQualityGrade());
+            qualityGradeDisplay.getStyleClass().removeAll("grade-a", "grade-b", "grade-c", "grade-d", "grade-f");
+            qualityGradeDisplay.getStyleClass().add("grade-" + metrics.getQualityGrade().toLowerCase());
+            
+            optimizationScoreLabel.setText(String.format("%.1f%%", metrics.getOptimizationScore()));
+            
+            // Improvement metrics
+            if (metrics.getImprovementMetrics() != null) {
+                double improvement = metrics.getImprovementMetrics().getImprovementPercentage();
+                improvementLabel.setText(String.format("%.0f%%", improvement));
+                
+                // Style based on improvement level
+                improvementLabel.getStyleClass().removeAll("improvement-excellent", "improvement-good", "improvement-poor");
+                if (improvement > 1000) {
+                    improvementLabel.getStyleClass().add("improvement-excellent");
+                } else if (improvement > 100) {
+                    improvementLabel.getStyleClass().add("improvement-good");
+                } else {
+                    improvementLabel.getStyleClass().add("improvement-poor");
+                }
+            }
+            
+            // Pattern distribution
+            hotPatternBar.setProgress(metrics.getHotPatternPercentage() / 100.0);
+            hotPatternLabel.setText(String.format("%.0f%%", metrics.getHotPatternPercentage()));
+            
+            warmPatternBar.setProgress(metrics.getWarmPatternPercentage() / 100.0);
+            warmPatternLabel.setText(String.format("%.0f%%", metrics.getWarmPatternPercentage()));
+            
+            coldPatternBar.setProgress(metrics.getColdPatternPercentage() / 100.0);
+            coldPatternLabel.setText(String.format("%.0f%%", metrics.getColdPatternPercentage()));
+            
+            // Other metrics
+            uniquenessScoreLabel.setText(String.format("%.1f", metrics.getUniquenessScore()));
+            coveragePercentageLabel.setText(String.format("%.1f%%", metrics.getCoveragePercentage()));
+        }
+    }
+    
+    private void updateHistoricalAnalysis(TicketGenerationResult result) {
+        HistoricalPerformance historical = result.getHistoricalPerformance();
+        if (historical != null) {
+            // Analysis type and scope
+            analysisTypeLabel.setText("Analysis Type: " + historical.getAnalysisType());
+            
+            AnalysisScope scope = historical.getAnalysisScope();
+            if (scope != null) {
+                analysisScopeLabel.setText(String.format("Period: %.1f years (%d draws)", 
+                    scope.getYearsSpanned(), scope.getHistoricalDraws()));
+            }
+            
+            // Win summary
+            WinSummary winSummary = historical.getWinSummary();
+            if (winSummary != null) {
+                totalWinsLabel.setText(String.format("%,d", winSummary.getTotalWins()));
+                
+                // Calculate win rate
+                if (scope != null && scope.getHistoricalDraws() > 0) {
+                    double winRate = (winSummary.getTotalWins() * 100.0) / scope.getHistoricalDraws();
+                    winRateLabel.setText(String.format("%.1f%%", winRate));
+                }
+            }
+            
+            // Performance comparison
+            PerformanceComparison comparison = historical.getComparison();
+            if (comparison != null && comparison.getVsRandomTickets() != null) {
+                PerformanceComparison.ComparisonData vsRandom = comparison.getVsRandomTickets();
+                vsRandomLabel.setText(String.format("+%.0f%%", 
+                    (vsRandom.getPerformanceFactor() - 1) * 100));
+                percentileLabel.setText(String.format("%.1f", vsRandom.getPercentile()));
+            }
+            
+            // Update prize breakdown table
+            updatePrizeBreakdownTable(historical.getPrizeBreakdown());
+        }
+    }
+    
+    private void updateStrategyAndInsights(TicketGenerationResult result) {
+        // Update drought analysis
+        DroughtInformation drought = result.getDroughtInformation();
+        if (drought != null) {
+            updateDroughtAnalysis(drought);
+        }
+        
+        // Update generation stats
+        GenerationSummary summary = result.getGenerationSummary();
+        if (summary != null) {
+            generationTimeLabel.setText(String.format("%.1fs", summary.getElapsedTimeSeconds()));
+            successRateLabel.setText(String.format("%.1f%%", summary.getSuccessRate()));
+        }
+        
+        // Update insights from historical data
+        HistoricalPerformance historical = result.getHistoricalPerformance();
+        if (historical != null && historical.getInsights() != null) {
+            updateInsightsPanel(historical.getInsights());
+        }
+    }
+    
+    private void updatePrizeBreakdownTable(Map<String, PrizeBreakdown.PrizeTier> prizeBreakdown) {
+        if (prizeBreakdown == null || prizeBreakdownTable == null) {
+            System.out.println("Prize breakdown table or data is null");
+            return;
+        }
+        
+        System.out.println("Updating prize breakdown table with " + prizeBreakdown.size() + " entries");
+        
+        ObservableList<PrizeBreakdownDisplay> data = FXCollections.observableArrayList();
+        
+        prizeBreakdown.entrySet().stream()
+            .sorted(Map.Entry.<String, PrizeBreakdown.PrizeTier>comparingByValue(
+                (a, b) -> Double.compare(b.getFrequency(), a.getFrequency())))
+            .forEach(entry -> {
+                String tier = entry.getKey();
+                PrizeBreakdown.PrizeTier tierData = entry.getValue();
+                
+                System.out.println("Adding tier: " + tier + " with " + tierData.getWins() + " wins, freq: " + tierData.getFrequency());
+                
+                data.add(new PrizeBreakdownDisplay(
+                    formatTierName(tier), 
+                    tierData.getWins(), 
+                    String.format("%.1f", tierData.getFrequency())
+                ));
+            });
+        
+        prizeBreakdownTable.setItems(data);
+        System.out.println("Prize breakdown table updated with " + data.size() + " rows");
+    }
+    
+    private String formatTierName(String tier) {
+        switch (tier.toLowerCase()) {
+            case "jackpot": return "Jackpot";
+            case "match5": return "Match 5";
+            case "match4": return "Match 4";
+            case "match3": return "Match 3";
+            case "match2": return "Match 2";
+            default: return tier.toUpperCase();
+        }
+    }
+    
+    private void updateDroughtAnalysis(DroughtInformation drought) {
+        droughtStatusLabel.setText("Status: " + drought.getOverallStatus());
+        droughtStatusLabel.getStyleClass().removeAll("drought-normal", "drought-moderate", "drought-critical");
+        
+        switch (drought.getOverallStatus().toUpperCase()) {
+            case "NORMAL":
+                droughtStatusLabel.getStyleClass().add("drought-normal");
+                break;
+            case "MODERATE":
+                droughtStatusLabel.getStyleClass().add("drought-moderate");
+                break;
+            case "CRITICAL":
+                droughtStatusLabel.getStyleClass().add("drought-critical");
+                break;
+        }
+        
+        // Clear previous drought details
+        droughtDetailsBox.getChildren().clear();
+        
+        // Add drought tier information
+        if (drought.getTierInformation() != null) {
+            drought.getTierInformation().stream()
+                .filter(DroughtTierInfo::isInDrought)
+                .forEach(tier -> {
+                    Label droughtDetail = new Label(String.format("• %s: %d days (%s)", 
+                        tier.getFriendlyTier(), 
+                        tier.getDaysSinceLastWin(),
+                        tier.getSeverityLevel()));
+                    droughtDetail.getStyleClass().add("drought-detail");
+                    droughtDetailsBox.getChildren().add(droughtDetail);
+                });
+        }
+        
+        // Update recommendations
+        updateRecommendationsPanel(drought.getRecommendations());
+    }
+    
+    private void updateRecommendationsPanel(List<String> recommendations) {
+        recommendationsBox.getChildren().clear();
+        
+        if (recommendations != null) {
+            recommendations.forEach(rec -> {
+                Label recommendation = new Label("• " + rec);
+                recommendation.getStyleClass().add("recommendation-item");
+                recommendation.setWrapText(true);
+                recommendationsBox.getChildren().add(recommendation);
+            });
+        }
+    }
+    
+    private void updateInsightsPanel(List<String> insights) {
+        insightsBox.getChildren().clear();
+        
+        if (insights != null) {
+            insights.forEach(insight -> {
+                Label insightLabel = new Label("💡 " + insight);
+                insightLabel.getStyleClass().add("insight-item");
+                insightLabel.setWrapText(true);
+                insightsBox.getChildren().add(insightLabel);
+            });
+        }
+    }
+    
+    private void setupResponsiveLayout() {
+        // Configure responsive behavior when the results grid becomes visible
+        Platform.runLater(() -> {
+            if (resultsGrid != null && contentHolder != null) {
+                contentHolder.widthProperty().addListener((obs, oldWidth, newWidth) -> {
+                    adaptLayoutToScreenSize(newWidth.doubleValue());
+                });
+                
+                contentHolder.heightProperty().addListener((obs, oldHeight, newHeight) -> {
+                    adaptLayoutToScreenSize(contentHolder.getWidth());
+                });
+            }
+        });
+    }
+    
+    private void adaptLayoutToScreenSize(double width) {
+        if (resultsGrid == null) return;
+        
+        // For screens smaller than 1200px, consider switching to mobile layout
+        if (width < 1200) {
+            // Add mobile-friendly CSS class
+            if (!resultsGrid.getStyleClass().contains("dashboard-mobile")) {
+                resultsGrid.getStyleClass().add("dashboard-mobile");
+            }
+            
+            // Reduce preferred heights for better fit
+            if (generatedTicketsTable != null) {
+                generatedTicketsTable.setPrefHeight(250);
+            }
+            if (prizeBreakdownTable != null) {
+                prizeBreakdownTable.setPrefHeight(120);
+            }
+        } else {
+            // Remove mobile class for larger screens
+            resultsGrid.getStyleClass().remove("dashboard-mobile");
+            
+            // Restore default heights
+            if (generatedTicketsTable != null) {
+                generatedTicketsTable.setPrefHeight(300);
+            }
+            if (prizeBreakdownTable != null) {
+                prizeBreakdownTable.setPrefHeight(150);
+            }
+        }
+        
+        // For very small screens (< 900px), collapse some panels
+        if (width < 900) {
+            // Collapse advanced preferences by default
+            if (advancedPreferencesPane != null) {
+                advancedPreferencesPane.setExpanded(false);
+            }
+        }
     }
 
     @Override
@@ -734,5 +985,21 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         public int getTicketNumber() { return ticketNumber.get(); }
         public String getNumbersDisplay() { return numbersDisplay.get(); }
         public String getQualityDisplay() { return qualityDisplay.get(); }
+    }
+    
+    public static class PrizeBreakdownDisplay {
+        private final SimpleStringProperty tier;
+        private final SimpleIntegerProperty wins;
+        private final SimpleStringProperty frequency;
+
+        public PrizeBreakdownDisplay(String tier, int wins, String frequency) {
+            this.tier = new SimpleStringProperty(tier);
+            this.wins = new SimpleIntegerProperty(wins);
+            this.frequency = new SimpleStringProperty(frequency);
+        }
+
+        public String getTier() { return tier.get(); }
+        public int getWins() { return wins.get(); }
+        public String getFrequency() { return frequency.get(); }
     }
 }

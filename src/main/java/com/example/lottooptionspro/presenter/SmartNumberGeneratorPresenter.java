@@ -6,6 +6,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.stream.JsonReader;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import reactor.core.Disposable;
@@ -14,6 +15,7 @@ import reactor.core.publisher.Mono;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.StringReader;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -184,10 +186,20 @@ public class SmartNumberGeneratorPresenter {
             // Log the raw SSE data for debugging
             System.out.println("Raw SSE data: " + data);
             
-            // Try to parse as JSON, but handle malformed JSON gracefully
+            // Try to parse as JSON with lenient mode, but handle malformed JSON gracefully
             JsonObject jsonData;
             try {
-                jsonData = JsonParser.parseString(data).getAsJsonObject();
+                JsonReader reader = new JsonReader(new StringReader(data));
+                reader.setLenient(true);
+                com.google.gson.JsonElement element = JsonParser.parseReader(reader);
+                
+                if (!element.isJsonObject()) {
+                    System.err.println("SSE data is not a JSON object: " + data);
+                    handleRawProgressData(data);
+                    return;
+                }
+                
+                jsonData = element.getAsJsonObject();
             } catch (com.google.gson.JsonSyntaxException e) {
                 System.err.println("Invalid JSON in SSE data, using fallback parsing: " + e.getMessage());
                 handleRawProgressData(data);
@@ -241,7 +253,16 @@ public class SmartNumberGeneratorPresenter {
 
     private void handleQualityUpdate(String data) {
         try {
-            JsonObject jsonData = JsonParser.parseString(data).getAsJsonObject();
+            JsonReader reader = new JsonReader(new StringReader(data));
+            reader.setLenient(true);
+            com.google.gson.JsonElement element = JsonParser.parseReader(reader);
+            
+            if (!element.isJsonObject()) {
+                System.err.println("Quality data is not a JSON object: " + data);
+                return;
+            }
+            
+            JsonObject jsonData = element.getAsJsonObject();
             
             if (jsonData.has("qualityMetrics")) {
                 QualityMetrics metrics = gson.fromJson(jsonData.get("qualityMetrics"), QualityMetrics.class);
@@ -264,7 +285,18 @@ public class SmartNumberGeneratorPresenter {
 
     private void handleGenerationSSEError(String data) {
         try {
-            JsonObject jsonData = JsonParser.parseString(data).getAsJsonObject();
+            JsonReader reader = new JsonReader(new StringReader(data));
+            reader.setLenient(true);
+            com.google.gson.JsonElement element = JsonParser.parseReader(reader);
+            
+            if (!element.isJsonObject()) {
+                System.err.println("Error data is not a JSON object: " + data);
+                view.showAlert("Generation Error", "Generation failed: " + data);
+                resetGenerationState();
+                return;
+            }
+            
+            JsonObject jsonData = element.getAsJsonObject();
             String errorMessage = jsonData.has("message") ? 
                 jsonData.get("message").getAsString() : "Unknown generation error";
             

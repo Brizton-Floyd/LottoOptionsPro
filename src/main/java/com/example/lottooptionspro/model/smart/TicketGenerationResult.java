@@ -13,6 +13,9 @@ public class TicketGenerationResult {
     private boolean successful;
     private int ticketCount;
     private String displaySummary;
+    private HistoricalPerformance historicalPerformance;
+    private DroughtInformation droughtInformation;
+    private boolean meetsQualityCriteria;
 
     public String getSessionId() {
         return sessionId;
@@ -100,5 +103,29 @@ public class TicketGenerationResult {
         return tickets.stream()
                 .map(ticket -> ticket.stream().mapToInt(Integer::intValue).toArray())
                 .toArray(int[][]::new);
+    }
+
+    public HistoricalPerformance getHistoricalPerformance() {
+        return historicalPerformance;
+    }
+
+    public void setHistoricalPerformance(HistoricalPerformance historicalPerformance) {
+        this.historicalPerformance = historicalPerformance;
+    }
+
+    public DroughtInformation getDroughtInformation() {
+        return droughtInformation;
+    }
+
+    public void setDroughtInformation(DroughtInformation droughtInformation) {
+        this.droughtInformation = droughtInformation;
+    }
+
+    public boolean isMeetsQualityCriteria() {
+        return meetsQualityCriteria;
+    }
+
+    public void setMeetsQualityCriteria(boolean meetsQualityCriteria) {
+        this.meetsQualityCriteria = meetsQualityCriteria;
     }
 }
