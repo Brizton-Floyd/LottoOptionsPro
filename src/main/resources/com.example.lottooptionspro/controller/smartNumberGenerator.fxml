@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import java.net.URL?>
+
+<StackPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.lottooptionspro.controller.SmartNumberGeneratorController">
+    <stylesheets>
+        <URL value="@styling/style.css" />
+    </stylesheets>
+    
+    <ScrollPane fitToWidth="true" hbarPolicy="NEVER">
+        <VBox fx:id="contentHolder" styleClass="chart-pane" spacing="20">
+            <padding>
+                <Insets top="20" bottom="20" left="20" right="20"/>
+            </padding>
+
+            <!-- Game Context Header -->
+            <VBox spacing="5">
+                <Label text="Smart Number Generator" styleClass="section-title"/>
+                <Label fx:id="gameContextLabel" text="Loading game context..." styleClass="game-context"/>
+            </VBox>
+
+            <!-- Tier Targeting Section -->
+            <VBox spacing="10" styleClass="config-section">
+                <Label text="TARGET TIER" styleClass="section-header"/>
+                <VBox fx:id="tierSelectionBox" spacing="8"/>
+            </VBox>
+
+            <!-- Ticket Configuration Section -->
+            <VBox spacing="10" styleClass="config-section">
+                <Label text="TICKET CONFIGURATION" styleClass="section-header"/>
+                <GridPane hgap="15" vgap="10">
+                    <columnConstraints>
+                        <ColumnConstraints halignment="RIGHT" prefWidth="150"/>
+                        <ColumnConstraints hgrow="ALWAYS"/>
+                        <ColumnConstraints halignment="RIGHT" prefWidth="100"/>
+                        <ColumnConstraints hgrow="ALWAYS"/>
+                    </columnConstraints>
+
+                    <Label text="Number of Tickets:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                    <Spinner fx:id="ticketCountSpinner" editable="true" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                    <Label text="Budget:" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                    <TextField fx:id="budgetField" promptText="0.00" GridPane.rowIndex="0" GridPane.columnIndex="3"/>
+
+                    <Label text="Strategy:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                    <HBox spacing="15" GridPane.rowIndex="1" GridPane.columnIndex="1" GridPane.columnSpan="3">
+                        <RadioButton fx:id="patternBasedRadio" text="Pattern-Based" selected="true"/>
+                        <RadioButton fx:id="randomRadio" text="Random"/>
+                        <RadioButton fx:id="hybridRadio" text="Hybrid"/>
+                    </HBox>
+                </GridPane>
+            </VBox>
+
+            <!-- Advanced Preferences (Collapsible) -->
+            <TitledPane fx:id="advancedPreferencesPane" text="Advanced Preferences" expanded="false" styleClass="config-section">
+                <VBox spacing="15">
+                    <!-- Number Preferences -->
+                    <GridPane hgap="15" vgap="10">
+                        <columnConstraints>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="150"/>
+                            <ColumnConstraints hgrow="ALWAYS"/>
+                        </columnConstraints>
+
+                        <Label text="Preferred Numbers:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <TextField fx:id="preferredNumbersField" promptText="7, 14, 21" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                        <Label text="Exclude Numbers:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="excludeNumbersField" promptText="13, 26" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                    </GridPane>
+
+                    <!-- Quality Thresholds -->
+                    <GridPane hgap="15" vgap="15">
+                        <columnConstraints>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="150"/>
+                            <ColumnConstraints hgrow="ALWAYS"/>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="50"/>
+                        </columnConstraints>
+
+                        <Label text="Min Quality Score:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <Slider fx:id="qualityScoreSlider" min="50" max="100" value="72" showTickLabels="true" showTickMarks="true" majorTickUnit="10" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label fx:id="qualityScoreLabel" text="72%" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+
+                        <Label text="Target Coverage:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <Slider fx:id="coverageSlider" min="60" max="100" value="80" showTickLabels="true" showTickMarks="true" majorTickUnit="10" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                        <Label fx:id="coverageLabel" text="80%" GridPane.rowIndex="1" GridPane.columnIndex="2"/>
+                    </GridPane>
+
+                    <!-- Options Checkboxes -->
+                    <VBox spacing="8">
+                        <CheckBox fx:id="preventDuplicatesCheck" text="Prevent Duplicates" selected="true"/>
+                        <CheckBox fx:id="enableMultiBatchCheck" text="Enable Multi-Batch" selected="true"/>
+                        <CheckBox fx:id="avoidConsecutiveCheck" text="Avoid Consecutive Numbers"/>
+                        <CheckBox fx:id="balancedDistributionCheck" text="Prefer Balanced Distribution" selected="true"/>
+                    </VBox>
+                </VBox>
+            </TitledPane>
+
+            <!-- Generation Controls -->
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Button fx:id="generateButton" text="Generate Smart Tickets" onAction="#generateSmartTickets" styleClass="primary-button"/>
+                <Button fx:id="cancelButton" text="Cancel" onAction="#cancelGeneration" disable="true" styleClass="secondary-button"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label fx:id="estimatedCostLabel" text="Estimated Cost: $0.00" styleClass="cost-estimate"/>
+            </HBox>
+
+            <!-- Generation Progress -->
+            <VBox fx:id="progressSection" spacing="10" visible="false" styleClass="progress-section">
+                <Label text="GENERATION PROGRESS" styleClass="section-header"/>
+                <ProgressBar fx:id="progressBar" maxWidth="Infinity"/>
+                <Label fx:id="progressLabel" text="Initializing..."/>
+                <Label fx:id="sessionLabel" text="" styleClass="session-info"/>
+                
+                <!-- Real-time Quality Metrics -->
+                <HBox spacing="20" alignment="CENTER_LEFT">
+                    <Label fx:id="qualityGradeLabel" text="Quality: -" styleClass="quality-metric"/>
+                    <Label fx:id="patternDistLabel" text="Patterns: -" styleClass="pattern-metric"/>
+                    <Label fx:id="timeElapsedLabel" text="Time: 0.0s" styleClass="time-metric"/>
+                </HBox>
+            </VBox>
+
+            <!-- Results Section -->
+            <VBox fx:id="resultsSection" spacing="15" visible="false" styleClass="results-section">
+                <Label text="GENERATED TICKETS" styleClass="section-header"/>
+                
+                <!-- Tickets Table -->
+                <TableView fx:id="generatedTicketsTable" maxHeight="300">
+                    <columns>
+                        <TableColumn fx:id="ticketNumberColumn" text="Ticket #" prefWidth="80"/>
+                        <TableColumn fx:id="numbersColumn" text="Numbers" prefWidth="200"/>
+                        <TableColumn fx:id="qualityColumn" text="Quality" prefWidth="80"/>
+                    </columns>
+                    <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/></columnResizePolicy>
+                </TableView>
+
+                <!-- Quality Summary -->
+                <VBox spacing="12" styleClass="quality-summary">
+                    <Label text="QUALITY METRICS" styleClass="subsection-header"/>
+                    
+                    <!-- Quality Score Gauge -->
+                    <HBox spacing="20" alignment="CENTER_LEFT">
+                        <VBox spacing="5" alignment="CENTER">
+                            <Label text="Quality Grade" styleClass="metric-label"/>
+                            <Label fx:id="qualityGradeDisplay" text="-" styleClass="quality-grade-large"/>
+                        </VBox>
+                        
+                        <VBox spacing="5" alignment="CENTER">
+                            <Label text="Optimization Score" styleClass="metric-label"/>
+                            <ProgressBar fx:id="optimizationScoreBar" prefWidth="150" prefHeight="20"/>
+                            <Label fx:id="optimizationScoreLabel" text="- %" styleClass="metric-value"/>
+                        </VBox>
+                        
+                        <VBox spacing="5" alignment="CENTER">
+                            <Label text="Improvement vs Baseline" styleClass="metric-label"/>
+                            <Label fx:id="improvementLabel" text="- %" styleClass="improvement-value"/>
+                        </VBox>
+                    </HBox>
+
+                    <!-- Pattern Distribution Chart -->
+                    <VBox spacing="8">
+                        <Label text="Pattern Distribution" styleClass="metric-label"/>
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <!-- HOT Pattern Bar -->
+                            <VBox spacing="3" alignment="CENTER">
+                                <Label text="HOT" styleClass="pattern-label-hot"/>
+                                <ProgressBar fx:id="hotPatternBar" prefWidth="80" prefHeight="15" styleClass="pattern-bar-hot"/>
+                                <Label fx:id="hotPatternLabel" text="0%" styleClass="pattern-percentage"/>
+                            </VBox>
+                            
+                            <!-- WARM Pattern Bar -->
+                            <VBox spacing="3" alignment="CENTER">
+                                <Label text="WARM" styleClass="pattern-label-warm"/>
+                                <ProgressBar fx:id="warmPatternBar" prefWidth="80" prefHeight="15" styleClass="pattern-bar-warm"/>
+                                <Label fx:id="warmPatternLabel" text="0%" styleClass="pattern-percentage"/>
+                            </VBox>
+                            
+                            <!-- COLD Pattern Bar -->
+                            <VBox spacing="3" alignment="CENTER">
+                                <Label text="COLD" styleClass="pattern-label-cold"/>
+                                <ProgressBar fx:id="coldPatternBar" prefWidth="80" prefHeight="15" styleClass="pattern-bar-cold"/>
+                                <Label fx:id="coldPatternLabel" text="0%" styleClass="pattern-percentage"/>
+                            </VBox>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Additional Metrics -->
+                    <GridPane hgap="20" vgap="8">
+                        <columnConstraints>
+                            <ColumnConstraints halignment="LEFT" prefWidth="200"/>
+                            <ColumnConstraints halignment="LEFT" prefWidth="200"/>
+                        </columnConstraints>
+
+                        <Label text="Coverage Percentage:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="metric-label"/>
+                        <Label fx:id="coveragePercentageLabel" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="metric-value"/>
+                        
+                        <Label text="Uniqueness Score:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-label"/>
+                        <Label fx:id="uniquenessScoreLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
+                        
+                        <Label text="Generation Time:" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="metric-label"/>
+                        <Label fx:id="generationTimeLabel" text="-" GridPane.rowIndex="2" GridPane.columnIndex="1" styleClass="metric-value"/>
+                        
+                        <Label text="Success Rate:" GridPane.rowIndex="3" GridPane.columnIndex="0" styleClass="metric-label"/>
+                        <Label fx:id="successRateLabel" text="-" GridPane.rowIndex="3" GridPane.columnIndex="1" styleClass="metric-value"/>
+                    </GridPane>
+                </VBox>
+
+                <!-- Action Buttons -->
+                <HBox spacing="15">
+                    <Button fx:id="generateBetslipsButton" text="Generate Betslips" onAction="#generateBetslips" disable="true" styleClass="primary-button"/>
+                    <Button fx:id="exportCsvButton" text="Export CSV" onAction="#exportCsv" disable="true" styleClass="secondary-button"/>
+                    <Button fx:id="saveTicketsButton" text="Save Tickets" onAction="#saveTickets" disable="true" styleClass="secondary-button"/>
+                </HBox>
+            </VBox>
+
+        </VBox>
+    </ScrollPane>
+
+    <!-- Loading Overlay -->
+    <ProgressIndicator fx:id="loadingIndicator" visible="false" StackPane.alignment="CENTER"/>
+</StackPane>

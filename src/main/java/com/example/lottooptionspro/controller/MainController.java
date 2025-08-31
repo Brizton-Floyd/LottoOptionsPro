@@ -79,6 +79,12 @@ public class MainController {
     }
 
     @FXML
+    private void showSmartNumberGenerator(ActionEvent actionEvent) {
+        reEnableDisableButton(actionEvent);
+        this.screenManager.loadView(SmartNumberGeneratorController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
+    }
+
+    @FXML
     private void showRandomNumberGenerator(ActionEvent actionEvent) {
         reEnableDisableButton(actionEvent);
         this.screenManager.loadView(RandomNumberGeneratorController.class, mainContentArea, stateName, gameName, createLoadingOverlay());

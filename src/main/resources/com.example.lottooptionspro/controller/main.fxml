@@ -37,6 +37,7 @@
             </fx:define>
             <ToggleButton text="Dashboard" onAction="#showDashboard" toggleGroup="$toggleGroup" fx:id="btnDashboard"/>
             <ToggleButton text="Betslip Template Editor" onAction="#showTemplateCreator" toggleGroup="$toggleGroup" fx:id="btnTemplateCreator"/>
+            <ToggleButton text="Smart Generator" onAction="#showSmartNumberGenerator" toggleGroup="$toggleGroup" fx:id="btnSmartNumberGenerator"/>
             <ToggleButton text="Random Number Generator" onAction="#showRandomNumberGenerator" toggleGroup="$toggleGroup" fx:id="btnRandomNumberGenerator"/>
             <ToggleButton text="Win Check" onAction="#showWinCheck" toggleGroup="$toggleGroup" fx:id="btnTicketPrinting"/>
             <ToggleButton text="Statistical Analysis Tools" onAction="#showStatisticalAnalysisTools" toggleGroup="$toggleGroup" fx:id="btnStatisticalAnalysisTools"/>

@@ -90,3 +90,126 @@
     -fx-border-radius: 4;
     -fx-background-radius: 4;
 }
+
+/* --- Smart Generator Quality Metrics Styles --- */
+.quality-grade-large {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+}
+
+.grade-a {
+    -fx-text-fill: #2E7D32; /* Green */
+}
+
+.grade-b {
+    -fx-text-fill: #388E3C; /* Light Green */
+}
+
+.grade-c {
+    -fx-text-fill: #F57C00; /* Orange */
+}
+
+.grade-d {
+    -fx-text-fill: #E64A19; /* Deep Orange */
+}
+
+.grade-f {
+    -fx-text-fill: #C62828; /* Red */
+}
+
+.pattern-bar-hot .bar {
+    -fx-background-color: #FF5722; /* Hot Red-Orange */
+}
+
+.pattern-bar-warm .bar {
+    -fx-background-color: #FF9800; /* Warm Orange */
+}
+
+.pattern-bar-cold .bar {
+    -fx-background-color: #2196F3; /* Cold Blue */
+}
+
+.pattern-label-hot {
+    -fx-text-fill: #FF5722;
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+}
+
+.pattern-label-warm {
+    -fx-text-fill: #FF9800;
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+}
+
+.pattern-label-cold {
+    -fx-text-fill: #2196F3;
+    -fx-font-weight: bold;
+    -fx-font-size: 11px;
+}
+
+.pattern-percentage {
+    -fx-font-size: 10px;
+    -fx-text-fill: #666666;
+}
+
+.improvement-excellent {
+    -fx-text-fill: #2E7D32;
+    -fx-font-weight: bold;
+}
+
+.improvement-good {
+    -fx-text-fill: #388E3C;
+}
+
+.improvement-poor {
+    -fx-text-fill: #F57C00;
+}
+
+.metric-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #666666;
+}
+
+.metric-value {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.section-header {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #333333;
+}
+
+.subsection-header {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #555555;
+}
+
+.config-section {
+    -fx-background-color: #FAFAFA;
+    -fx-background-radius: 6;
+    -fx-padding: 15;
+}
+
+.progress-section {
+    -fx-background-color: #F3F4F6;
+    -fx-background-radius: 6;
+    -fx-padding: 15;
+}
+
+.results-section {
+    -fx-background-color: #F8F9FA;
+    -fx-background-radius: 6;
+    -fx-padding: 15;
+}
+
+.quality-summary {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 4;
+    -fx-padding: 12;
+    -fx-border-color: #E0E0E0;
+    -fx-border-radius: 4;
+    -fx-border-width: 1;
+}
