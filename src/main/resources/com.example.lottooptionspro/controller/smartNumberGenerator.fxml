@@ -40,7 +40,10 @@
                     </columnConstraints>
 
                     <Label text="Number of Tickets:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                    <Spinner fx:id="ticketCountSpinner" editable="true" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                    <VBox GridPane.rowIndex="0" GridPane.columnIndex="1">
+                        <Spinner fx:id="ticketCountSpinner" editable="true"/>
+                        <Label fx:id="recommendationLabel" styleClass="recommendation-hint" text=""/>
+                    </VBox>
 
                     <Label text="Budget:" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
                     <TextField fx:id="budgetField" promptText="0.00" GridPane.rowIndex="0" GridPane.columnIndex="3"/>

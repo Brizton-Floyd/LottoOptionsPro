@@ -37,6 +37,18 @@ import java.util.stream.Collectors;
 @FxmlView("/com.example.lottooptionspro/controller/smartNumberGenerator.fxml")
 public class SmartNumberGeneratorController implements GameInformation, SmartNumberGeneratorView {
 
+    // Constants for better maintainability
+    private static final int MIN_TICKETS = 1;
+    private static final int MAX_TICKETS = 1000;
+    private static final int DEFAULT_TICKETS = 20;
+    private static final int MIN_NUMBER_RANGE = 1;
+    private static final int MAX_NUMBER_RANGE = 99;
+    private static final double JACKPOT_COST = 5.0;
+    private static final double NEAR_JACKPOT_COST = 3.0;
+    private static final double SECONDARY_COST = 2.0;
+    private static final double DEFAULT_COST = 1.0;
+    private static final double FALLBACK_COST = 2.0;
+
     @FXML private VBox contentHolder;
     @FXML private Label gameContextLabel;
     @FXML private VBox tierSelectionBox;
@@ -59,6 +71,7 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     @FXML private Button generateButton;
     @FXML private Button cancelButton;
     @FXML private Label estimatedCostLabel;
+    @FXML private Label recommendationLabel;
     @FXML private VBox progressSection;
     @FXML private ProgressBar progressBar;
     @FXML private Label progressLabel;
@@ -127,8 +140,11 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     }
 
     private void setupSpinners() {
-        ticketCountSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1000, 20));
-        ticketCountSpinner.valueProperty().addListener((obs, oldVal, newVal) -> updateEstimatedCost());
+        ticketCountSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(MIN_TICKETS, MAX_TICKETS, DEFAULT_TICKETS));
+        ticketCountSpinner.valueProperty().addListener((obs, oldVal, newVal) -> {
+            updateEstimatedCost();
+            updateRecommendationFeedback();
+        });
     }
 
     private void setupSliders() {
@@ -147,6 +163,90 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
 
     private void setupEventHandlers() {
         budgetField.textProperty().addListener((obs, oldVal, newVal) -> updateTicketCountFromBudget());
+        
+        // Add real-time validation for number input fields
+        preferredNumbersField.textProperty().addListener((obs, oldVal, newVal) -> 
+            validateNumberField(preferredNumbersField, newVal, "Preferred numbers"));
+        
+        excludeNumbersField.textProperty().addListener((obs, oldVal, newVal) -> 
+            validateNumberField(excludeNumbersField, newVal, "Exclude numbers"));
+        
+        // Numeric validation for budget field
+        budgetField.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal.matches("\\d*\\.?\\d*")) {
+                budgetField.setText(oldVal);
+            }
+        });
+    }
+    
+    private void validateNumberField(TextField field, String newValue, String fieldName) {
+        if (newValue == null || newValue.trim().isEmpty()) {
+            field.setStyle(""); // Clear any error styling
+            return;
+        }
+        
+        int maxRange = currentConfig != null ? currentConfig.getNumberRange().getMax() : MAX_NUMBER_RANGE;
+        int minRange = currentConfig != null ? currentConfig.getNumberRange().getMin() : MIN_NUMBER_RANGE;
+        
+        try {
+            String[] numbers = newValue.split(",");
+            for (String numStr : numbers) {
+                String trimmed = numStr.trim();
+                if (!trimmed.isEmpty()) {
+                    int num = Integer.parseInt(trimmed);
+                    if (num < minRange || num > maxRange) {
+                        field.setStyle("-fx-border-color: orange; -fx-border-width: 2px;");
+                        field.setTooltip(new Tooltip(fieldName + " should be between " + minRange + " and " + maxRange));
+                        return;
+                    }
+                }
+            }
+            // Valid input
+            field.setStyle("-fx-border-color: green; -fx-border-width: 1px;");
+            field.setTooltip(null);
+        } catch (NumberFormatException e) {
+            field.setStyle("-fx-border-color: red; -fx-border-width: 2px;");
+            field.setTooltip(new Tooltip("Invalid format. Use comma-separated numbers (e.g., 1, 5, 10)"));
+        }
+    }
+    
+    private void updateNumberValidationRange() {
+        // Re-validate the number fields when the range changes
+        validateNumberField(preferredNumbersField, preferredNumbersField.getText(), "Preferred numbers");
+        validateNumberField(excludeNumbersField, excludeNumbersField.getText(), "Exclude numbers");
+    }
+    
+    private void updateRecommendationFeedback() {
+        if (tierToggleGroup == null || tierToggleGroup.getSelectedToggle() == null || recommendationLabel == null) {
+            return;
+        }
+        
+        RadioButton selectedTier = (RadioButton) tierToggleGroup.getSelectedToggle();
+        String tierData = (String) selectedTier.getUserData();
+        
+        if (tierData != null && tierData.contains("-of-")) {
+            try {
+                String[] parts = tierData.split("-of-");
+                int matchCount = Integer.parseInt(parts[0]);
+                int drawSize = Integer.parseInt(parts[1]);
+                
+                int recommended = getOptimalTicketsForTier(matchCount, drawSize);
+                int userChoice = ticketCountSpinner.getValue();
+                
+                if (userChoice == recommended) {
+                    recommendationLabel.setText("✓ Using recommended amount");
+                    recommendationLabel.setStyle("-fx-text-fill: green;");
+                } else if (userChoice < recommended) {
+                    recommendationLabel.setText(String.format("⚠ Below recommended (%d)", recommended));
+                    recommendationLabel.setStyle("-fx-text-fill: orange;");
+                } else {
+                    recommendationLabel.setText(String.format("↗ Above recommended (%d)", recommended));
+                    recommendationLabel.setStyle("-fx-text-fill: blue;");
+                }
+            } catch (Exception e) {
+                recommendationLabel.setText("");
+            }
+        }
     }
 
     @Override
@@ -164,6 +264,7 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
                     this.currentConfig = config;
                     setupTierOptions(config);
                     updateEstimatedCost();
+                    updateNumberValidationRange();
                     showLoading(false);
                 }))
                 .doOnError(error -> Platform.runLater(() -> {
@@ -185,11 +286,12 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
                         String tierKey = entry.getKey();
                         LotteryConfiguration.PrizeTier tier = entry.getValue();
                         
-                        String tierDisplay = String.format("%d-of-%d %s (%d tickets/batch)",
+                        int recommendedTickets = getOptimalTicketsForTier(tier.getMatchCount(), config.getDrawSize());
+                        String tierDisplay = String.format("%d-of-%d %s (recommended: %d tickets)",
                                 tier.getMatchCount(), 
                                 config.getDrawSize(),
                                 tier.getDescription().replace("Match " + tier.getMatchCount() + " numbers", "").trim(),
-                                getOptimalTicketsForTier(tier.getMatchCount(), config.getDrawSize()));
+                                recommendedTickets);
 
                         RadioButton tierRadio = new RadioButton(tierDisplay);
                         tierRadio.setToggleGroup(tierToggleGroup);
@@ -200,7 +302,13 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
                         }
                         
                         tierRadio.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
-                            if (isSelected) updateEstimatedCost();
+                            if (isSelected) {
+                                // Auto-set recommended ticket count, but allow user to override
+                                int recommended = getOptimalTicketsForTier(tier.getMatchCount(), config.getDrawSize());
+                                ticketCountSpinner.getValueFactory().setValue(recommended);
+                                updateEstimatedCost();
+                                updateRecommendationFeedback();
+                            }
                         });
                         
                         tierSelectionBox.getChildren().add(tierRadio);
@@ -209,10 +317,7 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     }
 
     private int getOptimalTicketsForTier(int matchCount, int drawSize) {
-        if (matchCount == drawSize) return 20;      // Jackpot
-        if (matchCount == drawSize - 1) return 30; // Near-jackpot
-        if (matchCount == drawSize - 2) return 50; // Secondary
-        return 75; // Lower tiers
+        return TierCalculator.getOptimalTicketsForTier(matchCount, drawSize);
     }
 
     private void updateEstimatedCost() {
@@ -230,17 +335,7 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     }
 
     private double getCostPerTicket(String tierData) {
-        if (tierData.contains("-of-")) {
-            String[] parts = tierData.split("-of-");
-            int matchCount = Integer.parseInt(parts[0]);
-            int totalCount = Integer.parseInt(parts[1]);
-            
-            if (matchCount == totalCount) return 5.0;      // Jackpot
-            if (matchCount == totalCount - 1) return 3.0;  // Near-jackpot  
-            if (matchCount == totalCount - 2) return 2.0;  // Secondary
-            return 1.0; // Lower tiers
-        }
-        return 2.0; // Default
+        return TierCalculator.getCostPerTicket(tierData, JACKPOT_COST, NEAR_JACKPOT_COST, SECONDARY_COST, DEFAULT_COST, FALLBACK_COST);
     }
 
     private void updateTicketCountFromBudget() {
@@ -469,6 +564,9 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
 
     @Override
     public void showResults(TicketGenerationResult result) {
+        // Clear previous results to free memory
+        clearPreviousResults();
+        
         this.currentResult = result;
         resultsSection.setVisible(true);
         
@@ -489,6 +587,16 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         generateBetslipsButton.setDisable(false);
         exportCsvButton.setDisable(false);
         saveTicketsButton.setDisable(false);
+    }
+    
+    private void clearPreviousResults() {
+        if (generatedTicketsTable.getItems() != null) {
+            generatedTicketsTable.getItems().clear();
+        }
+        resetQualityMetricsDisplay();
+        
+        // Clear large objects from memory
+        System.gc(); // Suggest garbage collection
     }
 
     private void updateQualityMetricsDisplay(QualityMetrics metrics) {
@@ -560,18 +668,27 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     }
 
     private void updateTicketsTable(List<List<Integer>> tickets) {
-        ObservableList<TicketDisplay> ticketDisplays = FXCollections.observableArrayList();
-        
-        for (int i = 0; i < tickets.size(); i++) {
-            List<Integer> ticket = tickets.get(i);
-            String numbersStr = ticket.stream()
-                    .map(String::valueOf)
-                    .collect(Collectors.joining(", "));
-            
-            ticketDisplays.add(new TicketDisplay(i + 1, numbersStr, "A"));
+        if (tickets == null || tickets.isEmpty()) {
+            generatedTicketsTable.getItems().clear();
+            return;
         }
         
-        generatedTicketsTable.setItems(ticketDisplays);
+        // Get existing items to avoid unnecessary object creation
+        ObservableList<TicketDisplay> existingItems = generatedTicketsTable.getItems();
+        existingItems.clear();
+        
+        // Batch process tickets for better performance
+        List<TicketDisplay> newItems = tickets.parallelStream()
+                .map(ticket -> {
+                    int index = tickets.indexOf(ticket) + 1;
+                    String numbersStr = ticket.stream()
+                            .map(String::valueOf)
+                            .collect(Collectors.joining(", "));
+                    return new TicketDisplay(index, numbersStr, "A");
+                })
+                .collect(Collectors.toList());
+        
+        existingItems.addAll(newItems);
     }
 
     @Override
