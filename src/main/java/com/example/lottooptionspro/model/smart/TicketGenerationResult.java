@@ -16,6 +16,7 @@ public class TicketGenerationResult {
     private HistoricalPerformance historicalPerformance;
     private DroughtInformation droughtInformation;
     private boolean meetsQualityCriteria;
+    private String fullAnalysisEndpoint;
 
     public String getSessionId() {
         return sessionId;
@@ -127,5 +128,13 @@ public class TicketGenerationResult {
 
     public void setMeetsQualityCriteria(boolean meetsQualityCriteria) {
         this.meetsQualityCriteria = meetsQualityCriteria;
+    }
+
+    public String getFullAnalysisEndpoint() {
+        return fullAnalysisEndpoint;
+    }
+
+    public void setFullAnalysisEndpoint(String fullAnalysisEndpoint) {
+        this.fullAnalysisEndpoint = fullAnalysisEndpoint;
     }
 }

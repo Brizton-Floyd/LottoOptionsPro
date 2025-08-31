@@ -85,6 +85,35 @@ public class SmartNumberGenerationService {
                 .bodyToMono(TicketGenerationResult.class);
     }
 
+    public Mono<TicketGenerationResult> getFullAnalysisData(String fullAnalysisEndpoint) {
+        return smartGeneratorWebClient.get()
+                .uri(fullAnalysisEndpoint)
+                .retrieve()
+                .onStatus(
+                    status -> status.is5xxServerError(),
+                    response -> {
+                        System.err.println("Server error (5xx) when fetching full analysis from: " + fullAnalysisEndpoint);
+                        return response.bodyToMono(String.class)
+                                .flatMap(body -> {
+                                    System.err.println("Error response body: " + body);
+                                    return Mono.error(new RuntimeException("Server error while fetching full analysis. Endpoint: " + fullAnalysisEndpoint + ". Response: " + body));
+                                });
+                    }
+                )
+                .onStatus(
+                    status -> status.is4xxClientError(),
+                    response -> {
+                        System.err.println("Client error (4xx) when fetching full analysis from: " + fullAnalysisEndpoint);
+                        return response.bodyToMono(String.class)
+                                .flatMap(body -> {
+                                    System.err.println("Error response body: " + body);
+                                    return Mono.error(new RuntimeException("Invalid request for full analysis. Endpoint: " + fullAnalysisEndpoint + ". Response: " + body));
+                                });
+                    }
+                )
+                .bodyToMono(TicketGenerationResult.class);
+    }
+
     public Mono<Void> cancelGeneration(String sessionId) {
         return smartGeneratorWebClient.delete()
                 .uri("/api/v2/generation-session/{sessionId}", sessionId)

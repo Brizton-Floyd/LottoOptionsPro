@@ -201,40 +201,47 @@
                     <TitledPane fx:id="historicalPane" text="📊 Historical Performance" 
                                GridPane.columnIndex="1" GridPane.rowIndex="0" 
                                styleClass="dashboard-panel" expanded="true" collapsible="false">
-                        <VBox fx:id="historicalPanel" spacing="12" styleClass="historical-panel">
-                            <!-- Analysis Summary -->
-                            <VBox spacing="5">
-                                <Label fx:id="analysisTypeLabel" text="Analysis Type: -" styleClass="metric-label"/>
-                                <Label fx:id="analysisScopeLabel" text="Period: -" styleClass="metric-small"/>
-                            </VBox>
+                        <VBox fx:id="historicalPanel" spacing="10" styleClass="historical-panel">
+                            <!-- Compact Header with Analysis Info and Button -->
+                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                                    <Label fx:id="analysisTypeLabel" text="Analysis Type: -" styleClass="metric-label"/>
+                                    <Label fx:id="analysisScopeLabel" text="Period: -" styleClass="metric-small"/>
+                                </VBox>
+                                <Button fx:id="loadFullAnalysisButton" text="Load Full Analysis" 
+                                       styleClass="small-button" visible="false" 
+                                       onAction="#loadFullAnalysis"/>
+                            </HBox>
 
-                            <!-- Win Summary -->
-                            <VBox spacing="8">
+                            <!-- Compact Win Summary - 2x2 Grid -->
+                            <VBox spacing="5">
                                 <Label text="Win Summary" styleClass="metric-label"/>
-                                <GridPane hgap="10" vgap="5">
+                                <GridPane hgap="15" vgap="3">
                                     <columnConstraints>
-                                        <ColumnConstraints halignment="LEFT" prefWidth="120"/>
-                                        <ColumnConstraints halignment="LEFT"/>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="80"/>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="60"/>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="80"/>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="60"/>
                                     </columnConstraints>
                                     <Label text="Total Wins:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="metric-small"/>
                                     <Label fx:id="totalWinsLabel" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="metric-value"/>
-                                    <Label text="Win Rate:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-small"/>
-                                    <Label fx:id="winRateLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
-                                    <Label text="vs Random:" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="metric-small"/>
-                                    <Label fx:id="vsRandomLabel" text="-" GridPane.rowIndex="2" GridPane.columnIndex="1" styleClass="metric-value"/>
-                                    <Label text="Percentile:" GridPane.rowIndex="3" GridPane.columnIndex="0" styleClass="metric-small"/>
-                                    <Label fx:id="percentileLabel" text="-" GridPane.rowIndex="3" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                    <Label text="Win Rate:" GridPane.rowIndex="0" GridPane.columnIndex="2" styleClass="metric-small"/>
+                                    <Label fx:id="winRateLabel" text="-" GridPane.rowIndex="0" GridPane.columnIndex="3" styleClass="metric-value"/>
+                                    <Label text="vs Random:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="vsRandomLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                    <Label text="Percentile:" GridPane.rowIndex="1" GridPane.columnIndex="2" styleClass="metric-small"/>
+                                    <Label fx:id="percentileLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="3" styleClass="metric-value"/>
                                 </GridPane>
                             </VBox>
 
-                            <!-- Prize Breakdown -->
-                            <VBox spacing="8">
+                            <!-- Expanded Prize Breakdown Table -->
+                            <VBox spacing="5" VBox.vgrow="ALWAYS">
                                 <Label text="Prize Breakdown" styleClass="metric-label"/>
-                                <TableView fx:id="prizeBreakdownTable" prefHeight="150" styleClass="prize-breakdown-table">
+                                <TableView fx:id="prizeBreakdownTable" prefHeight="180" VBox.vgrow="ALWAYS" styleClass="prize-breakdown-table">
                                     <columns>
-                                        <TableColumn fx:id="tierColumn" text="Tier" prefWidth="60"/>
-                                        <TableColumn fx:id="winsColumn" text="Wins" prefWidth="50"/>
-                                        <TableColumn fx:id="frequencyColumn" text="Freq/1000" prefWidth="70"/>
+                                        <TableColumn fx:id="tierColumn" text="Tier" prefWidth="80"/>
+                                        <TableColumn fx:id="winsColumn" text="Wins" prefWidth="80"/>
+                                        <TableColumn fx:id="frequencyColumn" text="Freq/1000" prefWidth="85"/>
                                     </columns>
                                     <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/></columnResizePolicy>
                                 </TableView>

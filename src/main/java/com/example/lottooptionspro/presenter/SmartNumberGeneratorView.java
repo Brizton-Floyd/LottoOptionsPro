@@ -30,5 +30,9 @@ public interface SmartNumberGeneratorView {
     
     void showAlert(String title, String message);
     
+    void showLoadFullAnalysisButton(boolean show);
+    
+    void setLoadFullAnalysisButtonLoading(boolean loading);
+    
     File showSaveDialog(String initialDirectory, String initialFileName);
 }

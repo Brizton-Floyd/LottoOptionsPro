@@ -240,11 +240,32 @@ public class SmartNumberGeneratorPresenter {
             // Generation completed according to SSE, fetch results now
             fetchFinalResults();
         } else if (data.toLowerCase().contains("error")) {
-            view.updateProgress(-1, "Error in generation");
-            Platform.runLater(() -> {
-                view.showAlert("Generation Error", "Generation encountered an error: " + data);
-                resetGenerationState();
-            });
+            // Enhanced error detection - only show error dialog for actual errors
+            boolean isActualError = true;
+            
+            // Check if this looks like progress data that happens to contain "error"
+            String lowerData = data.toLowerCase();
+            if (lowerData.contains("progress") || 
+                lowerData.contains("generating") || 
+                lowerData.contains("processing") ||
+                lowerData.contains("analyzing") ||
+                lowerData.contains("completed") ||
+                lowerData.matches(".*\\d+.*") || // Contains numbers (likely progress)
+                data.startsWith("data:") || // SSE data format
+                data.trim().length() < 10) { // Very short messages are likely progress
+                isActualError = false;
+            }
+            
+            if (isActualError) {
+                view.updateProgress(-1, "Error in generation");
+                Platform.runLater(() -> {
+                    view.showAlert("Generation Error", "Generation encountered an error: " + data);
+                    resetGenerationState();
+                });
+            } else {
+                // Treat as progress data even though it contains "error"
+                view.updateProgress(-1, data.length() > 50 ? data.substring(0, 50) + "..." : data);
+            }
         } else {
             // Generic progress update
             view.updateProgress(-1, data.length() > 50 ? data.substring(0, 50) + "..." : data);
@@ -297,11 +318,48 @@ public class SmartNumberGeneratorPresenter {
             }
             
             JsonObject jsonData = element.getAsJsonObject();
-            String errorMessage = jsonData.has("message") ? 
-                jsonData.get("message").getAsString() : "Unknown generation error";
             
-            view.showAlert("Generation Error", errorMessage);
-            resetGenerationState();
+            // Check if this is actually an error or just progress data with eventType="error"
+            if (jsonData.has("error") && jsonData.get("error").isJsonNull()) {
+                // This is actually progress data, not a real error
+                System.out.println("Received progress data with eventType='error' but error field is null - treating as progress");
+                handleProgressUpdate(data);
+                return;
+            }
+            
+            // Check if it has progress-like fields (sessionId, status, attempts, etc.)
+            if (jsonData.has("sessionId") && jsonData.has("status") && jsonData.has("attempts")) {
+                String status = jsonData.has("status") ? jsonData.get("status").getAsString() : "";
+                if ("running".equals(status) || "processing".equals(status)) {
+                    // This is progress data, not an error
+                    System.out.println("Received progress-like data with eventType='error' - treating as progress");
+                    handleProgressUpdate(data);
+                    return;
+                }
+            }
+            
+            // Only show error if we have an actual error message or the error field is not null
+            if (jsonData.has("error") && !jsonData.get("error").isJsonNull()) {
+                String errorMessage = jsonData.get("error").getAsString();
+                view.showAlert("Generation Error", errorMessage);
+                resetGenerationState();
+            } else {
+                // Fallback to message field if no error field
+                String errorMessage = jsonData.has("message") ? 
+                    jsonData.get("message").getAsString() : "Unknown generation error";
+                
+                // Only show as error if the message sounds like an error
+                if (errorMessage.toLowerCase().contains("error") || 
+                    errorMessage.toLowerCase().contains("failed") ||
+                    errorMessage.toLowerCase().contains("exception")) {
+                    view.showAlert("Generation Error", errorMessage);
+                    resetGenerationState();
+                } else {
+                    // Treat as progress update
+                    System.out.println("Message doesn't sound like error - treating as progress: " + errorMessage);
+                    handleProgressUpdate(data);
+                }
+            }
         } catch (Exception e) {
             view.showAlert("Generation Error", "Generation failed with unknown error");
             resetGenerationState();
@@ -328,6 +386,61 @@ public class SmartNumberGeneratorPresenter {
 
     private void handleFinalResults(TicketGenerationResult result) {
         this.currentResult = result;
+        
+        // Always show the results first - the UI will show the Load Full Analysis button if needed
+        showFinalResults(result);
+    }
+    
+    private void fetchFullAnalysisData(TicketGenerationResult sampleResult) {
+        String fullAnalysisEndpoint = sampleResult.getFullAnalysisEndpoint();
+        
+        // Replace {sessionId} placeholder with actual session ID
+        final String fullAnalysisUrl = fullAnalysisEndpoint.contains("{sessionId}") 
+            ? fullAnalysisEndpoint.replace("{sessionId}", currentSessionId)
+            : fullAnalysisEndpoint;
+        
+        Platform.runLater(() -> {
+            view.updateProgress(-1, "Loading full historical analysis...");
+        });
+        
+        service.getFullAnalysisData(fullAnalysisUrl)
+                .doOnSubscribe(sub -> System.out.println("Fetching full analysis data from: " + fullAnalysisUrl))
+                .doOnSuccess(fullData -> System.out.println("Successfully received full analysis data"))
+                .doOnError(error -> System.err.println("Error fetching full analysis: " + error.getMessage()))
+                .subscribe(
+                        fullAnalysisResult -> {
+                            // Merge the full analysis data with the sample result
+                            sampleResult.setHistoricalPerformance(fullAnalysisResult.getHistoricalPerformance());
+                            sampleResult.setDroughtInformation(fullAnalysisResult.getDroughtInformation());
+                            
+                            // Reset button state and hide it since we now have full data
+                            Platform.runLater(() -> {
+                                view.setLoadFullAnalysisButtonLoading(false);
+                                view.showLoadFullAnalysisButton(false);
+                            });
+                            
+                            showFinalResults(sampleResult);
+                        },
+                        error -> {
+                            System.err.println("Failed to fetch full analysis, showing sample results: " + error.getMessage());
+                            // Reset button state on error
+                            Platform.runLater(() -> {
+                                view.setLoadFullAnalysisButtonLoading(false);
+                            });
+                            showFinalResults(sampleResult);
+                        }
+                );
+    }
+    
+    private void showFinalResults(TicketGenerationResult result) {
+        // Debug: Print the entire result structure to understand what fields are available
+        System.out.println("=== TICKET GENERATION RESULT DEBUG ===");
+        System.out.println("Session ID: " + result.getSessionId());
+        System.out.println("Full Analysis Endpoint: " + result.getFullAnalysisEndpoint());
+        if (result.getHistoricalPerformance() != null) {
+            System.out.println("Analysis Type: " + result.getHistoricalPerformance().getAnalysisType());
+        }
+        System.out.println("=======================================");
         
         Platform.runLater(() -> {
             view.showGenerationProgress(false);
@@ -604,6 +717,19 @@ public class SmartNumberGeneratorPresenter {
 
     public String deriveConfigId(String stateName, String gameName) {
         return service.deriveConfigId(stateName, gameName);
+    }
+
+    public void loadFullAnalysis() {
+        if (currentResult == null || currentResult.getFullAnalysisEndpoint() == null) {
+            view.showAlert("Error", "No full analysis endpoint available");
+            return;
+        }
+        
+        // Set button to loading state
+        view.setLoadFullAnalysisButtonLoading(true);
+        
+        // Fetch full analysis data
+        fetchFullAnalysisData(currentResult);
     }
 
     private boolean validateBetslipIntegration() {

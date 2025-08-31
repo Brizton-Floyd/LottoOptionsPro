@@ -105,6 +105,7 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     @FXML private VBox historicalPanel;
     @FXML private Label analysisTypeLabel;
     @FXML private Label analysisScopeLabel;
+    @FXML private Button loadFullAnalysisButton;
     @FXML private Label totalWinsLabel;
     @FXML private Label winRateLabel;
     @FXML private Label vsRandomLabel;
@@ -484,6 +485,11 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         presenter.saveTickets();
     }
 
+    @FXML
+    private void loadFullAnalysis() {
+        presenter.loadFullAnalysis();
+    }
+
     @Override
     public SmartGenerationRequest createGenerationRequest() {
         SmartGenerationRequest request = new SmartGenerationRequest();
@@ -731,6 +737,27 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
             // Analysis type and scope
             analysisTypeLabel.setText("Analysis Type: " + historical.getAnalysisType());
             
+            // Show/hide Load Full Analysis button based on analysis type and endpoint availability
+            String analysisType = historical.getAnalysisType();
+            String fullEndpoint = result.getFullAnalysisEndpoint();
+            
+            System.out.println("DEBUG - Analysis Type: '" + analysisType + "'");
+            System.out.println("DEBUG - Full Analysis Endpoint: '" + fullEndpoint + "'");
+            
+            // If server didn't provide endpoint but analysis type is SAMPLE, construct it ourselves
+            if ("SAMPLE".equals(analysisType) && (fullEndpoint == null || fullEndpoint.isEmpty())) {
+                fullEndpoint = "/api/v2/generation-result/" + result.getSessionId() + "/full-historical-analysis";
+                result.setFullAnalysisEndpoint(fullEndpoint);
+                System.out.println("DEBUG - Constructed Full Analysis Endpoint: '" + fullEndpoint + "'");
+            }
+            
+            boolean showButton = "SAMPLE".equals(analysisType) && 
+                                fullEndpoint != null && 
+                                !fullEndpoint.isEmpty();
+            
+            System.out.println("DEBUG - Show Load Full Analysis button: " + showButton);
+            loadFullAnalysisButton.setVisible(showButton);
+            
             AnalysisScope scope = historical.getAnalysisScope();
             if (scope != null) {
                 analysisScopeLabel.setText(String.format("Period: %.1f years (%d draws)", 
@@ -969,6 +996,26 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         fileChooser.setInitialDirectory(directory);
         fileChooser.setInitialFileName(initialFileName);
         return fileChooser.showSaveDialog(contentHolder.getScene().getWindow());
+    }
+    
+    @Override
+    public void showLoadFullAnalysisButton(boolean show) {
+        Platform.runLater(() -> {
+            loadFullAnalysisButton.setVisible(show);
+        });
+    }
+    
+    @Override
+    public void setLoadFullAnalysisButtonLoading(boolean loading) {
+        Platform.runLater(() -> {
+            if (loading) {
+                loadFullAnalysisButton.setText("Loading...");
+                loadFullAnalysisButton.setDisable(true);
+            } else {
+                loadFullAnalysisButton.setText("Load Full Analysis");
+                loadFullAnalysisButton.setDisable(false);
+            }
+        });
     }
 
     public static class TicketDisplay {
