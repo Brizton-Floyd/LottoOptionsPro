@@ -10,7 +10,7 @@
         <URL value="@styling/style.css" />
     </stylesheets>
     
-    <ScrollPane fitToWidth="true" hbarPolicy="NEVER">
+    <ScrollPane fx:id="mainScrollPane" fitToWidth="true" hbarPolicy="NEVER">
         <VBox fx:id="contentHolder" styleClass="chart-pane" spacing="20">
             <padding>
                 <Insets top="20" bottom="20" left="20" right="20"/>
@@ -53,6 +53,7 @@
                         <RadioButton fx:id="patternBasedRadio" text="Pattern-Based" selected="true"/>
                         <RadioButton fx:id="randomRadio" text="Random"/>
                         <RadioButton fx:id="hybridRadio" text="Hybrid"/>
+                        <RadioButton fx:id="templateMatrixRadio" text="Template Matrix"/>
                     </HBox>
                 </GridPane>
             </VBox>
@@ -101,8 +102,86 @@
                 </VBox>
             </TitledPane>
 
+            <!-- TemplateMatrix Configuration (Collapsible) -->
+            <TitledPane fx:id="templateMatrixPane" text="Template Matrix Configuration" expanded="false" visible="false" styleClass="config-section">
+                <VBox spacing="15">
+                    <!-- Strategy Selection -->
+                    <GridPane hgap="15" vgap="10">
+                        <columnConstraints>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="150"/>
+                            <ColumnConstraints hgrow="ALWAYS"/>
+                        </columnConstraints>
+                        
+                        <Label text="Selection Strategy:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <ComboBox fx:id="templateStrategyCombo" promptText="Select strategy..." 
+                                 GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="strategy-combo"/>
+                    </GridPane>
+                    
+                    <!-- Template Groups -->
+                    <VBox spacing="8">
+                        <Label text="Allowed Template Groups:" styleClass="section-header"/>
+                        <HBox spacing="20">
+                            <CheckBox fx:id="bestGroupCheck" text="BEST (Highest Probability)" selected="true" styleClass="template-group-checkbox"/>
+                            <CheckBox fx:id="goodGroupCheck" text="GOOD (Strong Probability)" selected="true" styleClass="template-group-checkbox"/>
+                            <CheckBox fx:id="fairGroupCheck" text="FAIR (Moderate Probability)" styleClass="template-group-checkbox"/>
+                            <CheckBox fx:id="poorGroupCheck" text="POOR (Lower Probability)" styleClass="template-group-checkbox"/>
+                        </HBox>
+                    </VBox>
+                    
+                    <!-- Timing Controls (Strategy-dependent) -->
+                    <VBox fx:id="timingControlsBox" spacing="8">
+                        <Label text="Timing Analysis Options:" styleClass="section-header"/>
+                        <VBox spacing="5">
+                            <CheckBox fx:id="useTimingIndicatorsCheck" text="Use Timing Indicators" selected="true"/>
+                            <Label text="Consider template timing patterns (when they're 'due')" styleClass="control-description"/>
+                        </VBox>
+                        <VBox spacing="5">
+                            <CheckBox fx:id="considerOverdueTemplatesCheck" text="Prioritize Overdue Templates" selected="true"/>
+                            <Label text="Prioritize templates that are statistically overdue" styleClass="control-description"/>
+                        </VBox>
+                    </VBox>
+                    
+                    <!-- Probability Threshold Slider -->
+                    <GridPane hgap="15" vgap="10">
+                        <columnConstraints>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="150"/>
+                            <ColumnConstraints hgrow="ALWAYS"/>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="60"/>
+                        </columnConstraints>
+                        
+                        <Label text="Min Template Probability:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <Slider fx:id="probabilityThresholdSlider" min="0.001" max="0.1" value="0.01" 
+                               showTickLabels="false" showTickMarks="true" majorTickUnit="0.02" 
+                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label fx:id="probabilityThresholdLabel" text="1.0%" GridPane.rowIndex="0" GridPane.columnIndex="2" 
+                              styleClass="slider-value-label"/>
+                    </GridPane>
+                    
+                    <!-- Number Sets Per Template -->
+                    <GridPane hgap="15" vgap="10">
+                        <columnConstraints>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="150"/>
+                            <ColumnConstraints hgrow="ALWAYS"/>
+                        </columnConstraints>
+                        
+                        <Label text="Sets per Template:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <VBox GridPane.rowIndex="0" GridPane.columnIndex="1">
+                            <Spinner fx:id="setsPerTemplateSpinner" editable="true"/>
+                            <Label text="Number combinations to generate per template" styleClass="control-description"/>
+                        </VBox>
+                    </GridPane>
+                    
+                    <!-- Strategy Information -->
+                    <VBox spacing="5" styleClass="strategy-info-box">
+                        <Label text="Strategy Information:" styleClass="section-header"/>
+                        <Label fx:id="strategyDescriptionLabel" text="Select a strategy to see details..." 
+                              styleClass="strategy-description" wrapText="true"/>
+                    </VBox>
+                </VBox>
+            </TitledPane>
+
             <!-- Generation Controls -->
-            <HBox spacing="15" alignment="CENTER_LEFT">
+            <HBox spacing="15" alignment="CENTER_LEFT" style="-fx-background-color: #f0f0f0; -fx-padding: 15;">
                 <Button fx:id="generateButton" text="Generate Smart Tickets" onAction="#generateSmartTickets" styleClass="primary-button"/>
                 <Button fx:id="cancelButton" text="Cancel" onAction="#cancelGeneration" disable="true" styleClass="secondary-button"/>
                 <Region HBox.hgrow="ALWAYS"/>
@@ -194,6 +273,70 @@
                                 <Label text="Coverage:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-label"/>
                                 <Label fx:id="coveragePercentageLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
                             </GridPane>
+                            
+                            <!-- TemplateMatrix Enhanced Metrics (Conditional) -->
+                            <VBox fx:id="templateMatrixMetricsBox" spacing="10" visible="false">
+                                <Separator/>
+                                
+                                <!-- Template Quality Section -->
+                                <VBox spacing="8">
+                                    <Label text="Template Matrix Quality" styleClass="metric-label"/>
+                                    <HBox spacing="20" alignment="CENTER_LEFT">
+                                        <VBox spacing="3" alignment="CENTER">
+                                            <Label text="Template Grade" styleClass="metric-label"/>
+                                            <Label fx:id="templateQualityGradeLabel" text="-" styleClass="quality-grade-large template-grade"/>
+                                        </VBox>
+                                        <VBox spacing="3" alignment="CENTER">
+                                            <Label text="Math Accuracy" styleClass="metric-label"/>
+                                            <Label fx:id="mathAccuracyLabel" text="-%" styleClass="metric-value"/>
+                                        </VBox>
+                                        <VBox spacing="3" alignment="CENTER">
+                                            <Label text="Templates Used" styleClass="metric-label"/>
+                                            <Label fx:id="templatesUsedLabel" text="-" styleClass="metric-value"/>
+                                        </VBox>
+                                    </HBox>
+                                </VBox>
+                                
+                                <!-- Template Group Distribution -->
+                                <VBox spacing="8">
+                                    <Label text="Template Group Distribution" styleClass="metric-label"/>
+                                    <GridPane hgap="10" vgap="5">
+                                        <columnConstraints>
+                                            <ColumnConstraints halignment="LEFT" prefWidth="60"/>
+                                            <ColumnConstraints hgrow="ALWAYS"/>
+                                            <ColumnConstraints halignment="RIGHT" prefWidth="50"/>
+                                        </columnConstraints>
+                                        
+                                        <Label text="BEST:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="template-group-best-label"/>
+                                        <ProgressBar fx:id="bestTemplateBar" prefHeight="12" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="template-bar-best"/>
+                                        <Label fx:id="bestTemplateLabel" text="0%" GridPane.rowIndex="0" GridPane.columnIndex="2" styleClass="template-percentage"/>
+                                        
+                                        <Label text="GOOD:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="template-group-good-label"/>
+                                        <ProgressBar fx:id="goodTemplateBar" prefHeight="12" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="template-bar-good"/>
+                                        <Label fx:id="goodTemplateLabel" text="0%" GridPane.rowIndex="1" GridPane.columnIndex="2" styleClass="template-percentage"/>
+                                        
+                                        <Label text="FAIR:" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="template-group-fair-label"/>
+                                        <ProgressBar fx:id="fairTemplateBar" prefHeight="12" GridPane.rowIndex="2" GridPane.columnIndex="1" styleClass="template-bar-fair"/>
+                                        <Label fx:id="fairTemplateLabel" text="0%" GridPane.rowIndex="2" GridPane.columnIndex="2" styleClass="template-percentage"/>
+                                        
+                                        <Label text="POOR:" GridPane.rowIndex="3" GridPane.columnIndex="0" styleClass="template-group-poor-label"/>
+                                        <ProgressBar fx:id="poorTemplateBar" prefHeight="12" GridPane.rowIndex="3" GridPane.columnIndex="1" styleClass="template-bar-poor"/>
+                                        <Label fx:id="poorTemplateLabel" text="0%" GridPane.rowIndex="3" GridPane.columnIndex="2" styleClass="template-percentage"/>
+                                    </GridPane>
+                                </VBox>
+                                
+                                <!-- Additional Template Metrics -->
+                                <GridPane hgap="10" vgap="5">
+                                    <columnConstraints>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="120"/>
+                                        <ColumnConstraints halignment="LEFT"/>
+                                    </columnConstraints>
+                                    <Label text="Probability Score:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="metric-label"/>
+                                    <Label fx:id="probabilityScoreLabel" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                    <Label text="Overdue Usage:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-label"/>
+                                    <Label fx:id="overdueUsageLabel" text="-%" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                </GridPane>
+                            </VBox>
                         </VBox>
                     </TitledPane>
 
@@ -249,6 +392,84 @@
                         </VBox>
                     </TitledPane>
 
+                    <!-- TOP RIGHT: TemplateMatrix Analysis (Conditional) -->
+                    <TitledPane fx:id="templateAnalysisPane" text="🧬 Template Matrix Analysis" 
+                               GridPane.columnIndex="1" GridPane.rowIndex="0" 
+                               styleClass="dashboard-panel" expanded="true" collapsible="false" visible="false">
+                        <VBox fx:id="templateAnalysisPanel" spacing="10" styleClass="template-analysis-panel">
+                            <!-- Strategy Information -->
+                            <VBox spacing="5">
+                                <Label text="Strategy Information" styleClass="metric-label"/>
+                                <GridPane hgap="10" vgap="3">
+                                    <columnConstraints>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="80"/>
+                                        <ColumnConstraints halignment="LEFT"/>
+                                    </columnConstraints>
+                                    <Label text="Strategy:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="strategyUsedLabel" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                    <Label text="Quality Tier:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="qualityTierLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                </GridPane>
+                            </VBox>
+                            
+                            <!-- Template Coverage Metrics -->
+                            <VBox spacing="5">
+                                <Label text="Template Coverage" styleClass="metric-label"/>
+                                <GridPane hgap="10" vgap="3">
+                                    <columnConstraints>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="80"/>
+                                        <ColumnConstraints halignment="LEFT"/>
+                                    </columnConstraints>
+                                    <Label text="Coverage:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="templateCoverageLabel" text="-%" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                    <Label text="Efficiency:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="templateEfficiencyLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                </GridPane>
+                            </VBox>
+                            
+                            <!-- Performance Comparison -->
+                            <VBox spacing="5">
+                                <Label text="Performance Enhancement" styleClass="metric-label"/>
+                                <VBox spacing="3">
+                                    <HBox spacing="10" alignment="CENTER_LEFT">
+                                        <Label text="Improvement:" styleClass="metric-small"/>
+                                        <Label fx:id="templateImprovementLabel" text="-%" styleClass="improvement-value"/>
+                                    </HBox>
+                                    <Label fx:id="improvementDescriptionLabel" text="-" styleClass="improvement-description" wrapText="true"/>
+                                </VBox>
+                            </VBox>
+                            
+                            <!-- Template Timing Distribution -->
+                            <VBox spacing="5">
+                                <Label text="Template Timing Analysis" styleClass="metric-label"/>
+                                <GridPane hgap="8" vgap="3">
+                                    <columnConstraints>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="90"/>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="30"/>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="90"/>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="30"/>
+                                    </columnConstraints>
+                                    <Label text="On Schedule:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="timing-label"/>
+                                    <Label fx:id="onScheduleCountLabel" text="0" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="timing-value"/>
+                                    <Label text="Overdue:" GridPane.rowIndex="0" GridPane.columnIndex="2" styleClass="timing-label"/>
+                                    <Label fx:id="overdueCountLabel" text="0" GridPane.rowIndex="0" GridPane.columnIndex="3" styleClass="timing-value"/>
+                                    <Label text="Approaching:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="timing-label"/>
+                                    <Label fx:id="approachingCountLabel" text="0" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="timing-value"/>
+                                    <Label text="Recent Hit:" GridPane.rowIndex="1" GridPane.columnIndex="2" styleClass="timing-label"/>
+                                    <Label fx:id="recentHitCountLabel" text="0" GridPane.rowIndex="1" GridPane.columnIndex="3" styleClass="timing-value"/>
+                                </GridPane>
+                            </VBox>
+                            
+                            <!-- Recommendations -->
+                            <VBox spacing="5" VBox.vgrow="ALWAYS">
+                                <Label text="Smart Recommendations" styleClass="metric-label"/>
+                                <VBox fx:id="templateRecommendationsBox" spacing="3" VBox.vgrow="ALWAYS">
+                                    <Label text="No recommendations available" styleClass="recommendation-placeholder"/>
+                                </VBox>
+                            </VBox>
+                        </VBox>
+                    </TitledPane>
+
                     <!-- BOTTOM LEFT: Generated Tickets -->
                     <TitledPane fx:id="ticketsPane" text="📋 Generated Tickets" 
                                GridPane.columnIndex="0" GridPane.rowIndex="1" 
@@ -259,6 +480,9 @@
                                     <TableColumn fx:id="ticketNumberColumn" text="#" prefWidth="40"/>
                                     <TableColumn fx:id="numbersColumn" text="Numbers" prefWidth="160"/>
                                     <TableColumn fx:id="qualityColumn" text="Qual" prefWidth="50"/>
+                                    <!-- TemplateMatrix Enhancement: Template correlation columns (conditional visibility) -->
+                                    <TableColumn fx:id="templatePatternColumn" text="Pattern" prefWidth="80" visible="false"/>
+                                    <TableColumn fx:id="templateGroupColumn" text="Group" prefWidth="65" visible="false"/>
                                 </columns>
                                 <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/></columnResizePolicy>
                             </TableView>
@@ -298,6 +522,30 @@
                                 <VBox fx:id="insightsBox" spacing="3"/>
                             </VBox>
 
+                            <!-- TemplateMatrix Enhancement: Template Strategy Insights (conditional display) -->
+                            <VBox fx:id="templateInsightsSection" spacing="8" visible="false">
+                                <Label text="Template Strategy" styleClass="metric-label"/>
+                                <VBox fx:id="templateInsightsBox" spacing="3">
+                                    <!-- Strategy Performance -->
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Strategy:" styleClass="metric-small"/>
+                                        <Label fx:id="templateStrategyLabel" text="-" styleClass="metric-value"/>
+                                    </HBox>
+                                    
+                                    <!-- Template Distribution -->
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Label text="Templates Used:" styleClass="metric-small"/>
+                                        <Label fx:id="templatesUsedLabel" text="-" styleClass="metric-value"/>
+                                    </HBox>
+                                    
+                                    <!-- Smart Recommendations -->
+                                    <VBox fx:id="templateRecommendationsBox" spacing="2">
+                                        <Label text="Smart Recommendations:" styleClass="metric-small"/>
+                                        <!-- Dynamic recommendations will be added here -->
+                                    </VBox>
+                                </VBox>
+                            </VBox>
+
                             <!-- Performance Stats -->
                             <GridPane hgap="10" vgap="5">
                                 <columnConstraints>
@@ -314,7 +562,7 @@
                 </GridPane>
 
                 <!-- Action Buttons -->
-                <HBox spacing="15" alignment="CENTER_LEFT">
+                <HBox spacing="15" alignment="CENTER_LEFT" style="-fx-background-color: #e8f4fd; -fx-padding: 15;">
                     <Button fx:id="generateBetslipsButton" text="Generate Betslips" onAction="#generateBetslips" disable="true" styleClass="primary-button"/>
                     <Button fx:id="exportCsvButton" text="Export CSV+Historical" onAction="#exportCsv" disable="true" styleClass="secondary-button"/>
                     <Button fx:id="saveTicketsButton" text="Save Complete Analysis" onAction="#saveTickets" disable="true" styleClass="secondary-button"/>

@@ -1,5 +1,6 @@
 package com.example.lottooptionspro.model.smart;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class UserPreferences {
@@ -14,6 +15,15 @@ public class UserPreferences {
     private boolean enableMultiBatch = true;
     private int maxBatchVariance = 3;
     private boolean preventDuplicates = true;
+    
+    // TemplateMatrix Configuration Fields
+    private boolean enableTemplateMatrix = false;
+    private String templateSelectionStrategy = "BALANCED";
+    private List<String> allowedTemplateGroups = Arrays.asList("BEST", "GOOD");
+    private boolean useTimingIndicators = true;
+    private boolean considerOverdueTemplates = true;
+    private double minimumTemplateProbability = 0.01; // 1%
+    private int numberSetsPerTemplate = 5;
 
     public boolean isAvoidConsecutive() {
         return avoidConsecutive;
@@ -101,5 +111,81 @@ public class UserPreferences {
 
     public void setPreventDuplicates(boolean preventDuplicates) {
         this.preventDuplicates = preventDuplicates;
+    }
+
+    // TemplateMatrix Getters and Setters
+
+    public boolean isEnableTemplateMatrix() {
+        return enableTemplateMatrix;
+    }
+
+    public void setEnableTemplateMatrix(boolean enableTemplateMatrix) {
+        this.enableTemplateMatrix = enableTemplateMatrix;
+    }
+
+    public String getTemplateSelectionStrategy() {
+        return templateSelectionStrategy;
+    }
+
+    public void setTemplateSelectionStrategy(String templateSelectionStrategy) {
+        this.templateSelectionStrategy = templateSelectionStrategy;
+    }
+
+    public List<String> getAllowedTemplateGroups() {
+        return allowedTemplateGroups;
+    }
+
+    public void setAllowedTemplateGroups(List<String> allowedTemplateGroups) {
+        this.allowedTemplateGroups = allowedTemplateGroups;
+    }
+
+    public boolean isUseTimingIndicators() {
+        return useTimingIndicators;
+    }
+
+    public void setUseTimingIndicators(boolean useTimingIndicators) {
+        this.useTimingIndicators = useTimingIndicators;
+    }
+
+    public boolean isConsiderOverdueTemplates() {
+        return considerOverdueTemplates;
+    }
+
+    public void setConsiderOverdueTemplates(boolean considerOverdueTemplates) {
+        this.considerOverdueTemplates = considerOverdueTemplates;
+    }
+
+    public double getMinimumTemplateProbability() {
+        return minimumTemplateProbability;
+    }
+
+    public void setMinimumTemplateProbability(double minimumTemplateProbability) {
+        this.minimumTemplateProbability = minimumTemplateProbability;
+    }
+
+    public int getNumberSetsPerTemplate() {
+        return numberSetsPerTemplate;
+    }
+
+    public void setNumberSetsPerTemplate(int numberSetsPerTemplate) {
+        this.numberSetsPerTemplate = numberSetsPerTemplate;
+    }
+
+    // Utility methods for TemplateMatrix
+    
+    public boolean hasTemplateGroupEnabled(String group) {
+        return allowedTemplateGroups != null && allowedTemplateGroups.contains(group);
+    }
+    
+    public boolean isTimingStrategyEnabled() {
+        return "TIMING_AWARE".equals(templateSelectionStrategy) || "BALANCED".equals(templateSelectionStrategy);
+    }
+    
+    public boolean isProbabilityStrategyEnabled() {
+        return !"TIMING_AWARE".equals(templateSelectionStrategy);
+    }
+    
+    public String getFormattedMinimumProbability() {
+        return String.format("%.1f%%", minimumTemplateProbability * 100);
     }
 }

@@ -17,6 +17,11 @@ public class TicketGenerationResult {
     private DroughtInformation droughtInformation;
     private boolean meetsQualityCriteria;
     private String fullAnalysisEndpoint;
+    
+    // TemplateMatrix Enhancement Fields
+    private TemplateMatrixAnalysis templateMatrixAnalysis;
+    private List<TemplateCorrelatedTicket> templateCorrelatedTickets;
+    private Integer ticketSetId;
 
     public String getSessionId() {
         return sessionId;
@@ -136,5 +141,58 @@ public class TicketGenerationResult {
 
     public void setFullAnalysisEndpoint(String fullAnalysisEndpoint) {
         this.fullAnalysisEndpoint = fullAnalysisEndpoint;
+    }
+
+    // TemplateMatrix Enhancement Getters and Setters
+
+    public TemplateMatrixAnalysis getTemplateMatrixAnalysis() {
+        return templateMatrixAnalysis;
+    }
+
+    public void setTemplateMatrixAnalysis(TemplateMatrixAnalysis templateMatrixAnalysis) {
+        this.templateMatrixAnalysis = templateMatrixAnalysis;
+    }
+
+    public List<TemplateCorrelatedTicket> getTemplateCorrelatedTickets() {
+        return templateCorrelatedTickets;
+    }
+
+    public void setTemplateCorrelatedTickets(List<TemplateCorrelatedTicket> templateCorrelatedTickets) {
+        this.templateCorrelatedTickets = templateCorrelatedTickets;
+    }
+
+    public Integer getTicketSetId() {
+        return ticketSetId;
+    }
+
+    public void setTicketSetId(Integer ticketSetId) {
+        this.ticketSetId = ticketSetId;
+    }
+
+    // Utility methods for TemplateMatrix
+
+    public boolean hasTemplateMatrixAnalysis() {
+        return templateMatrixAnalysis != null && templateMatrixAnalysis.isHasAnalysis();
+    }
+
+    public boolean hasTemplateCorrelatedTickets() {
+        return templateCorrelatedTickets != null && !templateCorrelatedTickets.isEmpty();
+    }
+
+    public String getTemplateMatrixSummary() {
+        if (!hasTemplateMatrixAnalysis()) {
+            return "No TemplateMatrix analysis available";
+        }
+        
+        TemplateMatrixAnalysis analysis = templateMatrixAnalysis;
+        return String.format("TemplateMatrix: %s strategy, %d templates used, Quality: %s (%.1f)",
+                analysis.getStrategyInfo() != null ? analysis.getStrategyInfo().getSelectionStrategy() : "Unknown",
+                analysis.getTemplateMetrics() != null ? analysis.getTemplateMetrics().getUniqueTemplatesUsed() : 0,
+                analysis.getTemplateQualityGrade() != null ? analysis.getTemplateQualityGrade() : "Unknown",
+                analysis.getEnhancedQualityScore());
+    }
+
+    public boolean isEnhancedGeneration() {
+        return hasTemplateMatrixAnalysis();
     }
 }

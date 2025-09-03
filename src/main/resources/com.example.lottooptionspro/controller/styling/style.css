@@ -84,6 +84,73 @@
     -fx-background-color: #004C8C;
 }
 
+/* Primary Action Buttons */
+Button.primary-button {
+    -fx-background-color: #27AE60 !important;
+    -fx-text-fill: white !important;
+    -fx-background-radius: 6;
+    -fx-padding: 10 20;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(one-pass-box, rgba(0,0,0,0.1), 2, 0.0, 0, 1);
+    -fx-min-width: 180px;
+    -fx-min-height: 40px;
+    -fx-border-color: #1E8449;
+    -fx-border-width: 1px;
+}
+
+Button.primary-button:hover {
+    -fx-background-color: #229954 !important;
+    -fx-text-fill: white !important;
+    -fx-cursor: hand;
+}
+
+Button.primary-button:pressed {
+    -fx-background-color: #1E8449 !important;
+    -fx-text-fill: white !important;
+}
+
+/* Secondary Action Buttons */
+Button.secondary-button {
+    -fx-background-color: #3498DB !important;
+    -fx-text-fill: white !important;
+    -fx-background-radius: 6;
+    -fx-padding: 8 16;
+    -fx-font-size: 13px;
+    -fx-font-weight: normal;
+    -fx-min-width: 120px;
+    -fx-min-height: 35px;
+    -fx-border-color: #2980B9;
+    -fx-border-width: 1px;
+}
+
+Button.secondary-button:hover {
+    -fx-background-color: #2980B9 !important;
+    -fx-text-fill: white !important;
+    -fx-cursor: hand;
+}
+
+Button.secondary-button:pressed {
+    -fx-background-color: #21618C !important;
+    -fx-text-fill: white !important;
+}
+
+/* Small utility buttons */
+Button.small-button {
+    -fx-background-color: #95A5A6 !important;
+    -fx-text-fill: white !important;
+    -fx-background-radius: 4;
+    -fx-padding: 6 12;
+    -fx-font-size: 12px;
+    -fx-border-color: #7F8C8D;
+    -fx-border-width: 1px;
+}
+
+Button.small-button:hover {
+    -fx-background-color: #7F8C8D !important;
+    -fx-cursor: hand;
+}
+
 .combo-box {
     -fx-background-color: #FFFFFF;
     -fx-border-color: #E0E0E0;
@@ -203,6 +270,17 @@
     -fx-background-color: #F8F9FA;
     -fx-background-radius: 6;
     -fx-padding: 15;
+}
+
+/* Generated Tickets Table Centering */
+#generatedTicketsTable .table-cell {
+    -fx-alignment: CENTER;
+    -fx-text-alignment: CENTER;
+}
+
+#generatedTicketsTable .column-header .label {
+    -fx-alignment: CENTER;
+    -fx-text-alignment: CENTER;
 }
 
 .quality-summary {
@@ -345,13 +423,7 @@
     -fx-border-width: 1;
 }
 
-/* --- Small Button Style --- */
-.small-button {
-    -fx-font-size: 10px;
-    -fx-padding: 4 8;
-    -fx-background-radius: 4;
-    -fx-border-radius: 4;
-}
+/* --- Small Button Style (merged with main definition above) --- */
 
 /* --- Enhanced Metric Styling --- */
 .metric-value {
@@ -372,4 +444,564 @@
 /* --- Hover Effects --- */
 .dashboard-panel:hover {
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 6, 0, 0, 3);
+}
+
+/* --- TemplateMatrix Specific Styles --- */
+
+/* Strategy ComboBox */
+.strategy-combo {
+    -fx-min-width: 200px;
+    -fx-font-size: 12px;
+}
+
+/* Template Group Checkboxes */
+.template-group-checkbox {
+    -fx-font-weight: bold;
+    -fx-text-fill: #2C3E50;
+}
+
+.template-group-checkbox:selected {
+    -fx-text-fill: #3498DB;
+}
+
+/* Control Descriptions */
+.control-description {
+    -fx-font-size: 10px;
+    -fx-text-fill: #7F8C8D;
+    -fx-font-style: italic;
+    -fx-wrap-text: true;
+    -fx-padding: 2 0 0 0;
+}
+
+/* Slider Value Labels */
+.slider-value-label {
+    -fx-font-weight: bold;
+    -fx-text-fill: #E74C3C;
+    -fx-font-size: 12px;
+}
+
+/* Strategy Information Box */
+.strategy-info-box {
+    -fx-background-color: rgba(52, 152, 219, 0.08);
+    -fx-background-radius: 5;
+    -fx-padding: 10;
+    -fx-border-color: rgba(52, 152, 219, 0.3);
+    -fx-border-radius: 5;
+    -fx-border-width: 1;
+}
+
+.strategy-description {
+    -fx-font-size: 11px;
+    -fx-text-fill: #2C3E50;
+    -fx-wrap-text: true;
+    -fx-line-spacing: 2;
+}
+
+/* Template Quality Color Coding */
+.template-best { 
+    -fx-background-color: #27AE60; 
+    -fx-text-fill: white; 
+    -fx-font-weight: bold;
+}
+
+.template-good { 
+    -fx-background-color: #3498DB; 
+    -fx-text-fill: white; 
+    -fx-font-weight: bold;
+}
+
+.template-fair { 
+    -fx-background-color: #F39C12; 
+    -fx-text-fill: white; 
+    -fx-font-weight: bold;
+}
+
+.template-poor { 
+    -fx-background-color: #E74C3C; 
+    -fx-text-fill: white; 
+    -fx-font-weight: bold;
+}
+
+/* Enhanced Template Quality Indicators */
+.template-quality-indicator {
+    -fx-background-radius: 4;
+    -fx-padding: 2 6;
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+}
+
+.template-quality-best {
+    -fx-background-color: rgba(39, 174, 96, 0.15);
+    -fx-text-fill: #27AE60;
+    -fx-border-color: #27AE60;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+}
+
+.template-quality-good {
+    -fx-background-color: rgba(52, 152, 219, 0.15);
+    -fx-text-fill: #3498DB;
+    -fx-border-color: #3498DB;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+}
+
+.template-quality-fair {
+    -fx-background-color: rgba(243, 156, 18, 0.15);
+    -fx-text-fill: #F39C12;
+    -fx-border-color: #F39C12;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+}
+
+.template-quality-poor {
+    -fx-background-color: rgba(231, 76, 60, 0.15);
+    -fx-text-fill: #E74C3C;
+    -fx-border-color: #E74C3C;
+    -fx-border-width: 1;
+    -fx-border-radius: 4;
+}
+
+/* Template Group Distribution Bars */
+.template-group-bar {
+    -fx-background-radius: 2;
+    -fx-min-height: 6;
+    -fx-max-height: 6;
+}
+
+.template-group-bar-best {
+    -fx-background-color: #27AE60;
+}
+
+.template-group-bar-good {
+    -fx-background-color: #3498DB;
+}
+
+.template-group-bar-fair {
+    -fx-background-color: #F39C12;
+}
+
+.template-group-bar-poor {
+    -fx-background-color: #E74C3C;
+}
+
+/* Template Timing Indicators */
+.timing-indicator {
+    -fx-font-size: 9px;
+    -fx-background-radius: 3;
+    -fx-padding: 1 4;
+    -fx-font-weight: bold;
+}
+
+.timing-hot {
+    -fx-background-color: rgba(255, 87, 34, 0.2);
+    -fx-text-fill: #FF5722;
+}
+
+.timing-warm {
+    -fx-background-color: rgba(255, 152, 0, 0.2);
+    -fx-text-fill: #FF9800;
+}
+
+.timing-due {
+    -fx-background-color: rgba(33, 150, 243, 0.2);
+    -fx-text-fill: #2196F3;
+}
+
+.timing-overdue {
+    -fx-background-color: rgba(156, 39, 176, 0.2);
+    -fx-text-fill: #9C27B0;
+}
+
+/* Disabled Control Styling */
+.control-description:disabled {
+    -fx-text-fill: #BDC3C7;
+}
+
+/* Template Matrix Panel Enhancement */
+.template-matrix-panel {
+    -fx-background-color: #FDFDFD;
+    -fx-border-color: #D5DBDB;
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
+    -fx-padding: 12;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 2, 0, 0, 1);
+}
+
+/* Section Headers in Template Matrix */
+.template-matrix-panel .section-header {
+    -fx-font-weight: bold;
+    -fx-text-fill: #2C3E50;
+    -fx-font-size: 12px;
+}
+
+/* Enhanced TemplateMatrix Visual Consistency */
+.template-matrix-config-section {
+    -fx-background-color: rgba(52, 152, 219, 0.02);
+    -fx-background-radius: 6;
+    -fx-padding: 16;
+    -fx-border-color: rgba(52, 152, 219, 0.1);
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
+}
+
+.template-matrix-results-section {
+    -fx-background-color: rgba(46, 204, 113, 0.02);
+    -fx-background-radius: 6;
+    -fx-padding: 16;
+    -fx-border-color: rgba(46, 204, 113, 0.1);
+    -fx-border-radius: 6;
+    -fx-border-width: 1;
+}
+
+/* TemplateMatrix Analysis Panel Specific */
+.template-analysis-panel {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 8;
+    -fx-border-color: #E8F4F8;
+    -fx-border-radius: 8;
+    -fx-border-width: 2;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 4, 0, 0, 2);
+    -fx-padding: 20;
+}
+
+/* Strategy Information Headers */
+.strategy-header {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #2C3E50;
+    -fx-padding: 8 0 4 0;
+    -fx-border-width: 0 0 1 0;
+    -fx-border-color: #E8F4F8;
+}
+
+/* Template Metric Cards */
+.template-metric-card {
+    -fx-background-color: #F8F9FA;
+    -fx-background-radius: 4;
+    -fx-padding: 12 16;
+    -fx-border-color: #E9ECEF;
+    -fx-border-radius: 4;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.03), 1, 0, 0, 1);
+}
+
+.template-metric-card:hover {
+    -fx-background-color: #F1F3F4;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.08), 2, 0, 0, 1);
+}
+
+/* Enhanced Progress Bar Styling */
+.template-progress-bar {
+    -fx-pref-height: 8;
+    -fx-background-radius: 4;
+}
+
+.template-progress-bar .bar {
+    -fx-background-radius: 4;
+    -fx-background-insets: 0;
+}
+
+.template-progress-bar .track {
+    -fx-background-color: #E9ECEF;
+    -fx-background-radius: 4;
+    -fx-background-insets: 0;
+}
+
+/* Template Quality Badge Enhancements */
+.template-quality-badge {
+    -fx-background-radius: 12;
+    -fx-padding: 4 12;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-alignment: center;
+}
+
+.template-quality-badge.best {
+    -fx-background-color: #27AE60;
+    -fx-text-fill: white;
+}
+
+.template-quality-badge.good {
+    -fx-background-color: #3498DB;
+    -fx-text-fill: white;
+}
+
+.template-quality-badge.fair {
+    -fx-background-color: #F39C12;
+    -fx-text-fill: white;
+}
+
+.template-quality-badge.poor {
+    -fx-background-color: #E74C3C;
+    -fx-text-fill: white;
+}
+
+/* ========== MICRO-ANIMATIONS AND TRANSITIONS ========== */
+
+/* Smooth transition effects for interactive elements */
+.toggle-button, .combo-box, .slider, .check-box, .radio-button {
+    -fx-background-color: derive(-fx-base, 0%);
+    -fx-transition: -fx-background-color 0.2s ease-in-out;
+}
+
+/* Buttons get their own transition without background override */
+.button {
+    -fx-transition: -fx-background-color 0.2s ease-in-out;
+}
+
+/* Template Matrix Configuration Panel Animations */
+.template-matrix-config-section {
+    -fx-transition: -fx-border-color 0.3s ease-in-out, -fx-background-color 0.3s ease-in-out;
+}
+
+.template-matrix-config-section:focused-within {
+    -fx-border-color: rgba(52, 152, 219, 0.3);
+    -fx-background-color: rgba(52, 152, 219, 0.04);
+}
+
+/* Progress Bar Animation Enhancement */
+.template-progress-bar .bar {
+    -fx-transition: -fx-background-color 0.4s ease-in-out;
+}
+
+/* Template Quality Badge Hover Effects */
+.template-quality-badge {
+    -fx-transition: -fx-scale-x 0.1s ease-out, -fx-scale-y 0.1s ease-out;
+}
+
+.template-quality-badge:hover {
+    -fx-scale-x: 1.05;
+    -fx-scale-y: 1.05;
+    -fx-cursor: hand;
+}
+
+/* Template Metric Card Animations */
+.template-metric-card {
+    -fx-transition: -fx-background-color 0.2s ease-in-out, -fx-effect 0.2s ease-in-out;
+}
+
+/* Dashboard Panel Entrance Animation */
+.dashboard-panel {
+    -fx-transition: -fx-effect 0.3s ease-in-out, -fx-scale-x 0.2s ease-out, -fx-scale-y 0.2s ease-out;
+}
+
+.dashboard-panel:hover {
+    -fx-scale-x: 1.02;
+    -fx-scale-y: 1.02;
+}
+
+/* Template Strategy Combo Animation */
+.strategy-combo {
+    -fx-transition: -fx-border-color 0.2s ease-in-out;
+}
+
+.strategy-combo:focused {
+    -fx-border-color: #3498DB;
+    -fx-border-width: 2;
+}
+
+/* Template Group Checkbox Animations */
+.template-group-checkbox {
+    -fx-transition: -fx-text-fill 0.2s ease-in-out, -fx-scale-x 0.1s ease-out, -fx-scale-y 0.1s ease-out;
+}
+
+.template-group-checkbox:hover {
+    -fx-scale-x: 1.03;
+    -fx-scale-y: 1.03;
+}
+
+/* Loading and Success State Animations */
+.results-section {
+    -fx-opacity: 0;
+    -fx-transition: -fx-opacity 0.5s ease-in-out;
+}
+
+.results-section.loaded {
+    -fx-opacity: 1;
+}
+
+/* Template Analysis Panel Slide-in Effect */
+.template-analysis-panel {
+    -fx-translate-y: 10;
+    -fx-transition: -fx-translate-y 0.4s ease-out, -fx-opacity 0.4s ease-out;
+}
+
+.template-analysis-panel.visible {
+    -fx-translate-y: 0;
+    -fx-opacity: 1;
+}
+
+/* Recommendation Items Fade-in */
+.recommendation-item, .insight-item {
+    -fx-opacity: 0.8;
+    -fx-transition: -fx-opacity 0.2s ease-in-out, -fx-background-color 0.2s ease-in-out;
+}
+
+.recommendation-item:hover, .insight-item:hover {
+    -fx-opacity: 1;
+    -fx-background-color: rgba(52, 152, 219, 0.05);
+}
+
+/* ========== RESPONSIVE LAYOUT ADJUSTMENTS ========== */
+
+/* Compact Mode for Smaller Windows */
+.compact-mode .dashboard-panel {
+    -fx-padding: 12;
+    -fx-spacing: 8;
+}
+
+.compact-mode .template-metric-card {
+    -fx-padding: 8 12;
+}
+
+.compact-mode .strategy-header {
+    -fx-font-size: 13px;
+}
+
+.compact-mode .metric-label {
+    -fx-font-size: 10px;
+}
+
+.compact-mode .metric-value {
+    -fx-font-size: 11px;
+}
+
+/* Mobile/Small Screen Adaptations */
+.mobile-layout .template-matrix-config-section {
+    -fx-padding: 12;
+    -fx-spacing: 8;
+}
+
+.mobile-layout .template-analysis-panel {
+    -fx-padding: 16;
+}
+
+.mobile-layout .dashboard-panel {
+    -fx-max-height: 280;
+    -fx-min-height: 200;
+}
+
+/* Template Group Layout Responsiveness */
+.template-groups-container {
+    -fx-spacing: 8;
+}
+
+.template-groups-container.compact {
+    -fx-spacing: 4;
+}
+
+.template-groups-container.compact .template-group-checkbox {
+    -fx-font-size: 11px;
+}
+
+/* ========== ACCESSIBILITY ENHANCEMENTS ========== */
+
+/* High Contrast Mode Support */
+.high-contrast .template-quality-best {
+    -fx-border-color: #FFFFFF;
+    -fx-border-width: 2;
+}
+
+.high-contrast .template-quality-good {
+    -fx-border-color: #FFFFFF;
+    -fx-border-width: 2;
+}
+
+.high-contrast .template-quality-fair {
+    -fx-border-color: #FFFFFF;
+    -fx-border-width: 2;
+}
+
+.high-contrast .template-quality-poor {
+    -fx-border-color: #FFFFFF;
+    -fx-border-width: 2;
+}
+
+/* Focus Indicators for Keyboard Navigation */
+.template-group-checkbox:focused {
+    -fx-focus-color: #3498DB;
+    -fx-faint-focus-color: rgba(52, 152, 219, 0.2);
+    -fx-focus-traversable: true;
+}
+
+.strategy-combo:focused {
+    -fx-focus-color: #3498DB;
+    -fx-faint-focus-color: rgba(52, 152, 219, 0.2);
+    -fx-background-color: rgba(52, 152, 219, 0.05);
+}
+
+.template-metric-card:focused {
+    -fx-border-color: #3498DB;
+    -fx-border-width: 2;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+/* Screen Reader Friendly Elements */
+.screen-reader-only {
+    -fx-opacity: 0;
+    -fx-pref-width: 1;
+    -fx-pref-height: 1;
+    -fx-translate-x: -9999;
+}
+
+/* Reduced Motion Support */
+.reduce-motion * {
+    -fx-transition: none !important;
+}
+
+.reduce-motion .template-analysis-panel {
+    -fx-translate-y: 0;
+    -fx-opacity: 1;
+}
+
+.reduce-motion .dashboard-panel:hover {
+    -fx-scale-x: 1;
+    -fx-scale-y: 1;
+}
+
+/* ========== ENHANCED ERROR STATES ========== */
+
+/* Validation Error Styling */
+.validation-error {
+    -fx-border-color: #E74C3C;
+    -fx-border-width: 2;
+    -fx-border-radius: 4;
+    -fx-effect: dropshadow(three-pass-box, rgba(231, 76, 60, 0.3), 3, 0, 0, 0);
+}
+
+.validation-error-message {
+    -fx-text-fill: #E74C3C;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 4 0 0 0;
+    -fx-wrap-text: true;
+}
+
+/* Success State Styling */
+.validation-success {
+    -fx-border-color: #27AE60;
+    -fx-border-width: 2;
+    -fx-border-radius: 4;
+    -fx-effect: dropshadow(three-pass-box, rgba(39, 174, 96, 0.2), 2, 0, 0, 0);
+}
+
+.validation-success-message {
+    -fx-text-fill: #27AE60;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-padding: 4 0 0 0;
+}
+
+/* Loading State Enhancements */
+.loading-overlay {
+    -fx-background-color: rgba(255, 255, 255, 0.9);
+    -fx-background-radius: 6;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 4, 0, 0, 2);
+}
+
+.loading-spinner {
+    -fx-progress-color: #3498DB;
+    -fx-background-color: transparent;
 }
