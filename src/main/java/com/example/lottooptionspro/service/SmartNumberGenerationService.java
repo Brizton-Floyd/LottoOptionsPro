@@ -85,7 +85,7 @@ public class SmartNumberGenerationService {
                 .bodyToMono(TicketGenerationResult.class);
     }
 
-    public Mono<TicketGenerationResult> getFullAnalysisData(String fullAnalysisEndpoint) {
+    public Mono<HistoricalPerformance> getFullAnalysisData(String fullAnalysisEndpoint) {
         return smartGeneratorWebClient.get()
                 .uri(fullAnalysisEndpoint)
                 .retrieve()
@@ -111,7 +111,7 @@ public class SmartNumberGenerationService {
                                 });
                     }
                 )
-                .bodyToMono(TicketGenerationResult.class);
+                .bodyToMono(HistoricalPerformance.class);
     }
 
     public Mono<Void> cancelGeneration(String sessionId) {

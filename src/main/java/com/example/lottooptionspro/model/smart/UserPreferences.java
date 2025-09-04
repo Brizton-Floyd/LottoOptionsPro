@@ -24,6 +24,16 @@ public class UserPreferences {
     private boolean considerOverdueTemplates = true;
     private double minimumTemplateProbability = 0.01; // 1%
     private int numberSetsPerTemplate = 5;
+    
+    // Delta Strategy Configuration Fields
+    private boolean enableDeltaStrategy = false;
+    private String deltaPatternPreference = "BALANCED"; // BALANCED, AGGRESSIVE, CONSERVATIVE, CUSTOM
+    private double deltaQualityThreshold = 0.7;
+    private boolean enableDroughtIntelligence = true;
+    private boolean enableTierOptimization = true;
+    private int deltaVariationCount = 10;
+    private String deltaComplexityLevel = "MEDIUM"; // LOW, MEDIUM, HIGH
+    private boolean excludePreviousWinners = false;
 
     public boolean isAvoidConsecutive() {
         return avoidConsecutive;
@@ -187,5 +197,81 @@ public class UserPreferences {
     
     public String getFormattedMinimumProbability() {
         return String.format("%.1f%%", minimumTemplateProbability * 100);
+    }
+    
+    // Delta Strategy Getters and Setters
+    
+    public boolean isEnableDeltaStrategy() {
+        return enableDeltaStrategy;
+    }
+    
+    public void setEnableDeltaStrategy(boolean enableDeltaStrategy) {
+        this.enableDeltaStrategy = enableDeltaStrategy;
+    }
+    
+    public String getDeltaPatternPreference() {
+        return deltaPatternPreference;
+    }
+    
+    public void setDeltaPatternPreference(String deltaPatternPreference) {
+        this.deltaPatternPreference = deltaPatternPreference;
+    }
+    
+    public double getDeltaQualityThreshold() {
+        return deltaQualityThreshold;
+    }
+    
+    public void setDeltaQualityThreshold(double deltaQualityThreshold) {
+        this.deltaQualityThreshold = deltaQualityThreshold;
+    }
+    
+    public boolean isEnableDroughtIntelligence() {
+        return enableDroughtIntelligence;
+    }
+    
+    public void setEnableDroughtIntelligence(boolean enableDroughtIntelligence) {
+        this.enableDroughtIntelligence = enableDroughtIntelligence;
+    }
+    
+    public boolean isEnableTierOptimization() {
+        return enableTierOptimization;
+    }
+    
+    public void setEnableTierOptimization(boolean enableTierOptimization) {
+        this.enableTierOptimization = enableTierOptimization;
+    }
+    
+    public int getDeltaVariationCount() {
+        return deltaVariationCount;
+    }
+    
+    public void setDeltaVariationCount(int deltaVariationCount) {
+        this.deltaVariationCount = deltaVariationCount;
+    }
+    
+    public String getDeltaComplexityLevel() {
+        return deltaComplexityLevel;
+    }
+    
+    public void setDeltaComplexityLevel(String deltaComplexityLevel) {
+        this.deltaComplexityLevel = deltaComplexityLevel;
+    }
+    
+    public boolean isExcludePreviousWinners() {
+        return excludePreviousWinners;
+    }
+    
+    public void setExcludePreviousWinners(boolean excludePreviousWinners) {
+        this.excludePreviousWinners = excludePreviousWinners;
+    }
+    
+    // Delta Strategy Utility Methods
+    
+    public boolean isDeltaStrategyEnabled() {
+        return enableDeltaStrategy;
+    }
+    
+    public String getFormattedDeltaQualityThreshold() {
+        return String.format("%.0f%%", deltaQualityThreshold * 100);
     }
 }

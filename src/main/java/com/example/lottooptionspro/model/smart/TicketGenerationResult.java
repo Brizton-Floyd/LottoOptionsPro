@@ -22,6 +22,11 @@ public class TicketGenerationResult {
     private TemplateMatrixAnalysis templateMatrixAnalysis;
     private List<TemplateCorrelatedTicket> templateCorrelatedTickets;
     private Integer ticketSetId;
+    
+    // Delta Strategy Enhancement Fields
+    private DeltaAnalysis deltaAnalysis;
+    private boolean hasDeltaAnalysis;
+    private boolean hasStrategicDeltaIntelligence;
 
     public String getSessionId() {
         return sessionId;
@@ -193,6 +198,54 @@ public class TicketGenerationResult {
     }
 
     public boolean isEnhancedGeneration() {
-        return hasTemplateMatrixAnalysis();
+        return hasTemplateMatrixAnalysis() || hasDeltaAnalysis();
+    }
+    
+    // Delta Strategy Getters and Setters
+    
+    public DeltaAnalysis getDeltaAnalysis() {
+        return deltaAnalysis;
+    }
+    
+    public void setDeltaAnalysis(DeltaAnalysis deltaAnalysis) {
+        this.deltaAnalysis = deltaAnalysis;
+    }
+    
+    public boolean isHasDeltaAnalysis() {
+        return hasDeltaAnalysis;
+    }
+    
+    public void setHasDeltaAnalysis(boolean hasDeltaAnalysis) {
+        this.hasDeltaAnalysis = hasDeltaAnalysis;
+    }
+    
+    public boolean isHasStrategicDeltaIntelligence() {
+        return hasStrategicDeltaIntelligence;
+    }
+    
+    public void setHasStrategicDeltaIntelligence(boolean hasStrategicDeltaIntelligence) {
+        this.hasStrategicDeltaIntelligence = hasStrategicDeltaIntelligence;
+    }
+    
+    // Delta Strategy Utility Methods
+    
+    public boolean hasDeltaAnalysis() {
+        return deltaAnalysis != null && hasDeltaAnalysis;
+    }
+    
+    public boolean hasStrategicDeltaIntelligence() {
+        return hasStrategicDeltaIntelligence && hasDeltaAnalysis() && deltaAnalysis.isStrategicIntelligenceApplied();
+    }
+    
+    public String getDeltaAnalysisSummary() {
+        if (!hasDeltaAnalysis()) {
+            return "No Delta analysis available";
+        }
+        
+        DeltaAnalysis analysis = deltaAnalysis;
+        return String.format("Delta: %s strategy, Efficiency: %s, Strategic Intelligence: %s",
+                analysis.getDeltaStrategy() != null ? analysis.getDeltaStrategy() : "Unknown",
+                analysis.getFormattedEfficiencyScore(),
+                analysis.isStrategicIntelligenceApplied() ? "Applied" : "Not Applied");
     }
 }

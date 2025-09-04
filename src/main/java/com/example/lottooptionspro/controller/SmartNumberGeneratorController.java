@@ -68,6 +68,8 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     @FXML private RadioButton randomRadio;
     @FXML private RadioButton hybridRadio;
     @FXML private RadioButton templateMatrixRadio;
+    @FXML private RadioButton deltaPureRadio;
+    @FXML private RadioButton deltaStrategicRadio;
     @FXML private TitledPane advancedPreferencesPane;
     @FXML private TextField preferredNumbersField;
     @FXML private TextField excludeNumbersField;
@@ -94,6 +96,19 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     @FXML private Label probabilityThresholdLabel;
     @FXML private Spinner<Integer> setsPerTemplateSpinner;
     @FXML private Label strategyDescriptionLabel;
+    
+    // Delta Configuration Controls
+    @FXML private TitledPane deltaConfigPane;
+    @FXML private ComboBox<String> deltaPatternPreferenceCombo;
+    @FXML private Slider deltaQualityThresholdSlider;
+    @FXML private Label deltaQualityThresholdLabel;
+    @FXML private CheckBox enableDroughtIntelligenceCheck;
+    @FXML private CheckBox enableTierOptimizationCheck;
+    @FXML private CheckBox excludePreviousWinnersCheck;
+    @FXML private Spinner<Integer> deltaVariationCountSpinner;
+    @FXML private ComboBox<String> deltaComplexityLevelCombo;
+    @FXML private Label deltaStrategyDescriptionLabel;
+    
     @FXML private Button generateButton;
     @FXML private Button cancelButton;
     @FXML private Label estimatedCostLabel;
@@ -142,6 +157,19 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     // TemplateMatrix Enhancement: Analysis Panel and Metrics
     @FXML private VBox templateMatrixMetricsBox;
     @FXML private VBox templateMatrixAnalysisPanel;
+    
+    // Delta Analysis Panel and Metrics
+    @FXML private TitledPane deltaAnalysisPane;
+    @FXML private VBox deltaAnalysisPanel;
+    @FXML private Label deltaStrategyUsedLabel;
+    @FXML private Label deltaEfficiencyLabel;
+    @FXML private Label deltaPatternsCountLabel;
+    @FXML private Label deltaAvgGapLabel;
+    @FXML private Label deltaOverallScoreLabel;
+    @FXML private Label deltaDroughtScoreLabel;
+    @FXML private Label deltaTierScoreLabel;
+    @FXML private Label deltaIntelligenceStatusLabel;
+    @FXML private Label deltaInsightsCountLabel;
     
     // Bottom Left - Generated Tickets
     @FXML private TitledPane ticketsPane;
@@ -205,6 +233,7 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         setupSliders();
         setupTableColumns();
         setupTemplateMatrixControls();
+        setupDeltaControls();
         setupEventHandlers();
         setupResponsiveLayout();
     }
@@ -215,11 +244,14 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         randomRadio.setToggleGroup(strategyToggleGroup);
         hybridRadio.setToggleGroup(strategyToggleGroup);
         templateMatrixRadio.setToggleGroup(strategyToggleGroup);
+        deltaPureRadio.setToggleGroup(strategyToggleGroup);
+        deltaStrategicRadio.setToggleGroup(strategyToggleGroup);
         patternBasedRadio.setSelected(true);
         
-        // Add listener for Template Matrix selection
+        // Add listener for Template Matrix and Delta selection
         strategyToggleGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
             updateTemplateMatrixVisibility();
+            updateDeltaConfigVisibility();
         });
     }
 
@@ -439,6 +471,78 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
             templateMatrixPane.setExpanded(true);
         }
     }
+    
+    private void setupDeltaControls() {
+        // Setup Delta Pattern Preference ComboBox
+        deltaPatternPreferenceCombo.setItems(FXCollections.observableArrayList(
+            "BALANCED", "AGGRESSIVE", "CONSERVATIVE", "CUSTOM"
+        ));
+        deltaPatternPreferenceCombo.setValue("BALANCED");
+        
+        // Setup Delta Variation Count Spinner
+        deltaVariationCountSpinner.setValueFactory(
+            new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 50, 10)
+        );
+        
+        // Setup Delta Complexity Level ComboBox
+        deltaComplexityLevelCombo.setItems(FXCollections.observableArrayList(
+            "LOW", "MEDIUM", "HIGH"
+        ));
+        deltaComplexityLevelCombo.setValue("MEDIUM");
+        
+        // Setup Delta Quality Threshold Slider
+        deltaQualityThresholdSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+            deltaQualityThresholdLabel.setText(String.format("%.0f%%", newVal.doubleValue() * 100));
+        });
+        
+        // Setup Delta Pattern Preference listener
+        deltaPatternPreferenceCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+            updateDeltaStrategyDescription(newVal);
+        });
+        
+        // Initialize with current pattern preference
+        updateDeltaStrategyDescription("BALANCED");
+    }
+    
+    private void updateDeltaConfigVisibility() {
+        boolean isDeltaSelected = deltaPureRadio.isSelected() || deltaStrategicRadio.isSelected();
+        deltaConfigPane.setVisible(isDeltaSelected);
+        
+        if (isDeltaSelected) {
+            deltaConfigPane.setExpanded(true);
+        }
+        
+        // Also update results dashboard visibility
+        updateDeltaAnalysisVisibility();
+    }
+    
+    private void updateDeltaAnalysisVisibility() {
+        boolean isDeltaSelected = deltaPureRadio.isSelected() || deltaStrategicRadio.isSelected();
+        deltaAnalysisPane.setVisible(isDeltaSelected);
+    }
+    
+    private void updateDeltaStrategyDescription(String patternPreference) {
+        if (patternPreference == null || deltaStrategyDescriptionLabel == null) {
+            return;
+        }
+        
+        switch (patternPreference) {
+            case "BALANCED":
+                deltaStrategyDescriptionLabel.setText("Even distribution across delta patterns for consistent coverage and reliability.");
+                break;
+            case "AGGRESSIVE":
+                deltaStrategyDescriptionLabel.setText("Focus on high-frequency delta patterns for maximum pattern exploitation.");
+                break;
+            case "CONSERVATIVE":
+                deltaStrategyDescriptionLabel.setText("Use safer, proven delta patterns with lower risk and steady performance.");
+                break;
+            case "CUSTOM":
+                deltaStrategyDescriptionLabel.setText("User-defined delta preferences with customized pattern selection.");
+                break;
+            default:
+                deltaStrategyDescriptionLabel.setText("Select a pattern preference to see details...");
+        }
+    }
 
     private void updateControlsForStrategy(String strategy) {
         if (strategy == null) return;
@@ -554,6 +658,63 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         
         // This could be used to update a description label if you have one
         System.out.println("Template Group Selection: " + description);
+    }
+    
+    private boolean validateDeltaConfiguration() {
+        if (!deltaPureRadio.isSelected() && !deltaStrategicRadio.isSelected()) {
+            return true; // No validation needed if not using Delta strategies
+        }
+        
+        List<String> validationErrors = new ArrayList<>();
+        
+        // Validate delta pattern preference selection
+        if (deltaPatternPreferenceCombo.getValue() == null || deltaPatternPreferenceCombo.getValue().isEmpty()) {
+            validationErrors.add("Delta pattern preference must be selected");
+        }
+        
+        // Validate delta quality threshold
+        double qualityThreshold = deltaQualityThresholdSlider.getValue();
+        if (qualityThreshold < 0.0 || qualityThreshold > 1.0) {
+            validationErrors.add("Delta quality threshold must be between 0% and 100%");
+        }
+        
+        // Validate delta variation count
+        int variationCount = deltaVariationCountSpinner.getValue();
+        if (variationCount < 1 || variationCount > 50) {
+            validationErrors.add("Delta variation count must be between 1 and 50");
+        }
+        
+        // Validate delta complexity level
+        if (deltaComplexityLevelCombo.getValue() == null || deltaComplexityLevelCombo.getValue().isEmpty()) {
+            validationErrors.add("Delta complexity level must be selected");
+        }
+        
+        // Strategic validation for Delta Strategic mode
+        if (deltaStrategicRadio.isSelected()) {
+            if (!enableDroughtIntelligenceCheck.isSelected() && !enableTierOptimizationCheck.isSelected()) {
+                validationErrors.add("Delta Strategic mode requires at least one intelligence option (Drought or Tier Optimization)");
+            }
+            
+            if (qualityThreshold < 0.5 && "HIGH".equals(deltaComplexityLevelCombo.getValue())) {
+                validationErrors.add("High complexity with Delta Strategic requires minimum 50% quality threshold");
+            }
+        }
+        
+        // Custom pattern validation
+        if ("CUSTOM".equals(deltaPatternPreferenceCombo.getValue())) {
+            if (variationCount < 5) {
+                validationErrors.add("Custom pattern preference requires minimum 5 delta variations for proper coverage");
+            }
+        }
+        
+        // Show validation errors if any
+        if (!validationErrors.isEmpty()) {
+            String errorMessage = "Delta Configuration Errors:\n\n• " + 
+                                String.join("\n• ", validationErrors);
+            showAlert("Delta Configuration Error", errorMessage);
+        }
+        
+        return validationErrors.isEmpty();
     }
     
     private List<String> getSelectedTemplateGroups() {
@@ -1042,6 +1203,11 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
             return; // Validation failed, don't proceed with generation
         }
         
+        // Validate Delta configuration if selected
+        if (!validateDeltaConfiguration()) {
+            return; // Validation failed, don't proceed with generation
+        }
+        
         presenter.generateSmartTickets();
     }
 
@@ -1128,6 +1294,9 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
 
     @FXML
     private void loadFullAnalysis() {
+        System.out.println("=== LOAD FULL ANALYSIS BUTTON CLICKED ===");
+        System.out.println("Current result session ID: " + (currentResult != null ? currentResult.getSessionId() : "NULL"));
+        System.out.println("Current full analysis endpoint: " + (currentResult != null ? currentResult.getFullAnalysisEndpoint() : "NULL"));
         presenter.loadFullAnalysis();
     }
 
@@ -1164,6 +1333,10 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
             request.setGenerationStrategy("RANDOM");
         } else if (templateMatrixRadio.isSelected()) {
             request.setGenerationStrategy("TEMPLATE_MATRIX");
+        } else if (deltaPureRadio.isSelected()) {
+            request.setGenerationStrategy("DELTA_PURE");
+        } else if (deltaStrategicRadio.isSelected()) {
+            request.setGenerationStrategy("DELTA_STRATEGIC");
         } else {
             request.setGenerationStrategy("HYBRID");
         }
@@ -1235,6 +1408,42 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         } else {
             prefs.setEnableTemplateMatrix(false);
             System.out.println("TemplateMatrix disabled - using traditional generation");
+        }
+        
+        // Delta Strategy Enhancement: Set Delta preferences
+        if (deltaPureRadio.isSelected() || deltaStrategicRadio.isSelected()) {
+            prefs.setEnableDeltaStrategy(true);
+            
+            // Delta pattern preference
+            if (deltaPatternPreferenceCombo.getValue() != null) {
+                prefs.setDeltaPatternPreference(deltaPatternPreferenceCombo.getValue());
+            }
+            
+            // Delta quality threshold
+            prefs.setDeltaQualityThreshold(deltaQualityThresholdSlider.getValue());
+            
+            // Intelligence options
+            prefs.setEnableDroughtIntelligence(enableDroughtIntelligenceCheck.isSelected());
+            prefs.setEnableTierOptimization(enableTierOptimizationCheck.isSelected());
+            prefs.setExcludePreviousWinners(excludePreviousWinnersCheck.isSelected());
+            
+            // Advanced settings
+            prefs.setDeltaVariationCount(deltaVariationCountSpinner.getValue());
+            if (deltaComplexityLevelCombo.getValue() != null) {
+                prefs.setDeltaComplexityLevel(deltaComplexityLevelCombo.getValue());
+            }
+            
+            System.out.println("Delta Strategy Configuration:");
+            System.out.println("- Pattern Preference: " + prefs.getDeltaPatternPreference());
+            System.out.println("- Quality Threshold: " + prefs.getFormattedDeltaQualityThreshold());
+            System.out.println("- Drought Intelligence: " + prefs.isEnableDroughtIntelligence());
+            System.out.println("- Tier Optimization: " + prefs.isEnableTierOptimization());
+            System.out.println("- Exclude Previous Winners: " + prefs.isExcludePreviousWinners());
+            System.out.println("- Variation Count: " + prefs.getDeltaVariationCount());
+            System.out.println("- Complexity Level: " + prefs.getDeltaComplexityLevel());
+        } else {
+            prefs.setEnableDeltaStrategy(false);
+            System.out.println("Delta Strategy disabled - using traditional generation");
         }
 
         request.setPreferences(prefs);
@@ -1315,6 +1524,7 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
             // Update all quadrants of the 2x2 dashboard
             updatePerformanceDashboard(result);
             updateHistoricalAnalysis(result);
+            updateDeltaAnalysisDisplay(result);
             updateTicketsTable(result.getTickets());
             updateStrategyAndInsights(result);
             
@@ -1381,6 +1591,61 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         System.gc(); // Suggest garbage collection
     }
 
+    private void updateDeltaAnalysisDisplay(TicketGenerationResult result) {
+        // Only show Delta analysis if Delta strategies were used and data is available
+        if (!result.hasDeltaAnalysis()) {
+            deltaAnalysisPane.setVisible(false);
+            return;
+        }
+        
+        deltaAnalysisPane.setVisible(true);
+        DeltaAnalysis deltaAnalysis = result.getDeltaAnalysis();
+        
+        if (deltaAnalysis != null) {
+            // Update Delta strategy information
+            deltaStrategyUsedLabel.setText(deltaAnalysis.getDeltaStrategy() != null ? 
+                deltaAnalysis.getDeltaStrategy() : "Unknown");
+            deltaEfficiencyLabel.setText(deltaAnalysis.getFormattedEfficiencyScore());
+            
+            // Update pattern analysis
+            if (deltaAnalysis.hasPatternAnalysis()) {
+                DeltaAnalysis.PatternAnalysis patternAnalysis = deltaAnalysis.getPatternAnalysis();
+                deltaPatternsCountLabel.setText(String.valueOf(patternAnalysis.getTotalPatterns()));
+                deltaAvgGapLabel.setText(patternAnalysis.getFormattedAverageGapSize());
+            } else {
+                deltaPatternsCountLabel.setText("-");
+                deltaAvgGapLabel.setText("-");
+            }
+            
+            // Update strategic performance
+            if (deltaAnalysis.hasStrategicPerformance()) {
+                DeltaAnalysis.StrategicPerformance performance = deltaAnalysis.getStrategicPerformance();
+                deltaOverallScoreLabel.setText(performance.getFormattedOverallScore());
+                deltaDroughtScoreLabel.setText(performance.getFormattedDroughtScore());
+                deltaTierScoreLabel.setText(performance.getFormattedTierScore());
+            } else {
+                deltaOverallScoreLabel.setText("-");
+                deltaDroughtScoreLabel.setText("-");
+                deltaTierScoreLabel.setText("-");
+            }
+            
+            // Update intelligence status
+            String intelligenceStatus = deltaAnalysis.isStrategicIntelligenceApplied() ? 
+                "Strategic Intelligence: Applied ✅" : "Strategic Intelligence: Not Applied";
+            deltaIntelligenceStatusLabel.setText(intelligenceStatus);
+            
+            // Update actionable insights count
+            int insightsCount = deltaAnalysis.hasActionableInsights() ? 
+                deltaAnalysis.getActionableInsights().size() : 0;
+            deltaInsightsCountLabel.setText(String.format("Actionable Insights: %d", insightsCount));
+            
+            System.out.println("Delta Analysis Display Updated:");
+            System.out.println("- Strategy: " + deltaAnalysis.getDeltaStrategy());
+            System.out.println("- Efficiency: " + deltaAnalysis.getFormattedEfficiencyScore());
+            System.out.println("- Intelligence Applied: " + deltaAnalysis.isStrategicIntelligenceApplied());
+            System.out.println("- Insights Count: " + insightsCount);
+        }
+    }
 
     private void updateTicketsTable(List<List<Integer>> tickets) {
         if (tickets == null || tickets.isEmpty()) {
@@ -1548,6 +1813,10 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     }
     
     private void updateHistoricalAnalysis(TicketGenerationResult result) {
+        System.out.println("=== updateHistoricalAnalysis CALLED ===");
+        System.out.println("Result Session ID: " + result.getSessionId());
+        System.out.println("Has TemplateMatrix Analysis: " + result.hasTemplateMatrixAnalysis());
+        
         // TemplateMatrix Enhancement: Use TemplateMatrix Analysis panel when available
         if (result.hasTemplateMatrixAnalysis()) {
             updateTemplateMatrixAnalysisPanel(result);
@@ -1555,61 +1824,138 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
         }
         
         HistoricalPerformance historical = result.getHistoricalPerformance();
+        System.out.println("Historical Performance Object: " + (historical != null ? "NOT NULL" : "NULL"));
         if (historical != null) {
-            // Analysis type and scope
-            analysisTypeLabel.setText("Analysis Type: " + historical.getAnalysisType());
-            
-            // Show/hide Load Full Analysis button based on analysis type and endpoint availability
+            // Enhanced Analysis type display with additional details
             String analysisType = historical.getAnalysisType();
+            System.out.println("Analysis Type from historical data: '" + analysisType + "'");
+            analysisTypeLabel.setText("Analysis Type: " + analysisType);
+            
+            // Enhanced Analysis scope with comprehensive details
+            AnalysisScope scope = historical.getAnalysisScope();
+            if (scope != null) {
+                StringBuilder scopeText = new StringBuilder();
+                scopeText.append(String.format("Period: %.1f years (%d draws)", 
+                    scope.getYearsSpanned(), scope.getHistoricalDraws()));
+                
+                // Add tickets analyzed info if available
+                if (scope.getTicketsAnalyzed() > 0) {
+                    scopeText.append(String.format(" | %d/%d tickets", 
+                        scope.getTicketsAnalyzed(), scope.getTotalTickets()));
+                }
+                
+                // Add date range if available
+                if (scope.getDateRange() != null) {
+                    scopeText.append(String.format(" (%s to %s)", 
+                        scope.getDateRange().getFrom(), scope.getDateRange().getTo()));
+                }
+                
+                analysisScopeLabel.setText(scopeText.toString());
+            }
+            
+            // Show/hide Load Full Analysis button with enhanced logic
             String fullEndpoint = result.getFullAnalysisEndpoint();
             
             System.out.println("DEBUG - Analysis Type: '" + analysisType + "'");
             System.out.println("DEBUG - Full Analysis Endpoint: '" + fullEndpoint + "'");
             
-            // If server didn't provide endpoint but analysis type is SAMPLE, construct it ourselves
+            // Enhanced endpoint handling - check fullAnalysisAvailable flag from response
+            boolean isFullAnalysisAvailable = historical.isFullAnalysisAvailable();
             if ("SAMPLE".equals(analysisType) && (fullEndpoint == null || fullEndpoint.isEmpty())) {
                 fullEndpoint = "/api/v2/generation-result/" + result.getSessionId() + "/full-historical-analysis";
                 result.setFullAnalysisEndpoint(fullEndpoint);
                 System.out.println("DEBUG - Constructed Full Analysis Endpoint: '" + fullEndpoint + "'");
             }
             
-            boolean showButton = "SAMPLE".equals(analysisType) && 
+            boolean showButton = ("SAMPLE".equals(analysisType) || isFullAnalysisAvailable) && 
                                 fullEndpoint != null && 
                                 !fullEndpoint.isEmpty();
             
             System.out.println("DEBUG - Show Load Full Analysis button: " + showButton);
             loadFullAnalysisButton.setVisible(showButton);
             
-            AnalysisScope scope = historical.getAnalysisScope();
-            if (scope != null) {
-                analysisScopeLabel.setText(String.format("Period: %.1f years (%d draws)", 
-                    scope.getYearsSpanned(), scope.getHistoricalDraws()));
-            }
-            
-            // Win summary
+            // Enhanced Win summary with jackpot highlighting
             WinSummary winSummary = historical.getWinSummary();
             if (winSummary != null) {
-                totalWinsLabel.setText(String.format("%,d", winSummary.getTotalWins()));
+                // Display total wins with special jackpot indication
+                String winsText = String.format("%,d", winSummary.getTotalWins());
+                if (winSummary.getJackpotWins() > 0) {
+                    winsText += String.format(" (🏆%d jackpot%s)", 
+                        winSummary.getJackpotWins(), 
+                        winSummary.getJackpotWins() == 1 ? "" : "s");
+                }
+                totalWinsLabel.setText(winsText);
                 
-                // Calculate win rate
+                // Enhanced win rate calculation
                 if (scope != null && scope.getHistoricalDraws() > 0) {
                     double winRate = (winSummary.getTotalWins() * 100.0) / scope.getHistoricalDraws();
                     winRateLabel.setText(String.format("%.1f%%", winRate));
                 }
             }
             
-            // Performance comparison
+            // Enhanced Performance comparison with both metrics
             PerformanceComparison comparison = historical.getComparison();
-            if (comparison != null && comparison.getVsRandomTickets() != null) {
-                PerformanceComparison.ComparisonData vsRandom = comparison.getVsRandomTickets();
-                vsRandomLabel.setText(String.format("+%.0f%%", 
-                    (vsRandom.getPerformanceFactor() - 1) * 100));
-                percentileLabel.setText(String.format("%.1f", vsRandom.getPercentile()));
+            if (comparison != null) {
+                // Primary: vs Random Tickets
+                if (comparison.getVsRandomTickets() != null) {
+                    PerformanceComparison.ComparisonData vsRandom = comparison.getVsRandomTickets();
+                    vsRandomLabel.setText(String.format("+%.0f%%", 
+                        (vsRandom.getPerformanceFactor() - 1) * 100));
+                    percentileLabel.setText(String.format("%.1f%%", vsRandom.getPercentile()));
+                }
+                
+                // Secondary: vs All Possible Combinations (if available)
+                if (comparison.getVsAllPossibleCombinations() != null) {
+                    PerformanceComparison.ComparisonData vsAll = comparison.getVsAllPossibleCombinations();
+                    // Update percentileLabel to show both if available
+                    String percentileText = String.format("%.1f%%", vsAll.getPercentile());
+                    if (comparison.getVsRandomTickets() != null) {
+                        percentileText += String.format(" (vs all: %.1f%%)", vsAll.getPercentile());
+                    }
+                    percentileLabel.setText(percentileText);
+                }
             }
             
             // Update prize breakdown table
             updatePrizeBreakdownTable(historical.getPrizeBreakdown());
+            
+            // Display insights if available (use existing insights panel)
+            if (historical.getInsights() != null && !historical.getInsights().isEmpty()) {
+                updateInsightsPanel(historical.getInsights());
+            }
+            
+            System.out.println("Historical Analysis Updated - Type: " + analysisType + 
+                             ", Wins: " + (winSummary != null ? winSummary.getTotalWins() : "none") +
+                             ", Insights: " + (historical.getInsights() != null ? historical.getInsights().size() : "none"));
+                             
+            // Force UI refresh after update to ensure labels display new content
+            forceHistoricalAnalysisRefresh();
+        } else {
+            System.out.println("Historical Analysis: No data available");
         }
+    }
+    
+    private void forceHistoricalAnalysisRefresh() {
+        Platform.runLater(() -> {
+            // Force refresh of all historical analysis components to ensure they display updated data
+            if (historicalPane != null) {
+                System.out.println("Forcing historical analysis panel refresh...");
+                
+                // Temporarily collapse and expand to force refresh
+                boolean wasExpanded = historicalPane.isExpanded();
+                historicalPane.setExpanded(false);
+                
+                // Force layout recalculation
+                historicalPane.getScene().getRoot().applyCss();
+                historicalPane.getScene().getRoot().autosize();
+                
+                // Restore expanded state after a small delay
+                Platform.runLater(() -> {
+                    historicalPane.setExpanded(wasExpanded);
+                    System.out.println("Historical analysis panel refresh completed.");
+                });
+            }
+        });
     }
     
     // TemplateMatrix Enhancement: Update TemplateMatrix-specific metrics in Performance panel

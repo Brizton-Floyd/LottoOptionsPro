@@ -400,34 +400,139 @@ public class SmartNumberGeneratorPresenter {
             : fullAnalysisEndpoint;
         
         Platform.runLater(() -> {
-            view.updateProgress(-1, "Loading full historical analysis...");
+            view.updateProgress(-1, "Computing full historical analysis...");
+        });
+        
+        // Start polling for full analysis data
+        pollForFullAnalysis(fullAnalysisUrl, sampleResult, 1);
+    }
+    
+    private void pollForFullAnalysis(String fullAnalysisUrl, TicketGenerationResult sampleResult, int attempt) {
+        final int MAX_ATTEMPTS = 20; // Maximum 20 attempts (up to 2 minutes)
+        final int POLL_INTERVAL_MS = 6000; // Poll every 6 seconds
+        
+        System.out.println("=== POLLING FOR FULL ANALYSIS (Attempt " + attempt + "/" + MAX_ATTEMPTS + ") ===");
+        
+        Platform.runLater(() -> {
+            view.updateProgress(-1, "Computing full analysis... (attempt " + attempt + "/" + MAX_ATTEMPTS + ")");
         });
         
         service.getFullAnalysisData(fullAnalysisUrl)
-                .doOnSubscribe(sub -> System.out.println("Fetching full analysis data from: " + fullAnalysisUrl))
-                .doOnSuccess(fullData -> System.out.println("Successfully received full analysis data"))
-                .doOnError(error -> System.err.println("Error fetching full analysis: " + error.getMessage()))
                 .subscribe(
-                        fullAnalysisResult -> {
-                            // Merge the full analysis data with the sample result
-                            sampleResult.setHistoricalPerformance(fullAnalysisResult.getHistoricalPerformance());
-                            sampleResult.setDroughtInformation(fullAnalysisResult.getDroughtInformation());
+                        fullHistorical -> {
+                            System.out.println("=== POLLING RESPONSE RECEIVED (Attempt " + attempt + ") ===");
+                            System.out.println("Full Historical Performance Object: " + (fullHistorical != null ? "NOT NULL" : "NULL"));
                             
-                            // Reset button state and hide it since we now have full data
-                            Platform.runLater(() -> {
-                                view.setLoadFullAnalysisButtonLoading(false);
-                                view.showLoadFullAnalysisButton(false);
-                            });
+                            // Check if historical performance data is ready and valid
+                            boolean isDataReady = fullHistorical != null && 
+                                                 fullHistorical.getAnalysisType() != null && 
+                                                 !"SAMPLE".equals(fullHistorical.getAnalysisType());
                             
-                            showFinalResults(sampleResult);
+                            System.out.println("Historical Performance Data Ready: " + isDataReady);
+                            if (fullHistorical != null) {
+                                System.out.println("Analysis Type: " + fullHistorical.getAnalysisType());
+                            }
+                            
+                            if (isDataReady) {
+                                // SUCCESS: Full analysis is ready
+                                System.out.println("=== FULL ANALYSIS COMPUTATION COMPLETED ===");
+                                Platform.runLater(() -> view.showGenerationProgress(false));
+                                
+                                System.out.println("Full Analysis Type: " + fullHistorical.getAnalysisType());
+                                if (fullHistorical.getAnalysisScope() != null) {
+                                    System.out.println("Full Analysis Scope - Years: " + fullHistorical.getAnalysisScope().getYearsSpanned());
+                                    System.out.println("Full Analysis Scope - Draws: " + fullHistorical.getAnalysisScope().getHistoricalDraws());
+                                    System.out.println("Full Analysis Scope - Tickets Analyzed: " + fullHistorical.getAnalysisScope().getTicketsAnalyzed());
+                                }
+                                if (fullHistorical.getWinSummary() != null) {
+                                    System.out.println("Full Analysis Total Wins: " + fullHistorical.getWinSummary().getTotalWins());
+                                    System.out.println("Full Analysis Jackpot Wins: " + fullHistorical.getWinSummary().getJackpotWins());
+                                }
+                                if (fullHistorical.getInsights() != null) {
+                                    System.out.println("Full Analysis Insights Count: " + fullHistorical.getInsights().size());
+                                }
+                                
+                                // Merge full analysis data
+                                System.out.println("Merging full analysis data with sample result...");
+                                sampleResult.setHistoricalPerformance(fullHistorical);
+                                // Note: DroughtInformation is not part of the HistoricalPerformance response from backend
+                                
+                                // Debug what we're setting
+                                HistoricalPerformance mergedHistorical = sampleResult.getHistoricalPerformance();
+                                System.out.println("MERGED Analysis Type: " + mergedHistorical.getAnalysisType());
+                                
+                                // Reset button state and hide it since we now have full data
+                                Platform.runLater(() -> {
+                                    view.setLoadFullAnalysisButtonLoading(false);
+                                    view.showLoadFullAnalysisButton(false);
+                                });
+                                
+                                System.out.println("=== CALLING showFinalResults WITH FULL DATA ===");
+                                showFinalResults(sampleResult);
+                                
+                            } else {
+                                // Data not ready yet - continue polling if we haven't reached max attempts
+                                if (attempt < MAX_ATTEMPTS) {
+                                    System.out.println("Full analysis still computing... will retry in " + (POLL_INTERVAL_MS/1000) + " seconds");
+                                    
+                                    // Schedule next polling attempt
+                                    java.util.concurrent.ScheduledExecutorService scheduler = 
+                                        java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+                                    scheduler.schedule(() -> {
+                                        pollForFullAnalysis(fullAnalysisUrl, sampleResult, attempt + 1);
+                                        scheduler.shutdown();
+                                    }, POLL_INTERVAL_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
+                                    
+                                } else {
+                                    // Max attempts reached - show timeout error
+                                    System.out.println("=== POLLING TIMEOUT REACHED ===");
+                                    System.out.println("Full analysis computation took longer than expected");
+                                    
+                                    Platform.runLater(() -> {
+                                        view.showGenerationProgress(false);
+                                        view.setLoadFullAnalysisButtonLoading(false);
+                                        view.showAlert("Full Analysis Timeout", 
+                                            "The full analysis is taking longer than expected to compute.\n" +
+                                            "This may be due to high server load or complex analysis requirements.\n" +
+                                            "Please try again later or contact support if the issue persists.\n" +
+                                            "Displaying sample analysis instead.");
+                                    });
+                                    
+                                    // Show sample results as fallback
+                                    showFinalResults(sampleResult);
+                                }
+                            }
                         },
                         error -> {
-                            System.err.println("Failed to fetch full analysis, showing sample results: " + error.getMessage());
-                            // Reset button state on error
-                            Platform.runLater(() -> {
-                                view.setLoadFullAnalysisButtonLoading(false);
-                            });
-                            showFinalResults(sampleResult);
+                            System.err.println("Polling attempt " + attempt + " failed: " + error.getMessage());
+                            
+                            // On API error, retry if we haven't reached max attempts
+                            if (attempt < MAX_ATTEMPTS) {
+                                System.out.println("API error occurred, will retry in " + (POLL_INTERVAL_MS/1000) + " seconds");
+                                
+                                // Schedule next polling attempt
+                                java.util.concurrent.ScheduledExecutorService scheduler = 
+                                    java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+                                scheduler.schedule(() -> {
+                                    pollForFullAnalysis(fullAnalysisUrl, sampleResult, attempt + 1);
+                                    scheduler.shutdown();
+                                }, POLL_INTERVAL_MS, java.util.concurrent.TimeUnit.MILLISECONDS);
+                                
+                            } else {
+                                // Max attempts reached - show error
+                                System.err.println("All polling attempts failed. Last error: " + error.getMessage());
+                                error.printStackTrace();
+                                
+                                Platform.runLater(() -> {
+                                    view.showGenerationProgress(false);
+                                    view.setLoadFullAnalysisButtonLoading(false);
+                                    view.showAlert("Full Analysis Error", 
+                                        "Failed to load full analysis after " + MAX_ATTEMPTS + " attempts.\n" + 
+                                        "Last error: " + error.getMessage() + 
+                                        "\nDisplaying sample analysis instead.");
+                                });
+                                showFinalResults(sampleResult);
+                            }
                         }
                 );
     }
@@ -720,15 +825,24 @@ public class SmartNumberGeneratorPresenter {
     }
 
     public void loadFullAnalysis() {
+        System.out.println("=== PRESENTER loadFullAnalysis CALLED ===");
+        System.out.println("currentResult: " + (currentResult != null ? "NOT NULL" : "NULL"));
+        
         if (currentResult == null || currentResult.getFullAnalysisEndpoint() == null) {
-            view.showAlert("Error", "No full analysis endpoint available");
+            String endpoint = currentResult != null ? currentResult.getFullAnalysisEndpoint() : "N/A";
+            System.out.println("ERROR: No full analysis endpoint available. Endpoint: " + endpoint);
+            view.showAlert("Error", "No full analysis endpoint available. Endpoint: " + endpoint);
             return;
         }
+        
+        System.out.println("Full analysis endpoint: " + currentResult.getFullAnalysisEndpoint());
+        System.out.println("Setting button to loading state...");
         
         // Set button to loading state
         view.setLoadFullAnalysisButtonLoading(true);
         
         // Fetch full analysis data
+        System.out.println("Calling fetchFullAnalysisData...");
         fetchFullAnalysisData(currentResult);
     }
 

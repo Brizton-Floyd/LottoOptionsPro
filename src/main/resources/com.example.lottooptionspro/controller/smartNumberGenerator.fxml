@@ -54,6 +54,8 @@
                         <RadioButton fx:id="randomRadio" text="Random"/>
                         <RadioButton fx:id="hybridRadio" text="Hybrid"/>
                         <RadioButton fx:id="templateMatrixRadio" text="Template Matrix"/>
+                        <RadioButton fx:id="deltaPureRadio" text="Delta Pure"/>
+                        <RadioButton fx:id="deltaStrategicRadio" text="Delta Strategic"/>
                     </HBox>
                 </GridPane>
             </VBox>
@@ -175,6 +177,74 @@
                     <VBox spacing="5" styleClass="strategy-info-box">
                         <Label text="Strategy Information:" styleClass="section-header"/>
                         <Label fx:id="strategyDescriptionLabel" text="Select a strategy to see details..." 
+                              styleClass="strategy-description" wrapText="true"/>
+                    </VBox>
+                </VBox>
+            </TitledPane>
+
+            <!-- Delta Configuration (Collapsible) -->
+            <TitledPane fx:id="deltaConfigPane" text="Delta Strategy Configuration" expanded="false" visible="false" styleClass="config-section">
+                <VBox spacing="15">
+                    <!-- Pattern Preference -->
+                    <GridPane hgap="15" vgap="10">
+                        <columnConstraints>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="150"/>
+                            <ColumnConstraints hgrow="ALWAYS"/>
+                        </columnConstraints>
+                        
+                        <Label text="Pattern Preference:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <ComboBox fx:id="deltaPatternPreferenceCombo" promptText="Select pattern preference..." 
+                                 GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="strategy-combo"/>
+                    </GridPane>
+                    
+                    <!-- Quality Threshold -->
+                    <GridPane hgap="15" vgap="10">
+                        <columnConstraints>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="150"/>
+                            <ColumnConstraints hgrow="ALWAYS"/>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="60"/>
+                        </columnConstraints>
+                        
+                        <Label text="Quality Threshold:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <Slider fx:id="deltaQualityThresholdSlider" min="0.0" max="1.0" value="0.7" 
+                               showTickLabels="false" showTickMarks="true" majorTickUnit="0.2" 
+                               GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label fx:id="deltaQualityThresholdLabel" text="70%" GridPane.rowIndex="0" GridPane.columnIndex="2" 
+                              styleClass="slider-value-label"/>
+                    </GridPane>
+                    
+                    <!-- Intelligence Options -->
+                    <VBox spacing="8">
+                        <Label text="Intelligence Options:" styleClass="section-header"/>
+                        <VBox spacing="5">
+                            <CheckBox fx:id="enableDroughtIntelligenceCheck" text="Enable Drought Intelligence" selected="true" styleClass="delta-option-checkbox"/>
+                            <CheckBox fx:id="enableTierOptimizationCheck" text="Enable Tier Optimization" selected="true" styleClass="delta-option-checkbox"/>
+                            <CheckBox fx:id="excludePreviousWinnersCheck" text="Exclude Previous Winners" styleClass="delta-option-checkbox"/>
+                        </VBox>
+                    </VBox>
+                    
+                    <!-- Advanced Settings -->
+                    <GridPane hgap="15" vgap="10">
+                        <columnConstraints>
+                            <ColumnConstraints halignment="RIGHT" prefWidth="150"/>
+                            <ColumnConstraints hgrow="ALWAYS"/>
+                        </columnConstraints>
+                        
+                        <Label text="Delta Variation Count:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <VBox GridPane.rowIndex="0" GridPane.columnIndex="1">
+                            <Spinner fx:id="deltaVariationCountSpinner" editable="true"/>
+                            <Label text="Number of delta patterns to generate (1-50)" styleClass="control-description"/>
+                        </VBox>
+                        
+                        <Label text="Complexity Level:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <ComboBox fx:id="deltaComplexityLevelCombo" promptText="Select complexity..." 
+                                 GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="strategy-combo"/>
+                    </GridPane>
+                    
+                    <!-- Delta Strategy Information -->
+                    <VBox spacing="5" styleClass="strategy-info-box">
+                        <Label text="Delta Strategy Information:" styleClass="section-header"/>
+                        <Label fx:id="deltaStrategyDescriptionLabel" text="Select a Delta strategy to see details..." 
                               styleClass="strategy-description" wrapText="true"/>
                     </VBox>
                 </VBox>
@@ -336,6 +406,69 @@
                                     <Label text="Overdue Usage:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-label"/>
                                     <Label fx:id="overdueUsageLabel" text="-%" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
                                 </GridPane>
+                            </VBox>
+                        </VBox>
+                    </TitledPane>
+
+                    <!-- TOP RIGHT: Delta Analysis (Conditional) -->
+                    <TitledPane fx:id="deltaAnalysisPane" text="🔺 Delta Analysis" 
+                               GridPane.columnIndex="1" GridPane.rowIndex="0" 
+                               styleClass="dashboard-panel" expanded="true" collapsible="false" visible="false">
+                        <VBox fx:id="deltaAnalysisPanel" spacing="10" styleClass="delta-analysis-panel">
+                            <!-- Delta Strategy Information -->
+                            <VBox spacing="5">
+                                <Label text="Delta Strategy Information" styleClass="metric-label"/>
+                                <GridPane hgap="10" vgap="3">
+                                    <columnConstraints>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="80"/>
+                                        <ColumnConstraints halignment="LEFT"/>
+                                    </columnConstraints>
+                                    <Label text="Strategy:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="deltaStrategyUsedLabel" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                    <Label text="Efficiency:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="deltaEfficiencyLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                </GridPane>
+                            </VBox>
+                            
+                            <!-- Pattern Analysis -->
+                            <VBox spacing="5">
+                                <Label text="Pattern Analysis" styleClass="metric-label"/>
+                                <GridPane hgap="10" vgap="3">
+                                    <columnConstraints>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="80"/>
+                                        <ColumnConstraints halignment="LEFT"/>
+                                    </columnConstraints>
+                                    <Label text="Patterns:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="deltaPatternsCountLabel" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                    <Label text="Avg Gap:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="deltaAvgGapLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                </GridPane>
+                            </VBox>
+                            
+                            <!-- Strategic Performance -->
+                            <VBox spacing="5">
+                                <Label text="Strategic Performance" styleClass="metric-label"/>
+                                <GridPane hgap="10" vgap="3">
+                                    <columnConstraints>
+                                        <ColumnConstraints halignment="LEFT" prefWidth="80"/>
+                                        <ColumnConstraints halignment="LEFT"/>
+                                    </columnConstraints>
+                                    <Label text="Overall:" GridPane.rowIndex="0" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="deltaOverallScoreLabel" text="-" GridPane.rowIndex="0" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                    <Label text="Drought:" GridPane.rowIndex="1" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="deltaDroughtScoreLabel" text="-" GridPane.rowIndex="1" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                    <Label text="Tier:" GridPane.rowIndex="2" GridPane.columnIndex="0" styleClass="metric-small"/>
+                                    <Label fx:id="deltaTierScoreLabel" text="-" GridPane.rowIndex="2" GridPane.columnIndex="1" styleClass="metric-value"/>
+                                </GridPane>
+                            </VBox>
+                            
+                            <!-- Strategic Intelligence Status -->
+                            <VBox spacing="5">
+                                <Label text="Intelligence Status" styleClass="metric-label"/>
+                                <VBox spacing="3">
+                                    <Label fx:id="deltaIntelligenceStatusLabel" text="Strategic Intelligence: Not Applied" styleClass="metric-small"/>
+                                    <Label fx:id="deltaInsightsCountLabel" text="Actionable Insights: 0" styleClass="metric-small"/>
+                                </VBox>
                             </VBox>
                         </VBox>
                     </TitledPane>
