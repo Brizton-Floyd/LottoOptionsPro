@@ -43,6 +43,25 @@ public class BetslipGenerationService {
             this.template = template;
         }
     }
+
+    public static class ScaledPdfGenerationResult {
+        public final List<BufferedImage> images;
+        public final BetslipTemplate template;
+        public final float scaleFactorX;
+        public final float scaleFactorY;
+        public final int targetWidth;
+        public final int targetHeight;
+
+        public ScaledPdfGenerationResult(List<BufferedImage> images, BetslipTemplate template, 
+                                       float scaleFactorX, float scaleFactorY, int targetWidth, int targetHeight) {
+            this.images = images;
+            this.template = template;
+            this.scaleFactorX = scaleFactorX;
+            this.scaleFactorY = scaleFactorY;
+            this.targetWidth = targetWidth;
+            this.targetHeight = targetHeight;
+        }
+    }
     
     // Cache for global option selection per generation request
     private String cachedGlobalOptionSelection = null;
@@ -124,6 +143,120 @@ public class BetslipGenerationService {
         
         g2d.dispose();
         return newImage;
+    }
+
+    public Mono<ScaledPdfGenerationResult> generateScaledPdf(List<int[]> allNumberSets, String stateName, String gameName, int targetWidth, int targetHeight) {
+        // Clear any cached selection from previous generation
+        cachedGlobalOptionSelection = null;
+        
+        return Mono.fromCallable(() -> loadTemplate(stateName, gameName))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(templateOptional -> {
+                    if (templateOptional.isEmpty()) {
+                        return Mono.error(new IOException("Betslip template not found for " + gameName));
+                    }
+                    return Mono.just(templateOptional.get());
+                })
+                .flatMap(template -> {
+                    try {
+                        // Get global option selection once before processing any images
+                        if (template.getGlobalOptions() != null && !template.getGlobalOptions().isEmpty()) {
+                            cachedGlobalOptionSelection = getSelectedGlobalOption(template);
+                        }
+                        
+                        BufferedImage baseImage = ImageIO.read(new File(template.getImagePath()));
+                        float scaleFactorX = (float) targetWidth / baseImage.getWidth();
+                        float scaleFactorY = (float) targetHeight / baseImage.getHeight();
+                        
+                        return createMultiPanelScaledMarkedImages(allNumberSets, template, baseImage, scaleFactorX, scaleFactorY, targetWidth, targetHeight)
+                                .map(images -> new ScaledPdfGenerationResult(images, template, scaleFactorX, scaleFactorY, targetWidth, targetHeight));
+                    } catch (IOException e) {
+                        return Mono.error(e);
+                    }
+                });
+    }
+
+    private Mono<List<BufferedImage>> createMultiPanelScaledMarkedImages(List<int[]> allNumberSets, BetslipTemplate template, BufferedImage baseImage, 
+                                                                        float scaleFactorX, float scaleFactorY, int targetWidth, int targetHeight) {
+        int panelsPerSlip = template.getPlayPanels().size();
+        if (panelsPerSlip == 0) {
+            return Mono.error(new IOException("Template has no defined panels."));
+        }
+
+        List<List<int[]>> partitionedNumberSets = new ArrayList<>();
+        for (int i = 0; i < allNumberSets.size(); i += panelsPerSlip) {
+            partitionedNumberSets.add(allNumberSets.subList(i, Math.min(i + panelsPerSlip, allNumberSets.size())));
+        }
+
+        return Flux.fromIterable(partitionedNumberSets)
+                .parallel()
+                .runOn(Schedulers.parallel())
+                .map(chunk -> createScaledDetachedMarkedImage(chunk, template, baseImage, scaleFactorX, scaleFactorY, targetWidth, targetHeight))
+                .sequential()
+                .collectList();
+    }
+
+    private BufferedImage createScaledDetachedMarkedImage(List<int[]> numberSetsForSlip, BetslipTemplate template, BufferedImage baseImage, 
+                                                         float scaleFactorX, float scaleFactorY, int targetWidth, int targetHeight) {
+        // Create scaled base image
+        BufferedImage scaledImage = new BufferedImage(targetWidth, targetHeight, baseImage.getType());
+        java.awt.Graphics2D g2d = scaledImage.createGraphics();
+        
+        // Enable high-quality rendering
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2d.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+        
+        // Draw scaled base image
+        g2d.drawImage(baseImage, 0, 0, targetWidth, targetHeight, null);
+        g2d.setColor(java.awt.Color.BLACK);
+
+        // Calculate scaled mark dimensions
+        int scaledMarkWidth = Math.max(1, Math.round(template.getMark().getWidth() * scaleFactorX));
+        int scaledMarkHeight = Math.max(1, Math.round(template.getMark().getHeight() * scaleFactorY));
+
+        // Draw scaled marks
+        for (int i = 0; i < numberSetsForSlip.size(); i++) {
+            List<Integer> numbers = Arrays.stream(numberSetsForSlip.get(i)).boxed().collect(Collectors.toList());
+            if (i < template.getPlayPanels().size()) {
+                PlayPanel panel = template.getPlayPanels().get(i);
+                panel.getMainNumbers().forEach((numberKey, coordinate) -> {
+                    if (numbers.contains(Integer.parseInt(numberKey))) {
+                        // Scale coordinates
+                        int scaledX = Math.round(coordinate.getX() * scaleFactorX) - scaledMarkWidth / 2;
+                        int scaledY = Math.round(coordinate.getY() * scaleFactorY) - scaledMarkHeight / 2;
+                        g2d.fillRect(scaledX, scaledY, scaledMarkWidth, scaledMarkHeight);
+                    }
+                });
+            }
+        }
+        
+        // Mark scaled global options
+        if (template.getGlobalOptions() != null && !template.getGlobalOptions().isEmpty() && cachedGlobalOptionSelection != null) {
+            markScaledGlobalOptions(g2d, template, cachedGlobalOptionSelection, scaleFactorX, scaleFactorY);
+        }
+        
+        g2d.dispose();
+        return scaledImage;
+    }
+    
+    private void markScaledGlobalOptions(java.awt.Graphics2D g2d, BetslipTemplate template, String selectedOption, float scaleFactorX, float scaleFactorY) {
+        if (selectedOption == null) {
+            return; // User cancelled selection
+        }
+        
+        for (GlobalOption option : template.getGlobalOptions()) {
+            if (selectedOption.equalsIgnoreCase(option.getName().trim())) {
+                // Scale coordinates and dimensions
+                int scaledX = (int) Math.round((option.getX() - option.getWidth() / 2) * scaleFactorX);
+                int scaledY = (int) Math.round((option.getY() - option.getHeight() / 2) * scaleFactorY);
+                int scaledWidth = Math.max(1, (int) Math.round(option.getWidth() * scaleFactorX));
+                int scaledHeight = Math.max(1, (int) Math.round(option.getHeight() * scaleFactorY));
+                
+                System.out.println("DEBUG: Marking scaled global option '" + option.getName() + "' at (" + scaledX + "," + scaledY + ") size " + scaledWidth + "x" + scaledHeight + " (scale: " + scaleFactorX + "," + scaleFactorY + ")");
+                g2d.fillRect(scaledX, scaledY, scaledWidth, scaledHeight);
+                break; // Only mark one option
+            }
+        }
     }
     
     private void markGlobalOptions(java.awt.Graphics2D g2d, BetslipTemplate template, String selectedOption) {

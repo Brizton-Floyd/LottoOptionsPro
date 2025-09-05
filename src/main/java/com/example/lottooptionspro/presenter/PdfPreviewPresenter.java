@@ -218,6 +218,7 @@ public class PdfPreviewPresenter {
         PageLayoutParams layout = new PageLayoutParams(pageImages, pageSize);
         float currentX = layout.startX;
 
+        // Pass 1: Draw the images
         for (int i = 0; i < pageImages.size(); i++) {
             BufferedImage awtImage = pageImages.get(i);
             PDImageXObject pdImage = convertToPdfImage(awtImage, document);
@@ -227,9 +228,19 @@ public class PdfPreviewPresenter {
 
             if (i < pageImages.size() - 1) {
                 currentX += SCISSOR_LINE_SPACING;
-                float lineX = currentX - (SCISSOR_LINE_SPACING / 2);
-                drawDashedLine(contentStream, lineX, PAGE_PADDING, lineX, pageSize.getHeight() - PAGE_PADDING);
             }
+        }
+        
+        // Pass 2: Draw the border lines
+        drawSolidLine(contentStream, layout.startX, PAGE_PADDING, layout.startX, pageSize.getHeight() - PAGE_PADDING);
+        drawSolidLine(contentStream, layout.startX + layout.totalContentWidth, PAGE_PADDING, layout.startX + layout.totalContentWidth, pageSize.getHeight() - PAGE_PADDING);
+
+        // Pass 3: Draw scissor lines between images
+        currentX = layout.startX + layout.imageWidth;
+        for (int i = 0; i < pageImages.size() - 1; i++) {
+            float lineX = currentX + (SCISSOR_LINE_SPACING / 2);
+            drawDashedLine(contentStream, lineX, PAGE_PADDING, lineX, pageSize.getHeight() - PAGE_PADDING);
+            currentX += layout.imageWidth + SCISSOR_LINE_SPACING;
         }
     }
 
@@ -285,9 +296,19 @@ public class PdfPreviewPresenter {
         g2d.drawLine((int) xStart, (int) yStart, (int) xEnd, (int) yEnd);
     }
 
+    private void drawSolidLine(PDPageContentStream contentStream, float xStart, float yStart, float xEnd, float yEnd) throws IOException {
+        contentStream.setLineDashPattern(new float[]{}, 0); // Solid line
+        contentStream.setStrokingColor(1.0f, 0.0f, 0.0f); // RGB Red (1.0, 0.0, 0.0)
+        contentStream.setLineWidth(1.0f);
+        contentStream.moveTo(xStart, yStart);
+        contentStream.lineTo(xEnd, yEnd);
+        contentStream.stroke();
+    }
+
     private void drawDashedLine(PDPageContentStream contentStream, float xStart, float yStart, float xEnd, float yEnd) throws IOException {
         contentStream.setLineDashPattern(new float[]{10, 5}, 0);
-        contentStream.setStrokingColor(java.awt.Color.RED);
+        contentStream.setStrokingColor(1.0f, 0.0f, 0.0f); // RGB Red (1.0, 0.0, 0.0)
+        contentStream.setLineWidth(1.0f);
         contentStream.moveTo(xStart, yStart);
         contentStream.lineTo(xEnd, yEnd);
         contentStream.stroke();
