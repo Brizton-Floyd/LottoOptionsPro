@@ -1,6 +1,7 @@
 package com.example.lottooptionspro.presenter;
 
 import com.example.lottooptionspro.models.*;
+import com.example.lottooptionspro.service.TemplateLocatorService;
 import com.example.lottooptionspro.util.GridCalculator;
 import com.example.lottooptionspro.util.GlobalOptionsDeserializer;
 import com.example.lottooptionspro.controller.TemplateCreatorController;
@@ -19,6 +20,7 @@ public class TemplateCreatorPresenter {
     private BetslipTemplate model;
     private final TemplateCreatorView view;
     private final List<Runnable> undoStack = new ArrayList<>();
+    private final TemplateLocatorService templateLocatorService;
 
     private Coordinate originalCoordinate;
     private ScannerMark originalScannerMark;
@@ -36,6 +38,8 @@ public class TemplateCreatorPresenter {
     public TemplateCreatorPresenter(BetslipTemplate model, TemplateCreatorView view) {
         this.model = model;
         this.view = view;
+        this.templateLocatorService = new TemplateLocatorService();
+        
         if (this.model.getMark() == null) this.model.setMark(new Mark(20, 20));
         if (this.model.getPlayPanels() == null) this.model.setPlayPanels(new ArrayList<>());
         if (this.model.getGlobalOptions() == null) this.model.setGlobalOptions(new ArrayList<>());
@@ -313,25 +317,55 @@ public class TemplateCreatorPresenter {
     public void loadTemplate() {
         File file = view.showOpenTemplateDialog();
         if (file != null) {
-            try (FileReader reader = new FileReader(file)) {
-                // Create Gson with custom deserializer for backward compatibility
-                Gson gson = new GsonBuilder()
-                    .registerTypeAdapter(new TypeToken<List<GlobalOption>>(){}.getType(), new GlobalOptionsDeserializer())
-                    .create();
-                this.model = gson.fromJson(reader, BetslipTemplate.class);
-                if (model.getScannerMarks() == null) {
-                    model.setScannerMarks(new ArrayList<>());
-                }
-                if (model.getGlobalOptions() == null) {
-                    model.setGlobalOptions(new ArrayList<>());
-                }
-                this.currentFile = file; // Remember the file path
-                updateViewFromModel();
-                view.showSuccess("Template loaded successfully from " + file.getName());
-            } catch (IOException | com.google.gson.JsonSyntaxException e) {
-                view.showError("Failed to load template: " + e.getMessage());
-                e.printStackTrace();
+            loadTemplateFromFile(file);
+        }
+    }
+
+    /**
+     * Attempt to automatically load a template based on state and game name.
+     * Returns true if a template was found and loaded successfully.
+     */
+    public boolean attemptAutoLoadTemplate(String stateName, String gameName) {
+        if (stateName == null || stateName.trim().isEmpty() || 
+            gameName == null || gameName.trim().isEmpty()) {
+            view.showInfo("No game context available. Please select a state/game from the main menu, or manually load a template.");
+            return false;
+        }
+
+        Optional<File> templateFile = templateLocatorService.findTemplateFile(stateName, gameName);
+        
+        if (templateFile.isPresent()) {
+            loadTemplateFromFile(templateFile.get());
+            view.showInfo("Auto-loaded template for " + gameName + " (" + stateName + ")");
+            return true;
+        } else {
+            view.showInfo("No template found for " + gameName + " (" + stateName + "). Ready to create new template.");
+            return false;
+        }
+    }
+
+    /**
+     * Load a template from a specific file.
+     */
+    private void loadTemplateFromFile(File file) {
+        try (FileReader reader = new FileReader(file)) {
+            // Create Gson with custom deserializer for backward compatibility
+            Gson gson = new GsonBuilder()
+                .registerTypeAdapter(new TypeToken<List<GlobalOption>>(){}.getType(), new GlobalOptionsDeserializer())
+                .create();
+            this.model = gson.fromJson(reader, BetslipTemplate.class);
+            if (model.getScannerMarks() == null) {
+                model.setScannerMarks(new ArrayList<>());
             }
+            if (model.getGlobalOptions() == null) {
+                model.setGlobalOptions(new ArrayList<>());
+            }
+            this.currentFile = file; // Remember the file path
+            updateViewFromModel();
+            view.showSuccess("Template loaded successfully from " + file.getName());
+        } catch (IOException | com.google.gson.JsonSyntaxException e) {
+            view.showError("Failed to load template: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

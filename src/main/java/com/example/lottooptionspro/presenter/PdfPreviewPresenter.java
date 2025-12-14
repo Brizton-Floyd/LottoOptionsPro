@@ -5,12 +5,17 @@ import com.example.lottooptionspro.util.ImageProcessor;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.Scene;
 import javafx.scene.image.Image;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import net.rgielen.fxweaver.core.FxWeaver;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -37,6 +42,9 @@ public class PdfPreviewPresenter {
     private PdfPreviewView view;
     private List<BufferedImage> originalColorImages;
     private BetslipTemplate template;
+    
+    @Autowired
+    private FxWeaver fxWeaver;
 
     public void setView(PdfPreviewView view) {
         this.view = view;
@@ -313,6 +321,57 @@ public class PdfPreviewPresenter {
         contentStream.lineTo(xEnd, yEnd);
         contentStream.stroke();
         contentStream.setLineDashPattern(new float[]{}, 0);
+    }
+
+    public void print() {
+        String colorMode = view.getSelectedColorMode();
+        
+        view.showProgress(true);
+
+        Task<List<BufferedImage>> processingTask = new Task<>() {
+            @Override
+            protected List<BufferedImage> call() {
+                return processImagesForColorMode(colorMode);
+            }
+        };
+
+        processingTask.setOnSucceeded(event -> {
+            List<BufferedImage> processedImages = processingTask.getValue();
+            Platform.runLater(() -> {
+                view.showProgress(false);
+                openPrintPreviewDialog(processedImages);
+            });
+        });
+
+        processingTask.setOnFailed(event -> {
+            view.showError("Failed to process images for printing.");
+            view.showProgress(false);
+        });
+
+        new Thread(processingTask).start();
+    }
+
+    private void openPrintPreviewDialog(List<BufferedImage> images) {
+        try {
+            Stage printPreviewStage = new Stage();
+            printPreviewStage.setTitle("Print Preview");
+            printPreviewStage.initModality(Modality.APPLICATION_MODAL);
+
+            com.example.lottooptionspro.controller.PrintPreviewController controller = 
+                fxWeaver.loadController(com.example.lottooptionspro.controller.PrintPreviewController.class);
+            
+            Scene scene = new Scene(fxWeaver.loadView(com.example.lottooptionspro.controller.PrintPreviewController.class), 700, 600);
+            printPreviewStage.setScene(scene);
+            
+            // Set the data for the print preview
+            controller.presenter.setData(images);
+            
+            printPreviewStage.show();
+            
+        } catch (Exception e) {
+            view.showError("Failed to open print preview: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public void cancel() {

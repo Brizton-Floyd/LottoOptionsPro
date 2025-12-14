@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.control.ProgressIndicator?>
+
+<BorderPane prefHeight="600.0" prefWidth="700.0" xmlns="http://javafx.com/javafx/8.0.171" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.lottooptionspro.controller.PrintPreviewController">
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="10" style="-fx-padding: 10; -fx-border-color: lightgrey; -fx-border-width: 0 0 1 0; -fx-background-color: #f5f5f5;">
+            <children>
+                <Label text="Print Preview" style="-fx-font-size: 16px; -fx-font-weight: bold;" />
+                <Label text="Review the documents below before printing" style="-fx-text-fill: #666666;" />
+            </children>
+        </HBox>
+    </top>
+    <center>
+        <StackPane fx:id="centerStackPane">
+            <children>
+                <ScrollPane fx:id="scrollPane" fitToWidth="true" fitToHeight="true" style="-fx-background-color: #e8e8e8;">
+                    <content>
+                        <VBox fx:id="printPagesContainer" alignment="TOP_CENTER" spacing="15" style="-fx-background-color: #e8e8e8;">
+                            <padding>
+                                <Insets top="20" bottom="20" left="10" right="10" />
+                            </padding>
+                        </VBox>
+                    </content>
+                </ScrollPane>
+                <ProgressIndicator fx:id="progressIndicator" visible="false" />
+            </children>
+        </StackPane>
+    </center>
+    <bottom>
+        <HBox alignment="CENTER" spacing="15" style="-fx-padding: 15; -fx-border-color: lightgrey; -fx-border-width: 1 0 0 0; -fx-background-color: #f5f5f5;">
+            <children>
+                <Button onAction="#handlePrint" text="Print" prefWidth="100" style="-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;" />
+                <Button onAction="#handleCancel" text="Cancel" prefWidth="100" />
+            </children>
+        </HBox>
+    </bottom>
+</BorderPane>

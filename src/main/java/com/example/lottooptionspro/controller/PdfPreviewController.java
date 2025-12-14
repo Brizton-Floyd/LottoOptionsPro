@@ -3,6 +3,8 @@ package com.example.lottooptionspro.controller;
 import com.example.lottooptionspro.presenter.PdfPreviewPresenter;
 import com.example.lottooptionspro.presenter.PdfPreviewView;
 import javafx.fxml.FXML;
+import javafx.print.PrinterJob;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.ScrollPane;
@@ -61,6 +63,11 @@ public class PdfPreviewController implements PdfPreviewView {
     }
 
     @FXML
+    private void handlePrint() {
+        presenter.print();
+    }
+
+    @FXML
     private void handleCancel() {
         presenter.cancel();
     }
@@ -108,8 +115,18 @@ public class PdfPreviewController implements PdfPreviewView {
     }
 
     @Override
+    public void showSuccess(String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Success");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    @Override
     public void showProgress(boolean show) {
         scrollPane.setVisible(!show);
         progressIndicator.setVisible(show);
     }
+
 }

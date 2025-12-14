@@ -10,5 +10,6 @@ public interface PdfPreviewView {
     File showSavePdfDialog(String initialFileName);
     String getSelectedColorMode();
     void showError(String message);
+    void showSuccess(String message);
     void showProgress(boolean show);
 }

@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.chart.LineChart?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import java.net.URL?>
+
+<!-- Root container -->
+<AnchorPane fx:id="rootContainer" xmlns="http://javafx.com/javafx/11.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.example.lottooptionspro.controller.RangeAnalysisController">
+    <stylesheets>
+        <URL value="@styling/dashboard.css"/>
+        <URL value="@styling/range-analysis.css"/>
+        <URL value="@styling/style.css"/>
+        <URL value="@styling/range-analysis-enhanced.css"/>
+    </stylesheets>
+
+    <!-- Main content container -->
+    <VBox AnchorPane.topAnchor="10.0" AnchorPane.leftAnchor="10.0" 
+          AnchorPane.rightAnchor="10.0" AnchorPane.bottomAnchor="10.0" 
+          spacing="15" styleClass="main-content-container">
+        
+        <!-- Header Section with State/Game and Last Updated info -->
+        <HBox spacing="10" alignment="CENTER_LEFT" styleClass="header-bar">
+            <HBox alignment="CENTER_LEFT" spacing="10" HBox.hgrow="ALWAYS">
+                <Label fx:id="stateGameLabel" text="TEXAS - Cash Five" styleClass="state-game-label"/>
+                <Label fx:id="lastUpdatedLabel" text="Last Updated: Just now" styleClass="last-updated-label"/>
+            </HBox>
+            <Button fx:id="refreshButton" text="Refresh Data" styleClass="refresh-button" onAction="#handleRefresh"/>
+            <Button fx:id="settingsButton" styleClass="settings-button" />
+        </HBox>
+        
+        <!-- Main Content Grid - 2x2 Layout -->
+        <GridPane vgap="15" hgap="15" VBox.vgrow="ALWAYS">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="30" />
+                <ColumnConstraints percentWidth="70" hgrow="ALWAYS" />
+            </columnConstraints>
+            <rowConstraints>
+                <RowConstraints percentHeight="50" />
+                <RowConstraints percentHeight="50" vgrow="ALWAYS" />
+            </rowConstraints>
+            
+            <!-- Top Left: Analysis Settings Panel -->
+            <VBox spacing="10" styleClass="panel-container" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                <Label text="Analysis Settings" styleClass="panel-header"/>
+                
+                <!-- Range Size Input -->
+                <VBox spacing="5" styleClass="setting-group">
+                    <TextField fx:id="rangeSizeField" text="10" styleClass="range-size-input"/>
+                    <HBox spacing="5">
+                        <Button text="-" styleClass="range-adjust-button" onAction="#decreaseRangeSize"/>
+                        <Button text="+" styleClass="range-adjust-button" onAction="#increaseRangeSize"/>
+                    </HBox>
+                </VBox>
+                
+                <!-- Analysis Mode Dropdown -->
+                <VBox spacing="5" styleClass="setting-group">
+                    <Label text="Analysis Mode" styleClass="setting-label"/>
+                    <ComboBox fx:id="analysisTypeComboBox" styleClass="analysis-mode-combo" onAction="#handleAnalysisTypeChange"/>
+                </VBox>
+                
+                <!-- Position Selection -->
+                <VBox spacing="5" styleClass="setting-group">
+                    <Label text="Analysis Positions" styleClass="setting-label"/>
+                    <FlowPane fx:id="positionCheckboxContainer" hgap="10" vgap="10" styleClass="positions-container"/>
+                </VBox>
+                
+                <!-- Apply Settings Button -->
+                <Button text="Apply Settings" styleClass="apply-button" onAction="#handleApplySettings"/>
+                
+                <!-- Position Insights Section -->
+                <VBox spacing="5" styleClass="insights-section">
+                    <Label text="Position Insights (P1 Selected)" styleClass="insights-header"/>
+                    <VBox spacing="3">
+                        <Label text="Most Likely Ranges:" styleClass="insight-label"/>
+                        <Label fx:id="mostLikelyRangesLabel" styleClass="insight-value"/>
+                        <Label text="Least Likely:" styleClass="insight-label"/>
+                        <Label fx:id="leastLikelyRangesLabel" styleClass="insight-value"/>
+                    </VBox>
+                    
+                    <!-- Position Distribution Chart -->
+                    <VBox fx:id="positionDistributionChart" styleClass="position-chart"/>
+                </VBox>
+            </VBox>
+            
+            <!-- Top Right: Range Performance Overview -->
+            <VBox spacing="10" styleClass="panel-container" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                <Label text="Range Performance Overview" styleClass="panel-header"/>
+                
+                <!-- Range Cards Container -->
+                <HBox spacing="10" styleClass="range-cards-container">
+                    <!-- Cards will be populated dynamically -->
+                </HBox>
+                
+                <!-- Hit Trend Chart -->
+                <VBox VBox.vgrow="ALWAYS" styleClass="chart-container">
+                    <Label text="Hit Trend for Selected Range: Chart" styleClass="chart-header" fx:id="chartTitle"/>
+                    <LineChart fx:id="rangeHitChart" styleClass="hit-trend-chart" 
+                              createSymbols="true" legendVisible="false" animated="false"
+                              VBox.vgrow="ALWAYS">
+                        <xAxis>
+                            <NumberAxis fx:id="drawNumberAxis" label="Expected Average Hit Count" 
+                                       tickUnit="100" lowerBound="0" upperBound="1000"/>
+                        </xAxis>
+                        <yAxis>
+                            <NumberAxis fx:id="hitCountAxis" label="" 
+                                       tickUnit="10" lowerBound="0" upperBound="50"/>
+                        </yAxis>
+                    </LineChart>
+                </VBox>
+            </VBox>
+            
+            <!-- Bottom: Latest Draw Results Table -->
+            <VBox spacing="10" styleClass="panel-container" GridPane.columnIndex="0" 
+                 GridPane.rowIndex="1" GridPane.columnSpan="2">
+                <Label text="Latest Draw Results" styleClass="panel-header"/>
+                
+                <!-- Draw Results Table -->
+                <HBox VBox.vgrow="ALWAYS" spacing="0">
+                    <!-- Fixed Date column table -->
+                    <TableView fx:id="fixedDateTable" styleClass="fixed-date-table">
+                        <columnResizePolicy>
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                        </columnResizePolicy>
+                    </TableView>
+                    
+                    <!-- Scrollable range columns table -->
+                    <ScrollPane fx:id="rangeTableScrollPane" HBox.hgrow="ALWAYS" 
+                               fitToHeight="true" styleClass="range-scroll-pane">
+                        <TableView fx:id="scrollableRangeTable" styleClass="scrollable-range-table">
+                            <columnResizePolicy>
+                                <TableView fx:constant="UNCONSTRAINED_RESIZE_POLICY"/>
+                            </columnResizePolicy>
+                        </TableView>
+                    </ScrollPane>
+                </HBox>
+                
+                <!-- Pagination Controls -->
+                <HBox spacing="10" alignment="CENTER_RIGHT" styleClass="pagination-controls">
+                    <Label fx:id="paginationInfoLabel" text="Showing 1-10 of 60 items" styleClass="pagination-info"/>
+                    <Button fx:id="previousButton" text="Previous" styleClass="pagination-button" onAction="#handlePreviousPage"/>
+                    <Button fx:id="nextButton" text="Next" styleClass="pagination-button" onAction="#handleNextPage"/>
+                    <HBox alignment="CENTER_LEFT" spacing="5">
+                        <Label text="Rows per page:" styleClass="rows-per-page-label"/>
+                        <ComboBox fx:id="rowsPerPageCombo" styleClass="rows-per-page-combo"/>
+                    </HBox>
+                </HBox>
+            </VBox>
+        </GridPane>
+        
+        <!-- Loading Indicator -->
+        <StackPane fx:id="loadingOverlay" visible="false" managed="false"
+                  AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0"
+                  AnchorPane.rightAnchor="0" AnchorPane.bottomAnchor="0"
+                  styleClass="loading-overlay">
+            <ProgressIndicator fx:id="loadingIndicator" styleClass="loading-spinner"/>
+        </StackPane>
+        
+        <!-- No Data Message -->
+        <VBox fx:id="noDataContainer" spacing="20" alignment="CENTER" 
+              styleClass="no-data-container" visible="false" managed="false">
+            <Label fx:id="noDataLabel" text="No data available" styleClass="no-data-message"/>
+            <Button text="Refresh" onAction="#handleRefresh" styleClass="refresh-button"/>
+        </VBox>
+    </VBox>
+</AnchorPane>

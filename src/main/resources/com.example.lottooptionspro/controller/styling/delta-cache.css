@@ -1,0 +1,151 @@
+/* Delta Selection Cache Styles */
+
+/* Delta Builder Panel (Range Analysis) */
+.delta-builder-panel {
+    -fx-background-color: #FAFAFA;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 0 0 0 2px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 5, 0, -2, 0);
+}
+
+.delta-panel-header {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1976D2;
+}
+
+.delta-label-bold {
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+    -fx-text-fill: #333333;
+}
+
+.delta-game-label {
+    -fx-font-size: 14px;
+    -fx-text-fill: #666666;
+    -fx-padding: 5 0 5 0;
+}
+
+.delta-mode-combo,
+.position-selector-combo {
+    -fx-background-color: white;
+    -fx-border-color: #CCCCCC;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+}
+
+.delta-cache-scroll {
+    -fx-background-color: white;
+    -fx-border-color: #E0E0E0;
+    -fx-border-radius: 4px;
+}
+
+.cache-positions-container {
+    -fx-padding: 5;
+}
+
+.delta-progress-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: #666666;
+    -fx-font-style: italic;
+}
+
+.delta-add-button {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+}
+
+.delta-add-button:hover {
+    -fx-background-color: #1976D2;
+}
+
+.delta-send-button {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+}
+
+.delta-send-button:hover {
+    -fx-background-color: #388E3C;
+}
+
+.delta-send-button:disabled {
+    -fx-background-color: #CCCCCC;
+    -fx-text-fill: #999999;
+    -fx-opacity: 0.6;
+}
+
+.delta-clear-button {
+    -fx-background-color: #F44336;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+}
+
+.delta-clear-button:hover {
+    -fx-background-color: #D32F2F;
+}
+
+.delta-hint-label {
+    -fx-font-size: 10px;
+    -fx-text-fill: #999999;
+    -fx-font-style: italic;
+}
+
+/* Cache Indicator (Delta Generator) */
+.cache-indicator-box {
+    -fx-background-color: #E3F2FD;
+    -fx-border-color: #2196F3;
+    -fx-border-width: 1px;
+    -fx-border-radius: 5px;
+    -fx-background-radius: 5px;
+}
+
+.cache-status-label {
+    -fx-text-fill: #1976D2;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+}
+
+.cache-action-button {
+    -fx-background-color: #2196F3;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 11px;
+}
+
+.cache-action-button:hover {
+    -fx-background-color: #1976D2;
+}
+
+.cache-clear-button {
+    -fx-background-color: #F44336;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    -fx-font-size: 11px;
+}
+
+.cache-clear-button:hover {
+    -fx-background-color: #D32F2F;
+}
+
+/* Cached field indicator */
+.text-field.cached {
+    -fx-border-color: #4CAF50;
+    -fx-border-width: 2px;
+}
+
+.text-field.modified {
+    -fx-border-color: #FF9800;
+    -fx-border-width: 2px;
+}

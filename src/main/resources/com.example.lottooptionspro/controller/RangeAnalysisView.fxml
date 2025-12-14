@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.chart.LineChart?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.geometry.Insets?>
+<?import java.net.URL?>
+
+<!-- Root container -->
+<AnchorPane fx:id="rootContainer" xmlns="http://javafx.com/javafx/11.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.example.lottooptionspro.controller.RangeAnalysisController">
+    <stylesheets>
+        <URL value="@styling/dashboard.css"/>
+        <URL value="@styling/range-analysis.css"/>
+        <URL value="@styling/style.css"/>
+        <URL value="@styling/range-analysis-enhanced.css"/>
+        <URL value="@styling/delta-cache.css"/>
+    </stylesheets>
+
+    <!-- Main layout with Delta Builder panel -->
+    <HBox AnchorPane.topAnchor="10.0" AnchorPane.leftAnchor="10.0"
+          AnchorPane.rightAnchor="10.0" AnchorPane.bottomAnchor="20.0" spacing="0">
+        
+        <!-- Main content scroll container -->
+        <ScrollPane HBox.hgrow="ALWAYS" fitToWidth="true" styleClass="main-scroll-pane">
+            <VBox spacing="15" styleClass="main-content-container">
+                <padding>
+                    <Insets top="0" right="0" bottom="20" left="0"/>
+                </padding>
+        
+        <!-- Header Section with State/Game and Last Updated info -->
+        <HBox spacing="15" alignment="CENTER_LEFT" styleClass="header-bar">
+            <HBox alignment="CENTER_LEFT" spacing="15" HBox.hgrow="ALWAYS">
+                <Label fx:id="stateGameLabel" text="TEXAS - Cash Five" styleClass="state-game-label"/>
+                <Label fx:id="lastUpdatedLabel" text="● Last Updated: Just now" styleClass="last-updated-label"/>
+            </HBox>
+            <Button fx:id="refreshButton" text="Refresh Data" styleClass="refresh-button-modern" onAction="#handleRefresh"/>
+            <Button fx:id="settingsButton" text="⚙" styleClass="settings-button-modern" />
+        </HBox>
+        
+        <!-- Main Content Layout -->
+        <VBox spacing="15" VBox.vgrow="ALWAYS">
+
+            <!-- Top Row: Settings and Performance Overview -->
+            <HBox spacing="15" prefHeight="450" maxHeight="500">
+                <!-- Left: Analysis Settings Panel -->
+                <VBox styleClass="panel-container-modern" minWidth="300" prefWidth="350" maxWidth="400" spacing="15">
+                    <Label text="Analysis Settings" styleClass="panel-header-modern"/>
+
+                    <!-- Scrollable content for settings -->
+                    <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="settings-scroll-pane">
+                        <VBox spacing="15">
+                            <!-- Range Size Input -->
+                <VBox spacing="8" styleClass="setting-group-modern">
+                    <TextField fx:id="rangeSizeField" text="10" styleClass="range-size-input" alignment="CENTER"/>
+                    <HBox spacing="8" alignment="CENTER">
+                        <Button text="-" styleClass="range-adjust-button-modern" onAction="#decreaseRangeSize"/>
+                        <Button text="+" styleClass="range-adjust-button-modern" onAction="#increaseRangeSize"/>
+                    </HBox>
+                    <Label fx:id="rangeSizeHint" text="" styleClass="range-size-hint"/>
+                </VBox>
+
+                <!-- Analysis Mode Dropdown -->
+                <VBox spacing="8" styleClass="setting-group-modern">
+                    <Label text="Analysis Mode" styleClass="setting-label-modern"/>
+                    <ComboBox fx:id="analysisTypeComboBox" styleClass="analysis-mode-combo-modern" onAction="#handleAnalysisTypeChange"/>
+                </VBox>
+
+                <!-- L/analysis Positions Checkbox Grid -->
+                <VBox spacing="8" styleClass="setting-group-modern">
+                    <Label text="L/analysis Positions" styleClass="setting-label-modern"/>
+                    <FlowPane fx:id="positionCheckboxContainer" hgap="8" vgap="8" styleClass="positions-container-modern">
+                        <!-- Position checkboxes will be added dynamically -->
+                    </FlowPane>
+                </VBox>
+
+                <!-- Apply Settings Button -->
+                <Button text="Apply Settings" styleClass="apply-button-modern" onAction="#handleApplySettings"/>
+
+                <!-- Position Insights Section -->
+                <VBox spacing="8" styleClass="insights-section-modern">
+                    <Label text="Position Insights (P1 Selected)" styleClass="insights-header-modern"/>
+                    <VBox spacing="5">
+                        <Label text="Most Likely Ranges:" styleClass="insight-label-modern"/>
+                        <Label fx:id="mostLikelyRangesLabel" text="" styleClass="insight-value-modern"/>
+                        <Label text="Least Likely:" styleClass="insight-label-modern"/>
+                        <Label fx:id="leastLikelyRangesLabel" text="" styleClass="insight-value-modern"/>
+                    </VBox>
+
+                    <!-- Position Distribution Chart -->
+                    <VBox fx:id="positionDistributionChart" styleClass="position-chart-modern"/>
+                </VBox>
+                        </VBox>
+                    </ScrollPane>
+                </VBox>
+
+            <!-- Right: Range Performance Overview -->
+            <VBox spacing="15" styleClass="panel-container-modern" HBox.hgrow="ALWAYS" maxHeight="500">
+                <Label text="Range Performance Overview" styleClass="panel-header-modern"/>
+
+                <!-- Range Cards Container -->
+                <ScrollPane fitToHeight="true" fitToWidth="true" styleClass="range-cards-scroll"
+                           minHeight="150" prefHeight="160" maxHeight="180">
+                    <HBox fx:id="rangeCardsContainer" spacing="12" styleClass="range-cards-container-modern">
+                        <!-- Cards will be populated dynamically -->
+                    </HBox>
+                </ScrollPane>
+
+                <!-- Hit Trend Chart -->
+                <VBox VBox.vgrow="ALWAYS" styleClass="chart-container-modern" minHeight="180" prefHeight="220" maxHeight="280">
+                    <Label text="Hit Trend for Selected Range: Chart" styleClass="chart-header-modern" fx:id="chartTitle"/>
+                    <LineChart fx:id="rangeHitChart" styleClass="hit-trend-chart-modern"
+                              createSymbols="true" legendVisible="false" animated="false"
+                              VBox.vgrow="ALWAYS" minHeight="180" prefHeight="220">
+                        <xAxis>
+                            <NumberAxis fx:id="drawNumberAxis" label="Expected Average Hit Count"
+                                       tickUnit="100" lowerBound="0" upperBound="1000"/>
+                        </xAxis>
+                        <yAxis>
+                            <NumberAxis fx:id="hitCountAxis" label=""
+                                       tickUnit="10" lowerBound="0" upperBound="50"/>
+                        </yAxis>
+                    </LineChart>
+                </VBox>
+            </VBox>
+        </HBox>
+
+            <!-- Bottom: Latest Draw Results Table -->
+            <VBox spacing="15" styleClass="panel-container-modern" VBox.vgrow="ALWAYS" minHeight="500" prefHeight="600">
+                <Label text="Latest Draw Results" styleClass="panel-header-modern"/>
+
+                <!-- Draw Results Table -->
+                <HBox VBox.vgrow="ALWAYS" spacing="0" styleClass="table-wrapper" minHeight="400" prefHeight="500">
+                    <!-- Fixed Date column table -->
+                    <TableView fx:id="fixedDateTable" styleClass="fixed-date-table-modern"
+                              minWidth="150" prefWidth="150" maxWidth="200"
+                              VBox.vgrow="ALWAYS">
+                        <columnResizePolicy>
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                        </columnResizePolicy>
+                    </TableView>
+
+                    <!-- Scrollable range columns table -->
+                    <ScrollPane fx:id="rangeTableScrollPane" HBox.hgrow="ALWAYS"
+                               fitToHeight="true" fitToWidth="false" styleClass="range-scroll-pane-modern"
+                               hbarPolicy="AS_NEEDED" vbarPolicy="NEVER" pannable="true">
+                        <TableView fx:id="scrollableRangeTable" styleClass="scrollable-range-table-modern">
+                            <columnResizePolicy>
+                                <TableView fx:constant="UNCONSTRAINED_RESIZE_POLICY"/>
+                            </columnResizePolicy>
+                        </TableView>
+                    </ScrollPane>
+                </HBox>
+
+                <!-- Pagination Controls -->
+                <HBox spacing="12" alignment="CENTER_RIGHT" styleClass="pagination-controls-modern">
+                    <Button fx:id="previousButton" text="Previous" styleClass="pagination-button-modern" onAction="#handlePreviousPage"/>
+                    <Label styleClass="pagination-circle-modern">1</Label>
+                    <Button fx:id="nextButton" text="Next" styleClass="pagination-button-modern" onAction="#handleNextPage"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <HBox alignment="CENTER_LEFT" spacing="8">
+                        <Label text="Rows per page:" styleClass="rows-per-page-label-modern"/>
+                        <ComboBox fx:id="rowsPerPageCombo" styleClass="rows-per-page-combo-modern"/>
+                    </HBox>
+                </HBox>
+
+                <VBox.margin>
+                    <Insets bottom="20"/>
+                </VBox.margin>
+            </VBox>
+        </VBox>
+        
+        <!-- Loading Indicator -->
+        <StackPane fx:id="loadingOverlay" visible="false" managed="false"
+                  AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0"
+                  AnchorPane.rightAnchor="0" AnchorPane.bottomAnchor="0"
+                  styleClass="loading-overlay">
+            <ProgressIndicator fx:id="loadingIndicator" styleClass="loading-spinner"/>
+        </StackPane>
+        
+        <!-- No Data Message -->
+        <VBox fx:id="noDataContainer" spacing="20" alignment="CENTER"
+              styleClass="no-data-container" visible="false" managed="false">
+            <Label fx:id="noDataLabel" text="No data available" styleClass="no-data-message"/>
+            <Button text="Refresh" onAction="#handleRefresh" styleClass="refresh-button"/>
+        </VBox>
+            </VBox>
+        </ScrollPane>
+        
+        <!-- Delta Selection Builder Panel -->
+        <VBox fx:id="deltaBuilderPanel" styleClass="delta-builder-panel" 
+              minWidth="280" prefWidth="300" maxWidth="320" spacing="12">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="15"/>
+            </padding>
+            
+            <Label text="🎯 Delta Selection Builder" styleClass="delta-panel-header"/>
+            
+            <Label text="Game:" styleClass="delta-label-bold"/>
+            <Label fx:id="deltaGameLabel" text="Cash Five" styleClass="delta-game-label"/>
+            
+            <!-- Delta Mode Selection -->
+            <VBox spacing="5">
+                <Label text="Delta Mode:" styleClass="delta-label-bold"/>
+                <ComboBox fx:id="deltaModeComboBox" prefWidth="250" styleClass="delta-mode-combo"/>
+            </VBox>
+            
+            <!-- Current Position Selector -->
+            <VBox spacing="5">
+                <Label text="Current Position:" styleClass="delta-label-bold"/>
+                <ComboBox fx:id="positionSelectorCombo" prefWidth="250" styleClass="position-selector-combo"/>
+            </VBox>
+            
+            <Label text="Cached Selections:" styleClass="delta-label-bold"/>
+            
+            <!-- Cached Positions List -->
+            <ScrollPane fitToWidth="true" prefHeight="250" styleClass="delta-cache-scroll">
+                <VBox fx:id="cachePositionsContainer" spacing="8" styleClass="cache-positions-container"/>
+            </ScrollPane>
+            
+            <!-- Progress Indicator -->
+            <Label fx:id="cacheProgressLabel" text="Progress: 0/5 positions" 
+                   styleClass="delta-progress-label"/>
+            
+            <!-- Action Buttons -->
+            <VBox spacing="8">
+                <Button text="Add Selected Range to Cache" onAction="#handleAddToCache" 
+                        styleClass="delta-add-button" prefWidth="250"/>
+                <Button fx:id="sendToGeneratorButton" text="Send to Delta Generator" 
+                        onAction="#handleSendToGenerator" styleClass="delta-send-button" 
+                        disable="true" prefWidth="250"/>
+                <Button fx:id="clearCacheButton" text="Clear All Cache" 
+                        onAction="#handleClearCache" styleClass="delta-clear-button" 
+                        prefWidth="250"/>
+            </VBox>
+            
+            <!-- Help Text -->
+            <Label text="💡 Tip: Click a range column header, then click 'Add to Cache'" 
+                   wrapText="true" styleClass="delta-hint-label"/>
+        </VBox>
+        
+    </HBox>
+    
+    <!-- Loading Indicator (moved outside HBox to overlay everything) -->
+    <StackPane fx:id="loadingOverlay" visible="false" managed="false"
+              AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0"
+              AnchorPane.rightAnchor="0" AnchorPane.bottomAnchor="0"
+              styleClass="loading-overlay">
+        <ProgressIndicator fx:id="loadingIndicator" styleClass="loading-spinner"/>
+    </StackPane>
+</AnchorPane>

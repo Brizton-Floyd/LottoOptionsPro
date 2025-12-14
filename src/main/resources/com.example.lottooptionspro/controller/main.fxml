@@ -40,6 +40,8 @@
             <ToggleButton text="Smart Generator" onAction="#showSmartNumberGenerator" toggleGroup="$toggleGroup" fx:id="btnSmartNumberGenerator"/>
             <ToggleButton text="Random Number Generator" onAction="#showRandomNumberGenerator" toggleGroup="$toggleGroup" fx:id="btnRandomNumberGenerator"/>
             <ToggleButton text="Win Check" onAction="#showWinCheck" toggleGroup="$toggleGroup" fx:id="btnTicketPrinting"/>
+            <ToggleButton text="Range Analysis" onAction="#showRangeAnalysis" toggleGroup="$toggleGroup" fx:id="btnRangeAnalysis"/>
+            <ToggleButton text="Delta Pick Generator" onAction="#showDeltaPickGenerator" toggleGroup="$toggleGroup" fx:id="btnDeltaPickGenerator"/>
             <ToggleButton text="Statistical Analysis Tools" onAction="#showStatisticalAnalysisTools" toggleGroup="$toggleGroup" fx:id="btnStatisticalAnalysisTools"/>
             <ToggleButton text="Historical Data and Trends" onAction="#showHistoricalDataAndTrends" toggleGroup="$toggleGroup" fx:id="btnHistoricalDataAndTrends"/>
             <ToggleButton text="User Account Management" onAction="#showUserAccountManagement" toggleGroup="$toggleGroup" fx:id="btnUserAccountManagement"/>

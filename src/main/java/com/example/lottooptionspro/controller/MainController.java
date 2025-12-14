@@ -98,13 +98,25 @@ public class MainController {
     @FXML
     private void showTemplateCreator(ActionEvent actionEvent) {
         reEnableDisableButton(actionEvent);
-        this.screenManager.loadView(TemplateCreatorController.class, mainContentArea, createLoadingOverlay());
+        this.screenManager.loadView(TemplateCreatorController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
     }
 
     @FXML
     private void showWinCheck(ActionEvent actionEvent) {
         reEnableDisableButton(actionEvent);
         this.screenManager.loadView(LotteryValidatorController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
+    }
+
+    @FXML
+    private void showRangeAnalysis(ActionEvent actionEvent) {
+        reEnableDisableButton(actionEvent);
+        this.screenManager.loadView(RangeAnalysisController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
+    }
+
+    @FXML
+    private void showDeltaPickGenerator(ActionEvent actionEvent) {
+        reEnableDisableButton(actionEvent);
+        this.screenManager.loadView(DeltaPickGeneratorController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
     }
 
     @FXML

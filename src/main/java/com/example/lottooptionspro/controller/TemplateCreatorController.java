@@ -51,9 +51,13 @@ import java.util.Set;
 
 @Component
 @FxmlView("/com.example.lottooptionspro/controller/TemplateCreatorView.fxml")
-public class TemplateCreatorController implements TemplateCreatorView {
+public class TemplateCreatorController implements TemplateCreatorView, ContextAware {
 
     private TemplateCreatorPresenter presenter;
+    
+    // Context from MainController
+    private String contextStateName;
+    private String contextGameName;
 
     @FXML
     private TextField gameNameField, jurisdictionField, globalOptionNameField;
@@ -1081,6 +1085,42 @@ public class TemplateCreatorController implements TemplateCreatorView {
         // If this is a template loading success, enable controls
         if (message.contains("Template loaded")) {
             setTemplateControlsEnabled(true);
+        }
+    }
+
+    @Override
+    public void showInfo(String message) {
+        new Alert(Alert.AlertType.INFORMATION, message).showAndWait();
+    }
+
+    @Override
+    public void initializeWithContext(String stateName, String gameName) {
+        this.contextStateName = stateName;
+        this.contextGameName = gameName;
+        
+        System.out.println("Template Creator initialized with context: " + stateName + " - " + gameName);
+        
+        // Auto-populate UI fields
+        if (jurisdictionField != null) {
+            jurisdictionField.setText(stateName);
+        }
+        if (gameNameField != null) {
+            gameNameField.setText(gameName);
+        }
+        
+        // Attempt to auto-load template
+        attemptAutoLoadTemplate();
+    }
+
+    private void attemptAutoLoadTemplate() {
+        if (contextStateName != null && contextGameName != null && presenter != null) {
+            boolean loaded = presenter.attemptAutoLoadTemplate(contextStateName, contextGameName);
+            
+            if (loaded) {
+                // Enable template-dependent controls
+                setTemplateControlsEnabled(true);
+            }
+            // If not loaded, the presenter will show an appropriate info message
         }
     }
 

@@ -1,5 +1,7 @@
 package com.example.lottooptionspro.presenter;
 
+import com.example.lottooptionspro.model.dashboard.SegmentAnalysisResult;
+import com.example.lottooptionspro.model.response.EnhancedDashboardResponse;
 import com.floyd.model.dashboard.DrawResultPattern;
 import com.floyd.model.response.DashboardResponse;
 
@@ -13,4 +15,10 @@ public interface DashboardView {
     void setUpLegend();
 
     void showDataError(Throwable error);
+    
+    void setUpSegmentAnalysisPane(SegmentAnalysisResult segmentAnalysis);
+    
+    void setUpEnhancedDashboard(EnhancedDashboardResponse enhancedResponse);
+    
+    void toggleSegmentView(boolean showSegments);
 }

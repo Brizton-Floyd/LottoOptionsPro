@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import java.net.URL?>
+
+<!-- Root container -->
+<AnchorPane fx:id="rootContainer" xmlns="http://javafx.com/javafx/11.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.example.lottooptionspro.controller.DeltaPickGeneratorController">
+    <stylesheets>
+        <URL value="@styling/dashboard.css"/>
+        <URL value="@styling/style.css"/>
+        <URL value="@styling/delta-pick-generator.css"/>
+        <URL value="@styling/delta-cache.css"/>
+    </stylesheets>
+
+    <!-- Main content scroll container -->
+    <ScrollPane AnchorPane.topAnchor="10.0" AnchorPane.leftAnchor="10.0"
+                AnchorPane.rightAnchor="10.0" AnchorPane.bottomAnchor="20.0"
+                fitToWidth="true" styleClass="main-scroll-pane">
+        <VBox spacing="15" styleClass="main-content-container">
+            <padding>
+                <Insets top="0" right="0" bottom="20" left="0"/>
+            </padding>
+
+            <!-- Header Section -->
+            <HBox spacing="15" alignment="CENTER_LEFT" styleClass="header-bar">
+                <Label fx:id="stateGameLabel" text="TEXAS - Cash Five" styleClass="state-game-label"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label fx:id="lastUpdatedLabel" text="Ready to generate picks" styleClass="last-updated-label"/>
+            </HBox>
+
+            <!-- Main Content Layout -->
+            <VBox spacing="15" VBox.vgrow="ALWAYS">
+
+                <!-- Top Row: Configuration Panel -->
+                <VBox styleClass="panel-container-modern" spacing="15" minHeight="300" prefHeight="350">
+                    <Label text="Delta Pick Configuration" styleClass="panel-header-modern"/>
+
+                    <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="settings-scroll-pane">
+                        <VBox spacing="15">
+                            
+                            <!-- Delta Input Mode -->
+                            <VBox spacing="8" styleClass="setting-group-modern">
+                                <Label text="Delta Input Mode" styleClass="setting-label-modern"/>
+                                <ComboBox fx:id="deltaModeComboBox" styleClass="analysis-mode-combo-modern" 
+                                         promptText="Select mode" prefWidth="200"/>
+                                <Label fx:id="modeDescriptionLabel" text="" styleClass="hint-label" wrapText="true"/>
+                            </VBox>
+
+                            <!-- Number of Combinations -->
+                            <VBox spacing="8" styleClass="setting-group-modern">
+                                <Label text="Number of Combinations to Generate" styleClass="setting-label-modern"/>
+                                <TextField fx:id="numCombinationsField" promptText="Enter number (e.g., 20)" 
+                                          styleClass="number-input" prefWidth="200"/>
+                            </VBox>
+
+                            <!-- Cache Indicator -->
+                            <HBox fx:id="cacheIndicatorContainer" styleClass="cache-indicator-box" 
+                                  spacing="10" alignment="CENTER_LEFT" visible="false" managed="false">
+                                <padding>
+                                    <Insets top="10" right="10" bottom="10" left="10"/>
+                                </padding>
+                                <Label fx:id="cacheStatusLabel" text="🔄 Cache available" styleClass="cache-status-label"/>
+                                <Region HBox.hgrow="ALWAYS"/>
+                                <Button fx:id="loadFromCacheButton" text="Load" 
+                                        onAction="#handleLoadFromCache" styleClass="cache-action-button" 
+                                        prefWidth="70"/>
+                                <Button fx:id="saveToCacheButton" text="Save" 
+                                        onAction="#handleSaveToCache" styleClass="cache-action-button" 
+                                        prefWidth="70"/>
+                                <Button fx:id="clearCacheButton" text="Clear" 
+                                        onAction="#handleClearCacheFromGenerator" styleClass="cache-clear-button" 
+                                        prefWidth="70"/>
+                            </HBox>
+                            
+                            <!-- Dynamic Delta Inputs -->
+                            <VBox spacing="8" styleClass="setting-group-modern">
+                                <Label text="Delta Values (comma-separated)" styleClass="setting-label-modern"/>
+                                <GridPane fx:id="deltaInputsGrid" hgap="15" vgap="10" styleClass="delta-inputs-grid" 
+                                         minHeight="100" prefHeight="150">
+                                    <!-- Dynamically populated -->
+                                </GridPane>
+                                <Label text="Example: 3,7,13 or single value: 5" styleClass="hint-label"/>
+                            </VBox>
+
+                            <!-- Generate Button -->
+                            <Button fx:id="generatePicksButton" text="Generate Picks" 
+                                   styleClass="apply-button-modern" onAction="#handleGeneratePicks"
+                                   prefWidth="200"/>
+
+                        </VBox>
+                    </ScrollPane>
+                </VBox>
+
+                <!-- Middle Row: Generated Picks Table -->
+                <VBox spacing="15" styleClass="panel-container-modern" VBox.vgrow="ALWAYS" minHeight="400" prefHeight="500">
+                    <Label text="Generated Picks" styleClass="panel-header-modern"/>
+
+                    <!-- Table -->
+                    <TableView fx:id="generatedPicksTable" VBox.vgrow="ALWAYS" styleClass="modern-table">
+                        <columns>
+                            <TableColumn fx:id="rankColumn" text="Rank" prefWidth="60" styleClass="rank-column"/>
+                            <TableColumn fx:id="numbersColumn" text="Numbers" prefWidth="200" styleClass="numbers-column"/>
+                            <TableColumn fx:id="rawDeltasColumn" text="Raw Deltas" prefWidth="200" styleClass="deltas-column"/>
+                            <TableColumn fx:id="sortedDeltasColumn" text="Sorted Deltas" prefWidth="200" styleClass="deltas-column"/>
+                            <TableColumn fx:id="probabilityColumn" text="Probability Score" prefWidth="150" styleClass="probability-column"/>
+                        </columns>
+                        <placeholder>
+                            <Label text="No picks generated yet. Configure settings above and click 'Generate Picks'." 
+                                  styleClass="placeholder-label"/>
+                        </placeholder>
+                    </TableView>
+                </VBox>
+
+                <!-- Bottom Row: Action Buttons and Summary -->
+                <VBox spacing="15" styleClass="panel-container-modern">
+                    <Label text="Actions &amp; Analysis Summary" styleClass="panel-header-modern"/>
+
+                    <!-- Action Buttons Row -->
+                    <HBox spacing="15" alignment="CENTER_LEFT">
+                        <Button fx:id="regeneratePicksButton" text="Regenerate Picks" 
+                               styleClass="secondary-button-modern" onAction="#handleRegeneratePicks"
+                               disable="true"/>
+                        
+                        <Region HBox.hgrow="ALWAYS"/>
+                        
+                        <!-- Betslip Generation Section -->
+                        <VBox spacing="5" alignment="CENTER_RIGHT">
+                            <Label text="Number of picks to include in betslip:" styleClass="setting-label-modern"/>
+                            <HBox spacing="10" alignment="CENTER_RIGHT">
+                                <TextField fx:id="picksToIncludeCountField" promptText="e.g., 10" 
+                                          styleClass="number-input-small" prefWidth="80"/>
+                                <Button fx:id="generateBetslipsButton" text="Generate Betslips" 
+                                       styleClass="primary-button" onAction="#handleGenerateBetslips"
+                                       disable="true"/>
+                            </HBox>
+                        </VBox>
+                    </HBox>
+
+                    <Separator/>
+
+                    <!-- Summary Panels -->
+                    <HBox spacing="15" VBox.vgrow="ALWAYS">
+                        
+                        <!-- Current Configuration Panel -->
+                        <VBox spacing="8" styleClass="summary-panel" HBox.hgrow="ALWAYS">
+                            <Label text="Current Configuration" styleClass="summary-header"/>
+                            <Label fx:id="configGameLabel" text="Game: -" styleClass="summary-value"/>
+                            <Label fx:id="configMaxNumberLabel" text="Max Number: -" styleClass="summary-value"/>
+                            <Label fx:id="configNumPicksLabel" text="Numbers per Pick: -" styleClass="summary-value"/>
+                            <Label fx:id="configModeLabel" text="Mode: -" styleClass="summary-value"/>
+                        </VBox>
+
+                        <!-- Analysis Summary Panel -->
+                        <VBox spacing="8" styleClass="summary-panel" HBox.hgrow="ALWAYS">
+                            <Label text="Analysis Summary" styleClass="summary-header"/>
+                            <Label fx:id="totalCombinationsLabel" text="Total Valid: -" styleClass="summary-value"/>
+                            <Label fx:id="executionTimeLabel" text="Execution Time: -" styleClass="summary-value"/>
+                            <Label fx:id="searchSpaceLabel" text="Search Space: -" styleClass="summary-value"/>
+                            <Label fx:id="generationStrategyLabel" text="Strategy: -" styleClass="summary-value"/>
+                        </VBox>
+
+                        <!-- Historical Performance Panel -->
+                        <VBox spacing="8" styleClass="summary-panel" HBox.hgrow="ALWAYS">
+                            <Label text="Historical Performance" styleClass="summary-header"/>
+                            <Label fx:id="totalWinsLabel" text="Total Wins: -" styleClass="summary-value"/>
+                            <Label fx:id="match5Label" text="Match 5: -" styleClass="summary-value"/>
+                            <Label fx:id="match4Label" text="Match 4: -" styleClass="summary-value"/>
+                            <Label fx:id="match3Label" text="Match 3: -" styleClass="summary-value"/>
+                            <Label fx:id="performanceFactorLabel" text="Performance: -" styleClass="summary-value"/>
+                        </VBox>
+
+                    </HBox>
+
+                    <!-- Insights Section -->
+                    <VBox spacing="5" styleClass="insights-section">
+                        <Label text="Insights" styleClass="insights-header"/>
+                        <VBox fx:id="insightsContainer" spacing="3">
+                            <!-- Dynamically populated -->
+                        </VBox>
+                    </VBox>
+
+                </VBox>
+
+            </VBox>
+
+            <!-- Loading Indicator -->
+            <StackPane fx:id="loadingOverlay" visible="false" managed="false"
+                      styleClass="loading-overlay">
+                <ProgressIndicator fx:id="loadingIndicator" styleClass="loading-spinner"/>
+            </StackPane>
+
+        </VBox>
+    </ScrollPane>
+</AnchorPane>

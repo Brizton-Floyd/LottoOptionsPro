@@ -34,6 +34,7 @@ public interface TemplateCreatorView {
     void setGlobalOptionName(String name);
     void showError(String message);
     void showSuccess(String message);
+    void showInfo(String message);
     Optional<String> askForPreviewNumbers();
     
     // Validation methods

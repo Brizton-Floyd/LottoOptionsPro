@@ -24,30 +24,6 @@ public class ScreenManager {
         this.contentArea = contentArea;
     }
 
-    public <T extends GameInformation> void loadView(Class<T> controllerClass, StackPane contentArea, String stateName, String gameName, Node loadingIndicator) {
-        contentArea.getChildren().setAll(loadingIndicator);
-        FadeTransition fadeIn = new FadeTransition(Duration.millis(600), contentArea);
-        fadeIn.setFromValue(0);
-        fadeIn.setToValue(1);
-
-        FxControllerAndView<T, Node> controllerAndView = fxWeaver.load(controllerClass);
-        T controller = controllerAndView.getController();
-        // Subscribe to the Mono and load the view only after setUpUi completes
-        controller.setUpUi(stateName, gameName)
-                .doOnSuccess(result -> {
-                    Platform.runLater(() -> {
-                        Node view = controllerAndView.getView().get();
-                        contentArea.getChildren().setAll(view);
-                        fadeIn.play();
-                    });
-                })
-                .doOnError(error -> {
-                    // Handle error appropriately, e.g., show an error message
-                    System.err.println("Error during setUpUi: " + error.getMessage());
-                })
-                .subscribe();
-    }
-
     public <T> void loadView(Class<T> controllerClass, StackPane contentArea, Node loadingIndicator) {
         contentArea.getChildren().setAll(loadingIndicator);
         FadeTransition fadeIn = new FadeTransition(Duration.millis(600), contentArea);
@@ -61,5 +37,49 @@ public class ScreenManager {
             contentArea.getChildren().setAll(view);
             fadeIn.play();
         });
+    }
+
+    public <T> void loadView(Class<T> controllerClass, StackPane contentArea, 
+                            String stateName, String gameName, Node loadingIndicator) {
+        contentArea.getChildren().setAll(loadingIndicator);
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(600), contentArea);
+        fadeIn.setFromValue(0);
+        fadeIn.setToValue(1);
+
+        FxControllerAndView<T, Node> controllerAndView = fxWeaver.load(controllerClass);
+        T controller = controllerAndView.getController();
+
+        // Handle GameInformation controllers (reactive with Mono)
+        if (controller instanceof GameInformation) {
+            ((GameInformation) controller).setUpUi(stateName, gameName)
+                    .doOnSuccess(result -> {
+                        Platform.runLater(() -> {
+                            Node view = controllerAndView.getView().get();
+                            contentArea.getChildren().setAll(view);
+                            fadeIn.play();
+                        });
+                    })
+                    .doOnError(error -> {
+                        System.err.println("Error during setUpUi: " + error.getMessage());
+                    })
+                    .subscribe();
+        } 
+        // Handle ContextAware controllers (synchronous)
+        else if (controller instanceof com.example.lottooptionspro.controller.ContextAware) {
+            ((com.example.lottooptionspro.controller.ContextAware) controller).initializeWithContext(stateName, gameName);
+            Platform.runLater(() -> {
+                Node view = controllerAndView.getView().get();
+                contentArea.getChildren().setAll(view);
+                fadeIn.play();
+            });
+        } 
+        // Fallback: just load the view without context initialization
+        else {
+            Platform.runLater(() -> {
+                Node view = controllerAndView.getView().get();
+                contentArea.getChildren().setAll(view);
+                fadeIn.play();
+            });
+        }
     }
 }

@@ -1,0 +1,172 @@
+/* Delta Pick Generator Specific Styles */
+
+/* Delta Inputs Grid */
+.delta-inputs-grid {
+    -fx-padding: 15;
+    -fx-background-color: #FAFAFA;
+    -fx-background-radius: 5;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 1;
+    -fx-border-radius: 5;
+}
+
+.delta-inputs-grid .label {
+    -fx-font-weight: bold;
+    -fx-text-fill: #333333;
+}
+
+.delta-inputs-grid .text-field {
+    -fx-pref-width: 200;
+}
+
+/* Number Input Fields */
+.number-input {
+    -fx-pref-width: 200;
+    -fx-font-size: 14px;
+}
+
+.number-input-small {
+    -fx-pref-width: 80;
+    -fx-font-size: 14px;
+    -fx-alignment: center;
+}
+
+/* Hint Labels */
+.hint-label {
+    -fx-text-fill: #757575;
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+}
+
+/* Table Styles */
+.modern-table {
+    -fx-background-color: white;
+}
+
+.modern-table .table-row-cell:selected {
+    -fx-background-color: #E3F2FD;
+}
+
+.modern-table .table-cell {
+    -fx-alignment: CENTER;
+    -fx-padding: 8 10;
+}
+
+.modern-table .table-column {
+    -fx-alignment: CENTER;
+}
+
+.rank-column .table-cell {
+    -fx-alignment: CENTER;
+    -fx-font-weight: bold;
+}
+
+.numbers-column .table-cell {
+    -fx-alignment: CENTER;
+    -fx-font-family: "Courier New", monospace;
+    -fx-font-size: 13px;
+}
+
+.deltas-column .table-cell {
+    -fx-alignment: CENTER;
+    -fx-font-family: "Courier New", monospace;
+    -fx-font-size: 12px;
+    -fx-text-fill: #555555;
+}
+
+.probability-column .table-cell {
+    -fx-alignment: CENTER;
+    -fx-font-family: monospace;
+}
+
+/* Number Badges (for custom cell rendering) */
+.number-badge {
+    -fx-background-color: #005A9E;
+    -fx-text-fill: white;
+    -fx-background-radius: 50%;
+    -fx-padding: 4 8;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-min-width: 30px;
+    -fx-min-height: 30px;
+    -fx-alignment: center;
+}
+
+/* Summary Panels */
+.summary-panel {
+    -fx-background-color: #F5F5F5;
+    -fx-background-radius: 5;
+    -fx-padding: 15;
+    -fx-border-color: #E0E0E0;
+    -fx-border-width: 1;
+    -fx-border-radius: 5;
+}
+
+.summary-header {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #005A9E;
+}
+
+.summary-value {
+    -fx-font-size: 13px;
+    -fx-text-fill: #333333;
+}
+
+/* Insights Section */
+.insights-section {
+    -fx-background-color: #FFF9E6;
+    -fx-background-radius: 5;
+    -fx-padding: 10;
+    -fx-border-color: #FFD54F;
+    -fx-border-width: 1;
+    -fx-border-radius: 5;
+}
+
+.insights-header {
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #F57C00;
+}
+
+.insight-item {
+    -fx-font-size: 12px;
+    -fx-text-fill: #555555;
+    -fx-padding: 2 0;
+}
+
+/* Placeholder Label */
+.placeholder-label {
+    -fx-text-fill: #9E9E9E;
+    -fx-font-size: 14px;
+    -fx-font-style: italic;
+}
+
+/* Secondary Button */
+.secondary-button-modern {
+    -fx-background-color: #757575;
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-padding: 10 20;
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(one-pass-box, rgba(0,0,0,0.1), 2, 0.0, 0, 1);
+    -fx-min-height: 40px;
+}
+
+.secondary-button-modern:hover {
+    -fx-background-color: #616161;
+}
+
+.secondary-button-modern:disabled {
+    -fx-opacity: 0.5;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+    -fx-background-color: rgba(255, 255, 255, 0.8);
+}
+
+.loading-spinner {
+    -fx-progress-color: #005A9E;
+}

@@ -48,7 +48,7 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
 
     // Constants for better maintainability
     private static final int MIN_TICKETS = 1;
-    private static final int MAX_TICKETS = 1000;
+    private static final int MAX_TICKETS = 5000;
     private static final int DEFAULT_TICKETS = 20;
     private static final int MIN_NUMBER_RANGE = 1;
     private static final int MAX_NUMBER_RANGE = 99;

@@ -46,6 +46,7 @@
     <bottom>
         <HBox alignment="CENTER_RIGHT" spacing="10" style="-fx-padding: 10;">
             <children>
+                <Button onAction="#handlePrint" text="Print..." />
                 <Button onAction="#handleSave" text="Save PDF" />
                 <Button onAction="#handleCancel" text="Cancel" />
             </children>
