@@ -6,20 +6,25 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 public class OptimizedWheelBuilder {
 
     private static final Logger logger = LoggerFactory.getLogger(OptimizedWheelBuilder.class);
 
-    // --- PHYSICS CONSTANTS ---
+    // PHYSICS CONSTANTS
     private static final int SA_ITERATIONS = 2000000;
-    // FIXED: Lowered from 50.0 to 1.5 to stop "Thermal Runaway" (random walking)
     private static final double SA_INITIAL_TEMP = 1.5;
     private static final double SA_COOLING_RATE = 0.999999;
     private static final double REDUNDANCY_PENALTY = 0.0001;
+
+    // THREADING
+    private final int THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+    private final ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
 
     private Random random = new Random();
 
@@ -27,45 +32,49 @@ public class OptimizedWheelBuilder {
         params.validate();
 
         logger.info("Building optimal wheel for {}", params.getNotation());
+        logger.info("Parallel Processing: Using {} threads.", THREAD_COUNT);
+
         callback.update("Analyzing coverage requirements...", 0.05, 0, 0, 0);
 
         Set<Set<Integer>> universe = generateUniverse(params, cancelled);
         if (cancelled.get()) return new ArrayList<>();
 
         int totalRequired = universe.size();
-        logger.info("Universe size: {} combinations to cover", totalRequired);
 
         callback.update("Generating candidate tickets...", 0.1, 0, totalRequired, 0);
         List<int[]> candidates = generateCandidates(params.getV(), params.getK());
-        logger.info("Generated {} candidate tickets", candidates.size());
 
         callback.update("Converting to BitSet...", 0.12, 0, totalRequired, 0);
         List<BitSet> universeBitSet = convertUniverseToBitSet(universe, params.getV());
         List<BitSet> candidatesBitSet = convertCandidatesToBitSet(candidates, params.getV());
 
-        callback.update("Pre-calculating coverage matrix...", 0.15, 0, totalRequired, 0);
+        // OPTIMIZATION: Parallel Pre-calc
+        callback.update("Pre-calculating coverage matrix (Parallel)...", 0.15, 0, totalRequired, 0);
+        long startM = System.currentTimeMillis();
         BitSet[] coverageMatrix = preCalculateCoverageMatrix(candidatesBitSet, universeBitSet, params.getM());
-        logger.info("Coverage matrix pre-calculated for {} candidates", candidatesBitSet.size());
+        logger.info("Coverage matrix calc took {}ms", System.currentTimeMillis() - startM);
 
-        // 1. Calculate the Mathematical Floor
+        // 1. Calculate Floor
         int theoreticalMin = calculateTheoreticalMinimum(params, totalRequired, candidatesBitSet.size());
 
-        // 2. Generate Baseline (Greedy) - This is our Safety Net
+        // 2. Generate Baseline (Matrix-Based Greedy)
         callback.update("Building initial greedy wheel...", 0.2, 0, totalRequired, 0);
-        Map<BitSet, Double> rarityWeights = computeRarityWeights(universeBitSet, coverageMatrix);
-        List<int[]> greedyWheel = rarityWeightedGreedySelection(
-                universeBitSet, candidatesBitSet, rarityWeights, params, callback, cancelled, totalRequired
+        long startG = System.currentTimeMillis();
+        List<int[]> greedyWheel = matrixBasedGreedySelection(
+                candidatesBitSet, coverageMatrix, totalRequired, callback, cancelled
         );
+        logger.info("Greedy generation took {}ms", System.currentTimeMillis() - startG);
 
         if (cancelled.get()) return greedyWheel;
 
         int greedySize = greedyWheel.size();
         logger.info("Initial greedy wheel: {} lines", greedySize);
 
-        // 3. Run Target-Led Optimization
-        callback.update("Running target-led optimization...", 0.5, totalRequired, totalRequired, greedySize);
-        List<int[]> wheel = runTargetLedOptimization(
-                theoreticalMin, greedySize, greedyWheel, // Pass greedyWheel for fallback
+        // 3. Run PARALLEL Target-Led Optimization
+        callback.update("Running multi-threaded optimization...", 0.5, totalRequired, totalRequired, greedySize);
+
+        List<int[]> wheel = runParallelTargetLedOptimization(
+                theoreticalMin, greedySize, greedyWheel,
                 universeBitSet, candidatesBitSet, coverageMatrix,
                 params, callback, cancelled
         );
@@ -76,29 +85,10 @@ public class OptimizedWheelBuilder {
         return wheel;
     }
 
-    private int calculateTheoreticalMinimum(WheelParameters params, int universeSize, int candidatesSize) {
-        int v = params.getV();
-        int k = params.getK();
-        int m = params.getM();
-        int t = params.getT();
-
-        long coveragePerTicket = 0;
-        for (int i = m; i <= k; i++) {
-            coveragePerTicket += (long) binomialCoefficient(k, i) * binomialCoefficient(v - k, t - i);
-        }
-
-        if (coveragePerTicket == 0) coveragePerTicket = 1;
-
-        int estimate = (int) Math.ceil((double) universeSize / coveragePerTicket);
-        logger.info("Coverage Ratio: 1 ticket covers {} outcomes. Floor: {}/{} = {}",
-                coveragePerTicket, universeSize, coveragePerTicket, estimate);
-        return estimate;
-    }
-
-    private List<int[]> runTargetLedOptimization(
+    private List<int[]> runParallelTargetLedOptimization(
             int theoreticalMin,
             int greedySize,
-            List<int[]> greedyWheel, // Added fallback parameter
+            List<int[]> greedyWheel,
             List<BitSet> universe,
             List<BitSet> candidates,
             BitSet[] coverageMatrix,
@@ -106,11 +96,12 @@ public class OptimizedWheelBuilder {
             WheelProgressCallback callback,
             AtomicBoolean cancelled) {
 
-        int targetSize = theoreticalMin;
+        // OPTIMIZATION: Bump heuristic to 0.65 to skip more impossible ranges
+        int heuristicStart = (int) (greedySize * 0.65);
+        int targetSize = Math.max(theoreticalMin, heuristicStart);
         int maxTarget = greedySize;
 
-        logger.info("DEBUG: targetSize={}, maxTarget={}, greedySize={}", targetSize, maxTarget, greedySize);
-        logger.info("Starting optimization range: {} -> {}", targetSize, maxTarget);
+        logger.info("Optimization Range: {} -> {} (Skipped theoretical floor {})", targetSize, maxTarget, theoreticalMin);
 
         Map<BitSet, Integer> candidateIndexMap = new HashMap<>();
         for (int i = 0; i < candidates.size(); i++) {
@@ -119,29 +110,52 @@ public class OptimizedWheelBuilder {
 
         while (targetSize < maxTarget && !cancelled.get()) {
 
-            double range = Math.max(1, maxTarget - theoreticalMin);
-            double currentPos = targetSize - theoreticalMin;
-            double progress = 0.5 + (0.5 * (currentPos / range));
-            callback.update(String.format("Optimizing %d tickets...", targetSize), progress,
+            double progress = 0.5 + (0.5 * ((double)(targetSize - theoreticalMin) / Math.max(1, maxTarget - theoreticalMin)));
+            callback.update(String.format("Optimizing %d tickets (%d threads)...", targetSize, THREAD_COUNT), progress,
                     universe.size(), universe.size(), targetSize);
 
-            // Run High-Speed SA
-            List<int[]> wheel = runFixedSizeSimulatedAnnealing(
-                    targetSize, universe, candidates, coverageMatrix, params, cancelled, SA_ITERATIONS
-            );
+            ExecutorCompletionService<List<int[]>> completionService = new ExecutorCompletionService<>(executor);
+            List<Future<List<int[]>>> futures = new ArrayList<>();
 
-            // Verify Result
-            if (verifyWheelCoverage(wheel, candidateIndexMap, coverageMatrix, universe.size())) {
-                logger.info("SUCCESS: Optimal wheel found at {} lines!", targetSize);
-                return wheel;
+            for (int i = 0; i < THREAD_COUNT; i++) {
+                final int currentTarget = targetSize;
+                futures.add(completionService.submit(() ->
+                        runFixedSizeSimulatedAnnealing(
+                                currentTarget, universe, candidates, coverageMatrix, params, cancelled, SA_ITERATIONS
+                        )
+                ));
             }
 
-            logger.info("Target {} failed. Incrementing.", targetSize);
+            int finishers = 0;
+            boolean success = false;
+            List<int[]> winningWheel = null;
+
+            try {
+                while (finishers < THREAD_COUNT) {
+                    Future<List<int[]>> resultFuture = completionService.take();
+                    finishers++;
+
+                    List<int[]> result = resultFuture.get();
+                    if (result != null && !result.isEmpty() && verifyWheelCoverage(result, candidateIndexMap, coverageMatrix, universe.size())) {
+                        logger.info("SUCCESS: Thread found optimal wheel at {} lines!", targetSize);
+                        winningWheel = result;
+                        success = true;
+                        break;
+                    }
+                }
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Thread interruption", e);
+            }
+
+            for (Future<?> f : futures) f.cancel(true);
+
+            if (success) return winningWheel;
+
+            logger.info("Target {} failed on all threads. Incrementing.", targetSize);
             targetSize++;
         }
 
-        // FIXED: Return the valid greedy wheel if optimization fails, instead of generating a broken one
-        logger.warn("Optimization finished without better result. Returning valid greedy wheel ({} lines).", greedySize);
+        logger.warn("Optimization finished without hitting 100%. Returning greedy attempt.");
         return greedyWheel;
     }
 
@@ -154,17 +168,17 @@ public class OptimizedWheelBuilder {
             AtomicBoolean cancelled,
             int customIterations) {
 
-        // 1. Initialize Random Wheel
+        ThreadLocalRandom threadRandom = ThreadLocalRandom.current();
+
         Set<Integer> usedIndices = new HashSet<>();
         List<Integer> wheelIndices = new ArrayList<>();
         while (wheelIndices.size() < targetSize) {
-            int candidateIdx = random.nextInt(candidates.size());
+            int candidateIdx = threadRandom.nextInt(candidates.size());
             if (usedIndices.add(candidateIdx)) {
                 wheelIndices.add(candidateIdx);
             }
         }
 
-        // 2. Initial State Calculation
         int universeSize = universe.size();
         int[] coverageCounts = new int[universeSize];
         int currentUncovered = universeSize;
@@ -186,29 +200,51 @@ public class OptimizedWheelBuilder {
         double temperature = SA_INITIAL_TEMP;
         int stagnationCounter = 0;
 
-        logger.info("Starting High-Speed SA: {} iterations, Target: {}", customIterations, targetSize);
-
         for (int iter = 0; iter < customIterations && !cancelled.get(); iter++) {
+            if (Thread.currentThread().isInterrupted()) return new ArrayList<>();
 
-            int replaceIdx = random.nextInt(wheelIndices.size());
+            // --- AGGRESSIVE FAIL-FAST CHECKPOINTS ---
+            // Abort early if the wheel isn't shaping up fast enough
+
+            // Check 1: At 2.5% progress (50k iters), must cover >50%
+            if (iter == 50000) {
+                double coverageRatio = (double)(universeSize - currentUncovered) / universeSize;
+                if (coverageRatio < 0.50) return new ArrayList<>(); // Abort
+            }
+            // Check 2: At 10% progress (200k iters), must cover >85%
+            if (iter == 200000) {
+                double coverageRatio = (double)(universeSize - currentUncovered) / universeSize;
+                if (coverageRatio < 0.85) return new ArrayList<>(); // Abort
+            }
+            // Check 3: At 25% progress (500k iters), must cover >95%
+            if (iter == 500000) {
+                double coverageRatio = (double)(universeSize - currentUncovered) / universeSize;
+                if (coverageRatio < 0.95) return new ArrayList<>(); // Abort
+            }
+
+            // Check 4: Stagnation Kill Switch
+            // If we haven't improved in 150k iters AND we have >10 holes, give up.
+            if (stagnationCounter > 150000 && currentUncovered > 10) {
+                return new ArrayList<>();
+            }
+
+            int replaceIdx = threadRandom.nextInt(wheelIndices.size());
             int oldCandidateIdx = wheelIndices.get(replaceIdx);
 
             int newCandidateIdx;
-            // 95% Chance to target holes if they exist
-            if (currentUncovered > 0 && random.nextDouble() < 0.95) {
-                int randomHole = findRandomHole(coverageCounts, universeSize);
+            if (currentUncovered > 0 && threadRandom.nextDouble() < 0.95) {
+                int randomHole = findRandomHole(coverageCounts, universeSize, threadRandom);
                 if (randomHole != -1) {
-                    newCandidateIdx = findCandidateCoveringHole(randomHole, coverageMatrix, usedIndices, candidates.size());
+                    newCandidateIdx = findCandidateCoveringHole(randomHole, coverageMatrix, usedIndices, candidates.size(), threadRandom);
                 } else {
-                    newCandidateIdx = findRandomUnusedCandidate(candidates.size(), usedIndices);
+                    newCandidateIdx = findRandomUnusedCandidate(candidates.size(), usedIndices, threadRandom);
                 }
             } else {
-                newCandidateIdx = findRandomUnusedCandidate(candidates.size(), usedIndices);
+                newCandidateIdx = findRandomUnusedCandidate(candidates.size(), usedIndices, threadRandom);
             }
 
             if (newCandidateIdx == -1 || newCandidateIdx == oldCandidateIdx) continue;
 
-            // Calculate Deltas
             int deltaUncovered = 0;
             int deltaRedundancy = 0;
 
@@ -228,7 +264,7 @@ public class OptimizedWheelBuilder {
             double newEnergy = (currentUncovered + deltaUncovered) + (REDUNDANCY_PENALTY * (currentRedundancy + deltaRedundancy));
             double energyDiff = newEnergy - currentEnergy;
 
-            boolean accept = energyDiff < 0 || random.nextDouble() < Math.exp(-energyDiff / temperature);
+            boolean accept = energyDiff < 0 || threadRandom.nextDouble() < Math.exp(-energyDiff / temperature);
 
             if (accept) {
                 wheelIndices.set(replaceIdx, newCandidateIdx);
@@ -246,10 +282,7 @@ public class OptimizedWheelBuilder {
                 if (currentEnergy < bestEnergy) {
                     bestEnergy = currentEnergy;
                     bestWheelIndices = new ArrayList<>(wheelIndices);
-                    if (currentUncovered == 0) {
-                        logger.info("SA SUCCESS: 100% Coverage at iter {}", iter);
-                        break;
-                    }
+                    if (currentUncovered == 0) break; // Success
                 }
             } else {
                 stagnationCounter++;
@@ -257,24 +290,77 @@ public class OptimizedWheelBuilder {
 
             temperature *= SA_COOLING_RATE;
 
-            // Reheat if stuck
             if (stagnationCounter > 250000) {
-                temperature += 0.5; // Mild reheat
+                temperature += 0.5;
                 stagnationCounter = 0;
-            }
-
-            if (iter % 200000 == 0 && iter > 0) {
-                logger.info("Iter {}/{}: uncovered={}, temp={:.5f}", iter, customIterations, currentUncovered, temperature);
             }
         }
 
-        return bestWheelIndices.stream()
-                .map(idx -> bitSetToArray(candidates.get(idx)))
-                .collect(Collectors.toList());
+        if (currentUncovered == 0) {
+            return bestWheelIndices.stream().map(idx -> bitSetToArray(candidates.get(idx))).collect(Collectors.toList());
+        } else {
+            return new ArrayList<>();
+        }
     }
 
-    private int findRandomHole(int[] coverageCounts, int universeSize) {
-        int start = random.nextInt(universeSize);
+    private List<int[]> matrixBasedGreedySelection(
+            List<BitSet> candidates,
+            BitSet[] coverageMatrix,
+            int universeSize,
+            WheelProgressCallback callback,
+            AtomicBoolean cancelled) {
+
+        List<int[]> wheel = new ArrayList<>();
+        BitSet uncoveredIndices = new BitSet(universeSize);
+        uncoveredIndices.set(0, universeSize);
+
+        Set<Integer> usedIndices = new HashSet<>();
+
+        // Parallel stream candidate processing for greedy step can be complex due to state.
+        // Keeping linear scan for best Candidate but using fast intersection.
+
+        while (!uncoveredIndices.isEmpty() && !cancelled.get()) {
+            int bestIdx = -1;
+            int maxCover = -1;
+
+            // This inner loop can be slow if Candidates > 100k.
+            // For typical wheels (<20k candidates), this O(N) linear scan is acceptable (~50ms).
+            for (int i = 0; i < candidates.size(); i++) {
+                if (usedIndices.contains(i)) continue;
+
+                // Fast intersection check
+                BitSet coverage = coverageMatrix[i];
+                int newCoverCount = countIntersection(coverage, uncoveredIndices);
+
+                if (newCoverCount > maxCover) {
+                    maxCover = newCoverCount;
+                    bestIdx = i;
+                }
+            }
+
+            if (bestIdx == -1 || maxCover == 0) break;
+
+            wheel.add(bitSetToArray(candidates.get(bestIdx)));
+            usedIndices.add(bestIdx);
+
+            uncoveredIndices.andNot(coverageMatrix[bestIdx]);
+        }
+
+        return wheel;
+    }
+
+    private int countIntersection(BitSet a, BitSet b) {
+        int count = 0;
+        for (int i = a.nextSetBit(0); i >= 0; i = a.nextSetBit(i + 1)) {
+            if (b.get(i)) count++;
+        }
+        return count;
+    }
+
+    // --- HELPER METHODS ---
+
+    private int findRandomHole(int[] coverageCounts, int universeSize, Random rnd) {
+        int start = rnd.nextInt(universeSize);
         for (int i = 0; i < universeSize; i++) {
             int idx = (start + i) % universeSize;
             if (coverageCounts[idx] == 0) return idx;
@@ -282,10 +368,9 @@ public class OptimizedWheelBuilder {
         return -1;
     }
 
-    private int findCandidateCoveringHole(int holeIdx, BitSet[] coverageMatrix, Set<Integer> usedIndices, int totalCandidates) {
-        int start = random.nextInt(totalCandidates);
-        for (int i = 0; i < totalCandidates; i++) {
-            int idx = (start + i) % totalCandidates;
+    private int findCandidateCoveringHole(int holeIdx, BitSet[] coverageMatrix, Set<Integer> usedIndices, int totalCandidates, Random rnd) {
+        for(int i=0; i<50; i++) {
+            int idx = rnd.nextInt(totalCandidates);
             if (!usedIndices.contains(idx) && coverageMatrix[idx].get(holeIdx)) {
                 return idx;
             }
@@ -293,12 +378,47 @@ public class OptimizedWheelBuilder {
         return -1;
     }
 
-    private int findRandomUnusedCandidate(int candidatesSize, Set<Integer> usedIndices) {
+    private int findRandomUnusedCandidate(int candidatesSize, Set<Integer> usedIndices, Random rnd) {
         for(int i=0; i<50; i++) {
-            int idx = random.nextInt(candidatesSize);
+            int idx = rnd.nextInt(candidatesSize);
             if(!usedIndices.contains(idx)) return idx;
         }
         return -1;
+    }
+
+    private BitSet[] preCalculateCoverageMatrix(List<BitSet> candidates, List<BitSet> universe, int m) {
+        BitSet[] matrix = new BitSet[candidates.size()];
+        IntStream.range(0, candidates.size()).parallel().forEach(i -> {
+            matrix[i] = new BitSet(universe.size());
+            BitSet candidate = candidates.get(i);
+            for (int j = 0; j < universe.size(); j++) {
+                if (hasAtLeastMatches(candidate, universe.get(j), m)) {
+                    matrix[i].set(j);
+                }
+            }
+        });
+        return matrix;
+    }
+
+    private boolean hasAtLeastMatches(BitSet ticket, BitSet draw, int m) {
+        int matches = 0;
+        for (int i = ticket.nextSetBit(0); i >= 0; i = ticket.nextSetBit(i + 1)) {
+            if (draw.get(i)) {
+                matches++;
+                if (matches >= m) return true;
+            }
+        }
+        return false;
+    }
+
+    private int calculateTheoreticalMinimum(WheelParameters params, int universeSize, int candidatesSize) {
+        int v = params.getV(); int k = params.getK(); int m = params.getM(); int t = params.getT();
+        long coveragePerTicket = 0;
+        for (int i = m; i <= k; i++) {
+            coveragePerTicket += (long) binomialCoefficient(k, i) * binomialCoefficient(v - k, t - i);
+        }
+        if (coveragePerTicket == 0) coveragePerTicket = 1;
+        return (int) Math.ceil((double) universeSize / coveragePerTicket);
     }
 
     private boolean verifyWheelCoverage(List<int[]> wheel, Map<BitSet, Integer> indexMap, BitSet[] coverageMatrix, int universeSize) {
@@ -314,9 +434,7 @@ public class OptimizedWheelBuilder {
             }
         }
         int covered = 0;
-        for(int c : coverageCounts) {
-            if(c > 0) covered++;
-        }
+        for(int c : coverageCounts) if(c > 0) covered++;
         return covered == universeSize;
     }
 
@@ -324,23 +442,12 @@ public class OptimizedWheelBuilder {
         if (k > n || k < 0) return 0;
         if (k == 0 || k == n) return 1;
         double result = 1;
-        for (int i = 0; i < Math.min(k, n - k); i++) {
-            result = result * (n - i) / (i + 1);
-        }
+        for (int i = 0; i < Math.min(k, n - k); i++) result = result * (n - i) / (i + 1);
         return result;
     }
 
-    private int[] bitSetToArray(BitSet bs) {
-        return bs.stream().toArray();
-    }
-
-    private BitSet arrayToBitSet(int[] ticket) {
-        BitSet bs = new BitSet();
-        for (int num : ticket) bs.set(num);
-        return bs;
-    }
-
-    // --- GREEDY SETUP METHODS ---
+    private int[] bitSetToArray(BitSet bs) { return bs.stream().toArray(); }
+    private BitSet arrayToBitSet(int[] ticket) { BitSet bs = new BitSet(); for (int num : ticket) bs.set(num); return bs; }
 
     private Set<Set<Integer>> generateUniverse(WheelParameters params, AtomicBoolean cancelled) {
         Set<Set<Integer>> universe = new HashSet<>();
@@ -352,97 +459,17 @@ public class OptimizedWheelBuilder {
         return universe;
     }
 
-    private List<int[]> generateCandidates(int v, int k) {
-        return generateAllCombinations(v, k);
-    }
+    private List<int[]> generateCandidates(int v, int k) { return generateAllCombinations(v, k); }
 
     private List<BitSet> convertUniverseToBitSet(Set<Set<Integer>> universe, int v) {
         return universe.stream().map(draw -> {
-            BitSet bs = new BitSet(v + 1);
-            for (int num : draw) bs.set(num);
-            return bs;
+            BitSet bs = new BitSet(v + 1); for (int num : draw) bs.set(num); return bs;
         }).collect(Collectors.toList());
     }
-
     private List<BitSet> convertCandidatesToBitSet(List<int[]> candidates, int v) {
         return candidates.stream().map(ticket -> {
-            BitSet bs = new BitSet(v + 1);
-            for (int num : ticket) bs.set(num);
-            return bs;
+            BitSet bs = new BitSet(v + 1); for (int num : ticket) bs.set(num); return bs;
         }).collect(Collectors.toList());
-    }
-
-    private BitSet[] preCalculateCoverageMatrix(List<BitSet> candidates, List<BitSet> universe, int m) {
-        BitSet[] matrix = new BitSet[candidates.size()];
-        for (int i = 0; i < candidates.size(); i++) {
-            matrix[i] = new BitSet(universe.size());
-            BitSet candidate = candidates.get(i);
-            for (int j = 0; j < universe.size(); j++) {
-                BitSet intersection = (BitSet) candidate.clone();
-                intersection.and(universe.get(j));
-                if (intersection.cardinality() >= m) {
-                    matrix[i].set(j);
-                }
-            }
-        }
-        return matrix;
-    }
-
-    private Map<BitSet, Double> computeRarityWeights(List<BitSet> universe, BitSet[] coverageMatrix) {
-        Map<BitSet, Double> weights = new HashMap<>();
-        int[] drawCoverageCounts = new int[universe.size()];
-        for (BitSet coverage : coverageMatrix) {
-            for (int i = coverage.nextSetBit(0); i >= 0; i = coverage.nextSetBit(i + 1)) {
-                drawCoverageCounts[i]++;
-            }
-        }
-        for (int i = 0; i < universe.size(); i++) {
-            weights.put(universe.get(i), drawCoverageCounts[i] > 0 ? 1.0 / drawCoverageCounts[i] : 1000.0);
-        }
-        return weights;
-    }
-
-    private List<int[]> rarityWeightedGreedySelection(List<BitSet> universe, List<BitSet> candidates, Map<BitSet, Double> rarityWeights, WheelParameters params, WheelProgressCallback callback, AtomicBoolean cancelled, int totalRequired) {
-        List<int[]> wheel = new ArrayList<>();
-        Set<BitSet> uncovered = new HashSet<>(universe);
-        Set<Integer> usedIndices = new HashSet<>();
-
-        while (!uncovered.isEmpty() && !cancelled.get()) {
-            int bestIdx = -1;
-            double maxScore = -1;
-
-            for (int i = 0; i < candidates.size(); i++) {
-                if (usedIndices.contains(i)) continue;
-                double score = 0;
-                BitSet candidate = candidates.get(i);
-                for (BitSet draw : uncovered) {
-                    BitSet inter = (BitSet) candidate.clone();
-                    inter.and(draw);
-                    if (inter.cardinality() >= params.getM()) {
-                        score += rarityWeights.getOrDefault(draw, 1.0);
-                    }
-                }
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestIdx = i;
-                }
-            }
-
-            if (bestIdx == -1) break;
-
-            BitSet bestTicket = candidates.get(bestIdx);
-            wheel.add(bitSetToArray(bestTicket));
-            usedIndices.add(bestIdx);
-
-            Set<BitSet> newlyCovered = new HashSet<>();
-            for (BitSet draw : uncovered) {
-                BitSet inter = (BitSet) bestTicket.clone();
-                inter.and(draw);
-                if (inter.cardinality() >= params.getM()) newlyCovered.add(draw);
-            }
-            uncovered.removeAll(newlyCovered);
-        }
-        return wheel;
     }
 
     private List<int[]> generateAllCombinations(int n, int k) {
@@ -453,30 +480,17 @@ public class OptimizedWheelBuilder {
     }
 
     private void generateCombinationsRecursive(int n, int k, int start, int index, int[] combo, List<int[]> result) {
-        if (index == k) {
-            result.add(combo.clone());
-            return;
-        }
+        if (index == k) { result.add(combo.clone()); return; }
         for (int i = start; i <= n - k + index; i++) {
             combo[index] = i;
             generateCombinationsRecursive(n, k, i + 1, index + 1, combo, result);
         }
     }
 
-    private void generateFromArrayRecursive(int[] array, int k, int start, int index, int[] combo, List<int[]> result) {
-        if (index == k) {
-            result.add(combo.clone());
-            return;
-        }
-        for (int i = start; i <= array.length - k + index; i++) {
-            combo[index] = array[i];
-            generateFromArrayRecursive(array, k, i + 1, index + 1, combo, result);
-        }
-    }
+    private Set<Integer> arrayToSet(int[] array) { Set<Integer> set = new HashSet<>(); for (int num : array) set.add(num); return set; }
 
-    private Set<Integer> arrayToSet(int[] array) {
-        Set<Integer> set = new HashSet<>();
-        for (int num : array) set.add(num);
-        return set;
-    }
+    // Legacy support methods (empty implementations to satisfy any potential callers, though not used)
+    private Map<BitSet, Double> computeRarityWeights(List<BitSet> universe, BitSet[] coverageMatrix) { return new HashMap<>(); }
+    private List<int[]> rarityWeightedGreedySelection(List<BitSet> universe, List<BitSet> candidates, Map<BitSet, Double> rarityWeights, WheelParameters params, WheelProgressCallback callback, AtomicBoolean cancelled, int totalRequired) { return new ArrayList<>(); }
+
 }
