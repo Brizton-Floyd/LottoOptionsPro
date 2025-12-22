@@ -12,6 +12,7 @@ public class DeltaPickGenerationResponse {
     private Integer executionTimeMs;
     private Metadata metadata;
     private HistoricalPerformance historicalPerformance;
+    private RecentPerformance recentPerformance;
 
     public DeltaPickGenerationResponse() {
     }
@@ -62,5 +63,13 @@ public class DeltaPickGenerationResponse {
 
     public void setHistoricalPerformance(HistoricalPerformance historicalPerformance) {
         this.historicalPerformance = historicalPerformance;
+    }
+
+    public RecentPerformance getRecentPerformance() {
+        return recentPerformance;
+    }
+
+    public void setRecentPerformance(RecentPerformance recentPerformance) {
+        this.recentPerformance = recentPerformance;
     }
 }

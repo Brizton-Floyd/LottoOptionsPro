@@ -98,6 +98,8 @@ public class DeltaPickGenerationService {
                 
                 String requestJson = gson.toJson(request);
                 logger.info("Request payload: {}", requestJson);
+                logger.info("Include recent performance in request: {}", request.getIncludeRecentPerformance());
+                logger.info("Lookback days in request: {}", request.getLookbackDays());
                 logger.info("Posting to: {}", API_BASE_URL + "/analysis/generate/delta-picks");
                 
                 // Log delta details

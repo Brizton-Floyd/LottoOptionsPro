@@ -1,6 +1,7 @@
 package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.models.BetslipTemplate;
+import com.example.lottooptionspro.models.Coordinate;
 import com.example.lottooptionspro.models.GlobalOption;
 import com.example.lottooptionspro.models.PlayPanel;
 import com.google.gson.Gson;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +35,7 @@ public class BetslipGenerationService {
 
     private static final float PAGE_PADDING = 20f;
     private static final float SCISSOR_LINE_SPACING = 20f;
+    private final Random random = new Random();
 
     public static class PdfGenerationResult {
         public final List<BufferedImage> images;
@@ -133,6 +136,9 @@ public class BetslipGenerationService {
                         g2d.fillRect(x, y, markWidth, markHeight);
                     }
                 });
+                
+                // Mark random bonus number if bonus game exists
+                markRandomBonusNumber(g2d, panel, markWidth, markHeight);
             }
         }
         
@@ -227,6 +233,9 @@ public class BetslipGenerationService {
                         g2d.fillRect(scaledX, scaledY, scaledMarkWidth, scaledMarkHeight);
                     }
                 });
+                
+                // Mark random bonus number if bonus game exists
+                markRandomScaledBonusNumber(g2d, panel, scaledMarkWidth, scaledMarkHeight, scaleFactorX, scaleFactorY);
             }
         }
         
@@ -387,5 +396,63 @@ public class BetslipGenerationService {
             e.printStackTrace();
             return false;
         }
+    }
+    
+    /**
+     * Marks a random bonus number on the panel if bonus numbers exist.
+     * This method is called for each panel during betslip generation.
+     * 
+     * @param g2d Graphics context for drawing
+     * @param panel The play panel containing bonus number coordinates
+     * @param markWidth Width of the marking
+     * @param markHeight Height of the marking
+     */
+    private void markRandomBonusNumber(java.awt.Graphics2D g2d, PlayPanel panel, int markWidth, int markHeight) {
+        if (panel.getBonusNumbers() == null || panel.getBonusNumbers().isEmpty()) {
+            return; // No bonus numbers defined for this panel
+        }
+        
+        // Get all bonus number keys and select one randomly
+        List<String> bonusKeys = new ArrayList<>(panel.getBonusNumbers().keySet());
+        String selectedKey = bonusKeys.get(random.nextInt(bonusKeys.size()));
+        
+        // Get the coordinate and mark it
+        Coordinate coordinate = panel.getBonusNumbers().get(selectedKey);
+        int x = coordinate.getX() - markWidth / 2;
+        int y = coordinate.getY() - markHeight / 2;
+        g2d.fillRect(x, y, markWidth, markHeight);
+        
+        System.out.println("DEBUG: Marked random bonus number '" + selectedKey + "' at (" + x + "," + y + ") for panel " + panel.getPanelId());
+    }
+    
+    /**
+     * Marks a random bonus number on the panel with scaled coordinates.
+     * This method is called for each panel during scaled betslip generation.
+     * 
+     * @param g2d Graphics context for drawing
+     * @param panel The play panel containing bonus number coordinates
+     * @param scaledMarkWidth Scaled width of the marking
+     * @param scaledMarkHeight Scaled height of the marking
+     * @param scaleFactorX Horizontal scale factor
+     * @param scaleFactorY Vertical scale factor
+     */
+    private void markRandomScaledBonusNumber(java.awt.Graphics2D g2d, PlayPanel panel, 
+                                            int scaledMarkWidth, int scaledMarkHeight,
+                                            float scaleFactorX, float scaleFactorY) {
+        if (panel.getBonusNumbers() == null || panel.getBonusNumbers().isEmpty()) {
+            return; // No bonus numbers defined for this panel
+        }
+        
+        // Get all bonus number keys and select one randomly
+        List<String> bonusKeys = new ArrayList<>(panel.getBonusNumbers().keySet());
+        String selectedKey = bonusKeys.get(random.nextInt(bonusKeys.size()));
+        
+        // Get the coordinate, scale it, and mark it
+        Coordinate coordinate = panel.getBonusNumbers().get(selectedKey);
+        int scaledX = Math.round(coordinate.getX() * scaleFactorX) - scaledMarkWidth / 2;
+        int scaledY = Math.round(coordinate.getY() * scaleFactorY) - scaledMarkHeight / 2;
+        g2d.fillRect(scaledX, scaledY, scaledMarkWidth, scaledMarkHeight);
+        
+        System.out.println("DEBUG: Marked random scaled bonus number '" + selectedKey + "' at (" + scaledX + "," + scaledY + ") for panel " + panel.getPanelId());
     }
 }

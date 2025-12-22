@@ -94,6 +94,14 @@ public class DeltaPickGeneratorController implements GameInformation, DeltaPickG
     @FXML private Label performanceFactorLabel;
     @FXML private VBox insightsContainer;
     
+    // FXML Controls - Recent Performance
+    @FXML private CheckBox includeRecentPerformanceCheck;
+    @FXML private Spinner<Integer> lookbackDaysSpinner;
+    @FXML private VBox recentPerformanceSection;
+    @FXML private VBox prizeTierContainer;
+    @FXML private VBox recentDrawsContainer;
+    @FXML private VBox topPicksContainer;
+    
     // FXML Controls - Loading
     @FXML private StackPane loadingOverlay;
     @FXML private ProgressIndicator loadingIndicator;
@@ -172,8 +180,33 @@ public class DeltaPickGeneratorController implements GameInformation, DeltaPickG
         // Set default number of combinations
         numCombinationsField.setText("20");
         
+        // Setup recent performance controls
+        setupRecentPerformanceControls();
+        
         logger.info("UI initialized for {}:{} with maxNumber={}, numPicks={}", 
             currentState, currentGame, maxNumber, numPicks);
+    }
+    
+    private void setupRecentPerformanceControls() {
+        logger.info("Setting up recent performance controls...");
+        logger.info("includeRecentPerformanceCheck is null: {}", includeRecentPerformanceCheck == null);
+        logger.info("lookbackDaysSpinner is null: {}", lookbackDaysSpinner == null);
+        
+        if (lookbackDaysSpinner != null) {
+            SpinnerValueFactory<Integer> valueFactory = 
+                new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 90, 7);
+            lookbackDaysSpinner.setValueFactory(valueFactory);
+            lookbackDaysSpinner.setEditable(true);
+            logger.info("Spinner initialized with value: {}", lookbackDaysSpinner.getValue());
+        } else {
+            logger.error("lookbackDaysSpinner is NULL - FXML binding failed!");
+        }
+        
+        if (includeRecentPerformanceCheck != null) {
+            logger.info("Checkbox initialized, selected: {}", includeRecentPerformanceCheck.isSelected());
+        } else {
+            logger.error("includeRecentPerformanceCheck is NULL - FXML binding failed!");
+        }
     }
     
     private void updateModeDescription() {
@@ -427,6 +460,22 @@ public class DeltaPickGeneratorController implements GameInformation, DeltaPickG
         request.setMaxNumber(maxNumber);
         request.setNumPicks(numPicks);
         
+        // Recent performance parameters
+        if (includeRecentPerformanceCheck != null) {
+            boolean includeRecent = includeRecentPerformanceCheck.isSelected();
+            request.setIncludeRecentPerformance(includeRecent);
+            logger.info("Include recent performance: {}", includeRecent);
+        } else {
+            logger.warn("includeRecentPerformanceCheck is null");
+        }
+        if (lookbackDaysSpinner != null && lookbackDaysSpinner.getValue() != null) {
+            int lookback = lookbackDaysSpinner.getValue();
+            request.setLookbackDays(lookback);
+            logger.info("Lookback days: {}", lookback);
+        } else {
+            logger.warn("lookbackDaysSpinner is null or has no value");
+        }
+        
         Map<String, List<Integer>> deltaMap = new HashMap<>();
         
         for (Map.Entry<String, TextField> entry : deltaInputFields.entrySet()) {
@@ -503,6 +552,8 @@ public class DeltaPickGeneratorController implements GameInformation, DeltaPickG
         // Historical Performance
         if (response.getHistoricalPerformance() != null) {
             HistoricalPerformance perf = response.getHistoricalPerformance();
+            logger.info("Historical performance data present. Recent performance: {}", 
+                perf.getRecentPerformance() != null);
             
             if (perf.getWinSummary() != null) {
                 totalWinsLabel.setText("Total Wins: " + 
@@ -546,6 +597,14 @@ public class DeltaPickGeneratorController implements GameInformation, DeltaPickG
             logger.debug("Historical performance panel updated");
         }
         
+        // Recent Performance (Phase 4) - at response level, not inside historicalPerformance
+        if (response.getRecentPerformance() != null) {
+            logger.info("Recent performance data found at response level");
+            displayRecentPerformance(response.getRecentPerformance());
+        } else {
+            logger.warn("No recent performance data in response");
+        }
+        
         logger.info("All summary panels updated successfully");
         
         } catch (Exception e) {
@@ -554,11 +613,119 @@ public class DeltaPickGeneratorController implements GameInformation, DeltaPickG
         }
     }
     
+    private void displayRecentPerformance(com.example.lottooptionspro.model.deltapick.RecentPerformance recentPerf) {
+        try {
+            logger.info("displayRecentPerformance called with data: {}", recentPerf != null);
+            
+            if (recentPerformanceSection == null) {
+                logger.warn("Recent performance section not initialized");
+                return;
+            }
+            
+            if (recentPerf == null) {
+                logger.warn("Recent performance data is null");
+                return;
+            }
+            
+            logger.info("Draws analyzed: {}, Date range: {} to {}", 
+                recentPerf.getDrawsAnalyzed(), 
+                recentPerf.getDateRangeStart(), 
+                recentPerf.getDateRangeEnd());
+            
+            // Show the section
+            recentPerformanceSection.setVisible(true);
+            recentPerformanceSection.setManaged(true);
+            logger.info("Recent performance section made visible");
+            
+            // Clear existing content
+            if (prizeTierContainer != null) {
+                prizeTierContainer.getChildren().clear();
+            } else {
+                logger.warn("prizeTierContainer is null");
+            }
+            if (recentDrawsContainer != null) {
+                recentDrawsContainer.getChildren().clear();
+            } else {
+                logger.warn("recentDrawsContainer is null");
+            }
+            if (topPicksContainer != null) {
+                topPicksContainer.getChildren().clear();
+            } else {
+                logger.warn("topPicksContainer is null");
+            }
+            
+            // Display Prize Tier Breakdown
+            if (prizeTierContainer != null && recentPerf.getSummary() != null && recentPerf.getSummary().getPrizeTierBreakdown() != null) {
+                logger.info("Displaying {} prize tiers", recentPerf.getSummary().getPrizeTierBreakdown().size());
+                recentPerf.getSummary().getPrizeTierBreakdown().forEach((tier, breakdown) -> {
+                    Label tierLabel = new Label(String.format("%s: %d wins (%.2f/draw) - Est. $%.2f",
+                        tier, breakdown.getWins(), breakdown.getFrequency(), breakdown.getEstimatedValue()));
+                    tierLabel.setWrapText(true);
+                    tierLabel.getStyleClass().add("prize-tier-item");
+                    prizeTierContainer.getChildren().add(tierLabel);
+                });
+            }
+            
+            // Display Recent Draws
+            if (recentDrawsContainer != null && recentPerf.getRecentDraws() != null) {
+                logger.info("Displaying {} recent draws", recentPerf.getRecentDraws().size());
+                Label summaryLabel = new Label(String.format("Analyzed %d draws (%s to %s)",
+                    recentPerf.getDrawsAnalyzed(), recentPerf.getDateRangeStart(), recentPerf.getDateRangeEnd()));
+                summaryLabel.getStyleClass().add("draws-summary");
+                recentDrawsContainer.getChildren().add(summaryLabel);
+                
+                for (com.example.lottooptionspro.model.deltapick.RecentDrawResult draw : recentPerf.getRecentDraws()) {
+                    Label drawLabel = new Label(String.format("• %s: %s - Best: Pick #%d (%d matches)",
+                        draw.getDrawDate(),
+                        draw.getWinningNumbers().toString(),
+                        draw.getBestPickRank(),
+                        draw.getBestPickMatches()));
+                    drawLabel.setWrapText(true);
+                    drawLabel.getStyleClass().add("draw-item");
+                    recentDrawsContainer.getChildren().add(drawLabel);
+                }
+            }
+            
+            // Display Top Performing Picks
+            if (topPicksContainer != null && recentPerf.getPickPerformance() != null) {
+                logger.info("Displaying top picks from {} total picks", recentPerf.getPickPerformance().size());
+                recentPerf.getPickPerformance().entrySet().stream()
+                    .sorted((a, b) -> b.getValue().getTotalMatches().compareTo(a.getValue().getTotalMatches()))
+                    .limit(5)
+                    .forEach(entry -> {
+                        com.example.lottooptionspro.model.deltapick.PickMatchSummary pick = entry.getValue();
+                        Label pickLabel = new Label(String.format("Pick #%d: %s - %d total matches (Avg: %.2f/draw) - Est. $%.2f",
+                            pick.getPickRank(),
+                            pick.getNumbers().toString(),
+                            pick.getTotalMatches(),
+                            pick.getAverageMatchesPerDraw(),
+                            pick.getEstimatedWinnings() != null ? pick.getEstimatedWinnings() : 0.0));
+                        pickLabel.setWrapText(true);
+                        pickLabel.getStyleClass().add("top-pick-item");
+                        topPicksContainer.getChildren().add(pickLabel);
+                    });
+            }
+            
+            // Display summary recommendation
+            if (topPicksContainer != null && recentPerf.getSummary() != null && recentPerf.getSummary().getRecommendation() != null) {
+                logger.info("Adding recommendation");
+                Label recommendationLabel = new Label(recentPerf.getSummary().getRecommendation());
+                recommendationLabel.setWrapText(true);
+                recommendationLabel.getStyleClass().add("recent-perf-recommendation");
+                topPicksContainer.getChildren().add(0, recommendationLabel);
+            }
+            
+            logger.info("Recent performance displayed successfully");
+            
+        } catch (Exception e) {
+            logger.error("Error displaying recent performance", e);
+        }
+    }
+    
     @Override
     public void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Error");
-        alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
         logger.error("Error shown to user: {}", message);

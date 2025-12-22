@@ -14,6 +14,9 @@ public class HistoricalPerformance {
     private List<String> insights;
     private Boolean fullAnalysisAvailable;
     private String fullAnalysisEndpoint;
+    
+    // Recent performance analysis (Phase 4)
+    private RecentPerformance recentPerformance;
 
     public HistoricalPerformance() {
     }
@@ -80,5 +83,13 @@ public class HistoricalPerformance {
 
     public void setFullAnalysisEndpoint(String fullAnalysisEndpoint) {
         this.fullAnalysisEndpoint = fullAnalysisEndpoint;
+    }
+
+    public RecentPerformance getRecentPerformance() {
+        return recentPerformance;
+    }
+
+    public void setRecentPerformance(RecentPerformance recentPerformance) {
+        this.recentPerformance = recentPerformance;
     }
 }

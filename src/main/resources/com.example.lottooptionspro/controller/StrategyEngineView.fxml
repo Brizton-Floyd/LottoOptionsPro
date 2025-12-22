@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import java.net.URL?>
+
+<AnchorPane fx:id="rootContainer" xmlns="http://javafx.com/javafx/11.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.example.lottooptionspro.controller.StrategyEngineController">
+    <stylesheets>
+        <URL value="@styling/dashboard.css"/>
+        <URL value="@styling/style.css"/>
+    </stylesheets>
+
+    <ScrollPane AnchorPane.topAnchor="10.0" AnchorPane.leftAnchor="10.0"
+                AnchorPane.rightAnchor="10.0" AnchorPane.bottomAnchor="20.0"
+                fitToWidth="true" styleClass="main-scroll-pane">
+        <VBox spacing="15" styleClass="main-content-container">
+            <padding>
+                <Insets top="0" right="0" bottom="20" left="0"/>
+            </padding>
+
+            <!-- Header Section -->
+            <HBox spacing="15" alignment="CENTER_LEFT" styleClass="header-bar">
+                <Label fx:id="stateGameLabel" text="Select Game" styleClass="state-game-label"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label fx:id="lastUpdatedLabel" text="Ready to generate strategy" styleClass="last-updated-label"/>
+            </HBox>
+
+            <!-- Main Content Layout -->
+            <VBox spacing="15" VBox.vgrow="ALWAYS">
+
+                <!-- Configuration Panel -->
+                <VBox styleClass="panel-container-modern" spacing="15" minHeight="200">
+                    <Label text="Strategy Configuration" styleClass="panel-header-modern"/>
+
+                    <GridPane hgap="15" vgap="15">
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="50"/>
+                            <ColumnConstraints percentWidth="50"/>
+                        </columnConstraints>
+
+                        <!-- Pool Size -->
+                        <VBox spacing="8" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                            <Label text="Pool Size (available wheels)" styleClass="setting-label-modern"/>
+                            <ComboBox fx:id="poolSizeCombo" promptText="Select pool size" styleClass="analysis-mode-combo-modern" prefWidth="200"/>
+                        </VBox>
+
+                        <!-- Set Count -->
+                        <VBox spacing="8" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                            <Label text="Number of Sets" styleClass="setting-label-modern"/>
+                            <TextField fx:id="setCountField" promptText="4" styleClass="analysis-mode-combo-modern"/>
+                        </VBox>
+
+                        <!-- Strategy Bias -->
+                        <VBox spacing="8" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                            <Label text="Strategy Bias" styleClass="setting-label-modern"/>
+                            <HBox spacing="10" alignment="CENTER_LEFT">
+                                <ToggleButton fx:id="aggressiveButton" text="Aggressive" styleClass="strategy-bias-button"/>
+                                <ToggleButton fx:id="balancedButton" text="Balanced" styleClass="strategy-bias-button"/>
+                                <ToggleButton fx:id="conservativeButton" text="Conservative" styleClass="strategy-bias-button"/>
+                            </HBox>
+                        </VBox>
+
+                        <!-- Generate Button -->
+                        <VBox spacing="8" GridPane.columnIndex="1" GridPane.rowIndex="1" alignment="BOTTOM_RIGHT">
+                            <Button fx:id="generateButton" text="Generate Strategy" onAction="#handleGenerate" 
+                                    styleClass="primary-button" prefWidth="200"/>
+                        </VBox>
+                    </GridPane>
+                </VBox>
+
+                <!-- Engine Constants Panel -->
+                <HBox spacing="15" fx:id="engineConstantsPanel" visible="false" managed="false">
+                    <VBox styleClass="panel-container-modern" spacing="10" HBox.hgrow="ALWAYS">
+                        <Label text="Engine Constants" styleClass="panel-header-modern"/>
+                        <GridPane hgap="20" vgap="10">
+                            <Label text="Average Skip:" GridPane.columnIndex="0" GridPane.rowIndex="0" styleClass="metric-label"/>
+                            <Label fx:id="averageSkipLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="0" styleClass="metric-value"/>
+                            
+                            <Label text="Long Shot Threshold:" GridPane.columnIndex="0" GridPane.rowIndex="1" styleClass="metric-label"/>
+                            <Label fx:id="longShotThresholdLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="1" styleClass="metric-value"/>
+                            
+                            <Label text="Cold Rule Limit:" GridPane.columnIndex="0" GridPane.rowIndex="2" styleClass="metric-label"/>
+                            <Label fx:id="coldRuleLimitLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="2" styleClass="metric-value"/>
+                        </GridPane>
+                    </VBox>
+
+                    <VBox styleClass="panel-container-modern" spacing="10" HBox.hgrow="ALWAYS">
+                        <Label text="Historical Context" styleClass="panel-header-modern"/>
+                        <GridPane hgap="20" vgap="10">
+                            <Label text="Draws Analyzed:" GridPane.columnIndex="0" GridPane.rowIndex="0" styleClass="metric-label"/>
+                            <Label fx:id="drawsAnalyzedLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="0" styleClass="metric-value"/>
+                            
+                            <Label text="Hit Rate:" GridPane.columnIndex="0" GridPane.rowIndex="1" styleClass="metric-label"/>
+                            <Label fx:id="hitRateLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="1" styleClass="metric-value"/>
+                            
+                            <Label text="Avg Coverage:" GridPane.columnIndex="0" GridPane.rowIndex="2" styleClass="metric-label"/>
+                            <Label fx:id="avgCoverageLabel" text="-" GridPane.columnIndex="1" GridPane.rowIndex="2" styleClass="metric-value"/>
+                        </GridPane>
+                    </VBox>
+                </HBox>
+
+                <!-- Tab Container for Results -->
+                <TabPane fx:id="resultsTabPane" VBox.vgrow="ALWAYS" visible="false" managed="false">
+                    
+                    <!-- Tier 1 Anchors Tab -->
+                    <Tab text="Tier 1 Anchors" closable="false">
+                        <VBox spacing="15">
+                            <padding>
+                                <Insets top="15" right="15" bottom="15" left="15"/>
+                            </padding>
+                            
+                            <Label text="Tier 1 Anchor Numbers" styleClass="panel-header-modern"/>
+                            <FlowPane fx:id="tier1AnchorsPane" hgap="10" vgap="10"/>
+                            
+                            <Separator/>
+                            
+                            <Label text="Pattern Analysis" styleClass="panel-header-modern"/>
+                            <ScrollPane fitToWidth="true" prefHeight="200">
+                                <VBox fx:id="patternsPane" spacing="5"/>
+                            </ScrollPane>
+                        </VBox>
+                    </Tab>
+
+                    <!-- Generated Sets Tab -->
+                    <Tab text="Generated Sets" closable="false">
+                        <ScrollPane fitToWidth="true">
+                            <VBox fx:id="generatedSetsPane" spacing="15">
+                                <padding>
+                                    <Insets top="15" right="15" bottom="15" left="15"/>
+                                </padding>
+                            </VBox>
+                        </ScrollPane>
+                    </Tab>
+
+                    <!-- Exclusion Report Tab -->
+                    <Tab text="Exclusion Report" closable="false">
+                        <VBox spacing="15">
+                            <padding>
+                                <Insets top="15" right="15" bottom="15" left="15"/>
+                            </padding>
+                            
+                            <Label text="Excluded Numbers" styleClass="panel-header-modern"/>
+                            <TableView fx:id="exclusionTable" VBox.vgrow="ALWAYS">
+                                <columns>
+                                    <TableColumn fx:id="excludedNumberColumn" text="Number" prefWidth="80"/>
+                                    <TableColumn fx:id="reasonColumn" text="Reason" prefWidth="200"/>
+                                    <TableColumn fx:id="currentSkipColumn" text="Current Skip" prefWidth="100"/>
+                                    <TableColumn fx:id="limitColumn" text="Limit" prefWidth="80"/>
+                                </columns>
+                            </TableView>
+                        </VBox>
+                    </Tab>
+
+                    <!-- Wheeling Tab -->
+                    <Tab text="Wheeling" closable="false">
+                        <VBox spacing="15">
+                            <padding>
+                                <Insets top="15" right="15" bottom="15" left="15"/>
+                            </padding>
+                            
+                            <Label text="Wheel Configuration" styleClass="panel-header-modern"/>
+                            
+                            <GridPane hgap="15" vgap="15">
+                                <VBox spacing="8" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                                    <Label text="Select Sets to Wheel" styleClass="setting-label-modern"/>
+                                    <HBox spacing="5">
+                                        <Button text="Select All" onAction="#handleSelectAllSets" styleClass="secondary-button"/>
+                                        <Button text="Clear" onAction="#handleClearSetSelection" styleClass="secondary-button"/>
+                                    </HBox>
+                                    <ListView fx:id="setsToWheelList" prefHeight="150"/>
+                                </VBox>
+                                
+                                <VBox spacing="8" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                                    <Label text="Guarantee Level" styleClass="setting-label-modern"/>
+                                    <ComboBox fx:id="guaranteeLevelCombo" prefWidth="200"/>
+                                    
+                                    <Label text="Estimated Lines:" styleClass="metric-label"/>
+                                    <Label fx:id="estimatedLinesLabel" text="0" styleClass="metric-value"/>
+                                    
+                                    <Button fx:id="generateWheelButton" text="Generate Wheel" onAction="#handleGenerateWheel" 
+                                            styleClass="primary-button" prefWidth="200"/>
+                                </VBox>
+                            </GridPane>
+                            
+                            <Separator/>
+                            
+                            <HBox spacing="15" alignment="CENTER_LEFT">
+                                <Label text="Wheeled Combinations" styleClass="panel-header-modern" HBox.hgrow="ALWAYS"/>
+                                <Button fx:id="generateBetslipsButton" text="Generate Betslips" onAction="#handleGenerateBetslips" 
+                                        styleClass="primary-button" disable="true" prefWidth="180"/>
+                            </HBox>
+                            
+                            <ScrollPane fitToWidth="true" prefHeight="300">
+                                <VBox fx:id="wheeledCombinationsPane" spacing="5"/>
+                            </ScrollPane>
+                        </VBox>
+                    </Tab>
+                </TabPane>
+
+                <!-- Loading Indicator -->
+                <StackPane fx:id="loadingPane" visible="false" managed="false" prefHeight="200">
+                    <ProgressIndicator fx:id="progressIndicator"/>
+                </StackPane>
+
+            </VBox>
+        </VBox>
+    </ScrollPane>
+</AnchorPane>

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import java.net.URL?>
+
+<AnchorPane xmlns:fx="http://javafx.com/fxml" fx:controller="com.example.lottooptionspro.controller.WheelBuilderController"
+            styleClass="main-container" prefWidth="1000" prefHeight="700">
+    
+    <stylesheets>
+        <URL value="@styling/style.css"/>
+    </stylesheets>
+    
+    <VBox spacing="20" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0" 
+          AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0">
+        <padding>
+            <Insets top="20" right="20" bottom="20" left="20"/>
+        </padding>
+        
+        <!-- Header -->
+        <HBox alignment="CENTER_LEFT" spacing="15">
+            <Label text="Wheel Library" styleClass="page-title"/>
+            <Label fx:id="statusLabel" text="Pre-computed optimal wheels" styleClass="status-label"/>
+        </HBox>
+        
+        <!-- Warning Banner -->
+        <VBox styleClass="warning-banner" spacing="5">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <Label text="⚠️ Note: Wheel generation is disabled" style="-fx-font-weight: bold;"/>
+            <Label text="Generating truly optimal wheels requires complex mathematical constructions. Use pre-computed wheels from established sources instead." wrapText="true"/>
+            <Label text="The greedy algorithm produces non-optimal wheels (e.g., 107 lines instead of 19 for 3-if-5)." wrapText="true"/>
+        </VBox>
+        
+        <Separator/>
+        
+        <!-- Existing Wheels Panel -->
+        <VBox spacing="10" styleClass="panel-modern">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="15"/>
+            </padding>
+            
+            <HBox alignment="CENTER_LEFT" spacing="15">
+                <Label text="Existing Wheel Tables" styleClass="panel-header-modern" HBox.hgrow="ALWAYS"/>
+                <Button text="Reload" onAction="#handleReloadWheels" styleClass="secondary-button" prefWidth="100"/>
+            </HBox>
+            
+            <TableView fx:id="existingWheelsTable" prefHeight="200">
+                <columns>
+                    <TableColumn text="Pool Size" prefWidth="80" fx:id="poolSizeColumn"/>
+                    <TableColumn text="Pick Size" prefWidth="80" fx:id="pickSizeColumn"/>
+                    <TableColumn text="Guarantee" prefWidth="150" fx:id="guaranteeColumn"/>
+                    <TableColumn text="Lines" prefWidth="80" fx:id="linesColumn"/>
+                    <TableColumn text="Source" prefWidth="200" fx:id="sourceColumn"/>
+                    <TableColumn text="Verified" prefWidth="80" fx:id="verifiedColumn"/>
+                </columns>
+            </TableView>
+        </VBox>
+        
+        <Separator/>
+        
+        <!-- Configuration Panel - DISABLED -->
+        <VBox spacing="15" styleClass="panel-modern" visible="false" managed="false">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="15"/>
+            </padding>
+            
+            <Label text="Wheel Configuration" styleClass="panel-header-modern"/>
+            
+            <GridPane hgap="15" vgap="15">
+                <VBox spacing="5" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                    <Label text="Pool Size (4-27)" styleClass="setting-label-modern"/>
+                    <TextField fx:id="poolSizeField" promptText="e.g., 15" prefWidth="150"/>
+                </VBox>
+                
+                <VBox spacing="5" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                    <Label text="Pick Size" styleClass="setting-label-modern"/>
+                    <ComboBox fx:id="pickSizeCombo" prefWidth="150"/>
+                </VBox>
+                
+                <VBox spacing="5" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                    <Label text="Guarantee Level" styleClass="setting-label-modern"/>
+                    <ComboBox fx:id="guaranteeLevelCombo" prefWidth="200"/>
+                </VBox>
+            </GridPane>
+            
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Button text="Generate Wheel" onAction="#handleGenerateWheel" 
+                        styleClass="primary-button" prefWidth="150"/>
+                <Button text="Clear" onAction="#handleClear" 
+                        styleClass="secondary-button" prefWidth="100"/>
+            </HBox>
+        </VBox>
+        
+        <!-- Progress Panel -->
+        <VBox spacing="10" styleClass="panel-modern" fx:id="progressPanel" visible="false" managed="false">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="15"/>
+            </padding>
+            
+            <Label text="Generation Progress" styleClass="panel-header-modern"/>
+            
+            <VBox spacing="8">
+                <Label fx:id="progressMessageLabel" text="Initializing..." styleClass="metric-label"/>
+                <ProgressBar fx:id="progressBar" prefWidth="Infinity" progress="0"/>
+                <HBox spacing="15">
+                    <Label text="Subsets Covered:" styleClass="metric-label"/>
+                    <Label fx:id="subsetsCoveredLabel" text="0 / 0" styleClass="metric-value"/>
+                </HBox>
+                <HBox spacing="15">
+                    <Label text="Lines Generated:" styleClass="metric-label"/>
+                    <Label fx:id="linesGeneratedLabel" text="0" styleClass="metric-value"/>
+                </HBox>
+                <HBox spacing="15">
+                    <Label text="Elapsed Time:" styleClass="metric-label"/>
+                    <Label fx:id="elapsedTimeLabel" text="0s" styleClass="metric-value"/>
+                </HBox>
+            </VBox>
+            
+            <Button text="Cancel" onAction="#handleCancel" styleClass="secondary-button" prefWidth="100"/>
+        </VBox>
+        
+        <!-- Results Panel -->
+        <VBox spacing="10" styleClass="panel-modern" fx:id="resultsPanel" visible="false" managed="false" VBox.vgrow="ALWAYS">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="15"/>
+            </padding>
+            
+            <HBox alignment="CENTER_LEFT" spacing="15">
+                <Label text="Generated Wheel" styleClass="panel-header-modern" HBox.hgrow="ALWAYS"/>
+                <Button text="Save Wheel" onAction="#handleSaveWheel" 
+                        styleClass="primary-button" prefWidth="120"/>
+            </HBox>
+            
+            <GridPane hgap="20" vgap="8">
+                <Label text="Total Lines:" styleClass="metric-label" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                <Label fx:id="totalLinesLabel" text="0" styleClass="metric-value" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                
+                <Label text="Generation Time:" styleClass="metric-label" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                <Label fx:id="generationTimeLabel" text="0s" styleClass="metric-value" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                
+                <Label text="Verified:" styleClass="metric-label" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                <Label fx:id="verifiedLabel" text="No" styleClass="metric-value" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+            </GridPane>
+            
+            <Label text="Wheel Patterns (first 20):" styleClass="setting-label-modern"/>
+            <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS">
+                <TextArea fx:id="patternsPreviewArea" editable="false" wrapText="true" prefHeight="200"/>
+            </ScrollPane>
+        </VBox>
+    </VBox>
+</AnchorPane>

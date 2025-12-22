@@ -16,6 +16,10 @@ public class DeltaPickGenerationRequest {
     private Integer numPicks;
     private Map<String, List<Integer>> rawDeltas;
     private Map<String, List<Integer>> sortedDeltaMagnitudes;
+    
+    // Recent performance analysis options
+    private Boolean includeRecentPerformance = false;
+    private Integer lookbackDays = 7;
 
     public DeltaPickGenerationRequest() {
     }
@@ -82,5 +86,21 @@ public class DeltaPickGenerationRequest {
 
     public void setSortedDeltaMagnitudes(Map<String, List<Integer>> sortedDeltaMagnitudes) {
         this.sortedDeltaMagnitudes = sortedDeltaMagnitudes;
+    }
+
+    public Boolean getIncludeRecentPerformance() {
+        return includeRecentPerformance;
+    }
+
+    public void setIncludeRecentPerformance(Boolean includeRecentPerformance) {
+        this.includeRecentPerformance = includeRecentPerformance;
+    }
+
+    public Integer getLookbackDays() {
+        return lookbackDays;
+    }
+
+    public void setLookbackDays(Integer lookbackDays) {
+        this.lookbackDays = lookbackDays;
     }
 }

@@ -1,6 +1,7 @@
 /* --- Global Styles --- */
 .root {
     -fx-font-family: "System";
+    -fx-font-size: 14px;
     -fx-base: #FFFFFF; /* Base color for the light theme */
 }
 
@@ -11,7 +12,7 @@
 
 .menu .label, .menu-item .label {
     -fx-text-fill: #333333; /* Dark gray text */
-    -fx-font-size: 13px;
+    -fx-font-size: 14px;
 }
 
 .menu-item:focused {
@@ -34,10 +35,11 @@
     -fx-text-fill: #333333;
     -fx-border-color: transparent transparent #E0E0E0 transparent; /* Bottom border for separation */
     -fx-border-width: 1;
-    -fx-max-width: 175px;
-    -fx-pref-width: 175px;
+    -fx-min-width: 200px;
+    -fx-pref-width: 220px;
     -fx-alignment: CENTER_LEFT;
-    -fx-padding: 10 15;
+    -fx-padding: 12 20;
+    -fx-font-size: 14px;
 }
 
 .toggle-button:hover {
@@ -67,8 +69,8 @@
     -fx-background-color: #005A9E; /* Blue accent background */
     -fx-text-fill: #FFFFFF; /* White text */
     -fx-alignment: center;
-    -fx-padding: 8px;
-    -fx-font-size: 14px;
+    -fx-padding: 10px;
+    -fx-font-size: 15px;
     -fx-font-weight: bold;
 }
 

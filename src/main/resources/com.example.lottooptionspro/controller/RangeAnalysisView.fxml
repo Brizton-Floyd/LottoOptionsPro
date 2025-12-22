@@ -61,9 +61,9 @@
         <VBox spacing="15" VBox.vgrow="ALWAYS">
 
             <!-- Top Row: Settings and Performance Overview -->
-            <HBox spacing="15" prefHeight="450" maxHeight="500">
+            <HBox spacing="15" minHeight="400">
                 <!-- Left: Analysis Settings Panel -->
-                <VBox styleClass="panel-container-modern" minWidth="300" prefWidth="350" maxWidth="400" spacing="15">
+                <VBox styleClass="panel-container-modern" minWidth="320" prefWidth="380" spacing="15">
                     <Label text="Analysis Settings" styleClass="panel-header-modern"/>
 
                     <!-- Scrollable content for settings -->
@@ -114,23 +114,23 @@
                 </VBox>
 
             <!-- Right: Range Performance Overview -->
-            <VBox spacing="15" styleClass="panel-container-modern" HBox.hgrow="ALWAYS" maxHeight="500">
+            <VBox spacing="15" styleClass="panel-container-modern" HBox.hgrow="ALWAYS">
                 <Label text="Range Performance Overview" styleClass="panel-header-modern"/>
 
                 <!-- Range Cards Container -->
                 <ScrollPane fitToHeight="true" fitToWidth="true" styleClass="range-cards-scroll"
-                           minHeight="150" prefHeight="160" maxHeight="180">
+                           minHeight="150" prefHeight="180">
                     <HBox fx:id="rangeCardsContainer" spacing="12" styleClass="range-cards-container-modern">
                         <!-- Cards will be populated dynamically -->
                     </HBox>
                 </ScrollPane>
 
                 <!-- Hit Trend Chart -->
-                <VBox VBox.vgrow="ALWAYS" styleClass="chart-container-modern" minHeight="180" prefHeight="220" maxHeight="280">
+                <VBox VBox.vgrow="ALWAYS" styleClass="chart-container-modern" minHeight="200" prefHeight="250">
                     <Label text="Hit Trend for Selected Range: Chart" styleClass="chart-header-modern" fx:id="chartTitle"/>
                     <LineChart fx:id="rangeHitChart" styleClass="hit-trend-chart-modern"
                               createSymbols="true" legendVisible="false" animated="false"
-                              VBox.vgrow="ALWAYS" minHeight="180" prefHeight="220">
+                              VBox.vgrow="ALWAYS" minHeight="200" prefHeight="250">
                         <xAxis>
                             <NumberAxis fx:id="drawNumberAxis" label="Expected Average Hit Count"
                                        tickUnit="100" lowerBound="0" upperBound="1000"/>
@@ -145,11 +145,11 @@
         </HBox>
 
             <!-- Bottom: Latest Draw Results Table -->
-            <VBox spacing="15" styleClass="panel-container-modern" VBox.vgrow="ALWAYS" minHeight="500" prefHeight="600">
+            <VBox spacing="15" styleClass="panel-container-modern" VBox.vgrow="ALWAYS" minHeight="400">
                 <Label text="Latest Draw Results" styleClass="panel-header-modern"/>
 
                 <!-- Draw Results Table -->
-                <HBox VBox.vgrow="ALWAYS" spacing="0" styleClass="table-wrapper" minHeight="400" prefHeight="500">
+                <HBox VBox.vgrow="ALWAYS" spacing="0" styleClass="table-wrapper" minHeight="350">
                     <!-- Fixed Date column table -->
                     <TableView fx:id="fixedDateTable" styleClass="fixed-date-table-modern"
                               minWidth="150" prefWidth="150" maxWidth="200"

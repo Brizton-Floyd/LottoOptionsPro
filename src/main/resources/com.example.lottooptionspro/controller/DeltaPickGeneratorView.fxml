@@ -86,6 +86,20 @@
                                 <Label text="Example: 3,7,13 or single value: 5" styleClass="hint-label"/>
                             </VBox>
 
+                            <!-- Recent Performance Options -->
+                            <VBox spacing="8" styleClass="setting-group-modern">
+                                <CheckBox fx:id="includeRecentPerformanceCheck" 
+                                         text="Analyze against recent draws" 
+                                         selected="true"
+                                         styleClass="modern-checkbox"/>
+                                <HBox spacing="10" alignment="CENTER_LEFT">
+                                    <Label text="Lookback days:" styleClass="setting-label-modern"/>
+                                    <Spinner fx:id="lookbackDaysSpinner" 
+                                            editable="true" prefWidth="80"
+                                            styleClass="modern-spinner"/>
+                                </HBox>
+                            </VBox>
+
                             <!-- Generate Button -->
                             <Button fx:id="generatePicksButton" text="Generate Picks" 
                                    styleClass="apply-button-modern" onAction="#handleGeneratePicks"
@@ -180,6 +194,36 @@
                         <Label text="Insights" styleClass="insights-header"/>
                         <VBox fx:id="insightsContainer" spacing="3">
                             <!-- Dynamically populated -->
+                        </VBox>
+                    </VBox>
+
+                    <!-- Recent Performance Section -->
+                    <VBox fx:id="recentPerformanceSection" spacing="10" styleClass="recent-performance-section" 
+                          visible="false" managed="false">
+                        <Label text="Recent Performance Analysis" styleClass="section-header-large"/>
+                        
+                        <!-- Prize Tier Breakdown -->
+                        <VBox spacing="8" styleClass="prize-tier-panel">
+                            <Label text="Prize Tier Breakdown" styleClass="summary-header"/>
+                            <VBox fx:id="prizeTierContainer" spacing="5">
+                                <!-- Dynamically populated -->
+                            </VBox>
+                        </VBox>
+                        
+                        <!-- Recent Draws -->
+                        <VBox spacing="8" styleClass="recent-draws-panel">
+                            <Label text="Recent Draws Analyzed" styleClass="summary-header"/>
+                            <VBox fx:id="recentDrawsContainer" spacing="5">
+                                <!-- Dynamically populated -->
+                            </VBox>
+                        </VBox>
+                        
+                        <!-- Top Performing Picks -->
+                        <VBox spacing="8" styleClass="top-picks-panel">
+                            <Label text="Top Performing Picks" styleClass="summary-header"/>
+                            <VBox fx:id="topPicksContainer" spacing="5">
+                                <!-- Dynamically populated -->
+                            </VBox>
                         </VBox>
                     </VBox>
 

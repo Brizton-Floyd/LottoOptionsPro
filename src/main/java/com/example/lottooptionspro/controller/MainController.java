@@ -120,6 +120,18 @@ public class MainController {
     }
 
     @FXML
+    private void showStrategyEngine(ActionEvent actionEvent) {
+        reEnableDisableButton(actionEvent);
+        this.screenManager.loadView(StrategyEngineController.class, mainContentArea, stateName, gameName, createLoadingOverlay());
+    }
+
+    @FXML
+    private void showWheelBuilder(ActionEvent actionEvent) {
+        reEnableDisableButton(actionEvent);
+        this.screenManager.loadView(WheelBuilderController.class, mainContentArea, createLoadingOverlay());
+    }
+
+    @FXML
     private void showStatisticalAnalysisTools(ActionEvent actionEvent) {
         reEnableDisableButton(actionEvent);
         mainContentArea.getChildren().setAll(new Label("Statistical Analysis Tools UI"));

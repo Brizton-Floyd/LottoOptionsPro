@@ -40,14 +40,13 @@ public class JavaFxApplication extends Application {
 //        loadImageProgrammatically(filePath);
         FxWeaver fxWeaver = applicationContext.getBean(FxWeaver.class);
         Parent root = fxWeaver.loadView(MainController.class);
-        Scene scene = new Scene(root);
+        Scene scene = new Scene(root, 1600, 900);
         stage.setScene(scene);
-        stage.setResizable(false);
+        stage.setResizable(true);
         stage.setMinWidth(1280);
         stage.setMinHeight(720);
+        stage.setMaximized(false);
 
-
-        stage.show();
         stage.setTitle("LottoOptionsPro");
         stage.show();
     }

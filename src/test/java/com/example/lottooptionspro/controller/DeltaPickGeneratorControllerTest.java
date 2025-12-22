@@ -3,6 +3,8 @@ package com.example.lottooptionspro.controller;
 import com.example.lottooptionspro.model.deltapick.*;
 import com.example.lottooptionspro.presenter.DeltaPickGeneratorPresenter;
 import com.example.lottooptionspro.service.BetslipGenerationService;
+import com.example.lottooptionspro.service.DeltaSelectionCacheService;
+import net.rgielen.fxweaver.core.FxWeaver;
 import javafx.application.Platform;
 import javafx.embed.swing.JFXPanel;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,6 +36,12 @@ class DeltaPickGeneratorControllerTest {
     @Mock
     private BetslipGenerationService mockBetslipService;
     
+    @Mock
+    private FxWeaver mockFxWeaver;
+    
+    @Mock
+    private DeltaSelectionCacheService mockDeltaCache;
+    
     private GameConfigResponse testConfig;
     private DeltaPickGenerationResponse testResponse;
 
@@ -46,7 +54,7 @@ class DeltaPickGeneratorControllerTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        sut = new DeltaPickGeneratorController(mockPresenter, mockBetslipService);
+        sut = new DeltaPickGeneratorController(mockPresenter, mockBetslipService, mockFxWeaver, mockDeltaCache);
         
         // Setup test data
         testConfig = new GameConfigResponse();
@@ -157,7 +165,7 @@ class DeltaPickGeneratorControllerTest {
     @Test
     void testPresenterSetView_CalledDuringInit() {
         // Arrange
-        DeltaPickGeneratorController controller = new DeltaPickGeneratorController(mockPresenter, mockBetslipService);
+        DeltaPickGeneratorController controller = new DeltaPickGeneratorController(mockPresenter, mockBetslipService, mockFxWeaver, mockDeltaCache);
 
         // Act
         controller.init();
@@ -169,7 +177,7 @@ class DeltaPickGeneratorControllerTest {
     @Test
     void testConstructor_InitializesFields() {
         // Arrange & Act
-        DeltaPickGeneratorController controller = new DeltaPickGeneratorController(mockPresenter, mockBetslipService);
+        DeltaPickGeneratorController controller = new DeltaPickGeneratorController(mockPresenter, mockBetslipService, mockFxWeaver, mockDeltaCache);
 
         // Assert
         assertNotNull(controller, "Controller should be created");
