@@ -24,14 +24,14 @@
             <Label fx:id="statusLabel" text="Pre-computed optimal wheels" styleClass="status-label"/>
         </HBox>
         
-        <!-- Warning Banner -->
-        <VBox styleClass="warning-banner" spacing="5">
+        <!-- Info Banner -->
+        <VBox spacing="5" style="-fx-background-color: #d1ecf1; -fx-border-color: #0c5460; -fx-border-width: 1;">
             <padding>
                 <Insets top="10" right="10" bottom="10" left="10"/>
             </padding>
-            <Label text="⚠️ Note: Wheel generation is disabled" style="-fx-font-weight: bold;"/>
-            <Label text="Generating truly optimal wheels requires complex mathematical constructions. Use pre-computed wheels from established sources instead." wrapText="true"/>
-            <Label text="The greedy algorithm produces non-optimal wheels (e.g., 107 lines instead of 19 for 3-if-5)." wrapText="true"/>
+            <Label text="ℹ️ Optimized Wheel Generation" style="-fx-font-weight: bold;"/>
+            <Label text="Generate optimal wheels using weighted greedy algorithm with backtracking and redundancy elimination." wrapText="true"/>
+            <Label text="Generated wheels are automatically saved to the wheels directory for future use." wrapText="true"/>
         </VBox>
         
         <Separator/>
@@ -61,8 +61,8 @@
         
         <Separator/>
         
-        <!-- Configuration Panel - DISABLED -->
-        <VBox spacing="15" styleClass="panel-modern" visible="false" managed="false">
+        <!-- Configuration Panel -->
+        <VBox spacing="15" styleClass="panel-modern" visible="true" managed="true">
             <padding>
                 <Insets top="15" right="15" bottom="15" left="15"/>
             </padding>

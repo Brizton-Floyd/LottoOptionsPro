@@ -72,6 +72,7 @@ public class WheelBuilderController {
         pickSizeCombo.getSelectionModel().select(1); // Default to Pick-5
         pickSizeCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             updateGuaranteeLevels();
+            loadExistingWheels();
         });
         
         setupExistingWheelsTable();
@@ -86,8 +87,11 @@ public class WheelBuilderController {
             new javafx.beans.property.SimpleObjectProperty<>(cellData.getValue().getPoolSize()));
         pickSizeColumn.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleObjectProperty<>(cellData.getValue().getPickSize()));
-        guaranteeColumn.setCellValueFactory(cellData -> 
-            new javafx.beans.property.SimpleStringProperty(cellData.getValue().getGuaranteeLevel().getDisplayName()));
+        guaranteeColumn.setCellValueFactory(cellData -> {
+            GuaranteeLevel level = cellData.getValue().getGuaranteeLevel();
+            String displayName = level != null ? level.getDisplayName() : "Unknown";
+            return new javafx.beans.property.SimpleStringProperty(displayName);
+        });
         linesColumn.setCellValueFactory(cellData -> 
             new javafx.beans.property.SimpleObjectProperty<>(cellData.getValue().getTotalLines()));
         sourceColumn.setCellValueFactory(cellData -> 
@@ -99,21 +103,70 @@ public class WheelBuilderController {
     private void loadExistingWheels() {
         try {
             existingWheelsTable.getItems().clear();
+            existingWheelsTable.refresh();
             
-            org.springframework.core.io.support.PathMatchingResourcePatternResolver resolver = 
-                new org.springframework.core.io.support.PathMatchingResourcePatternResolver();
-            org.springframework.core.io.Resource[] resources = resolver.getResources("classpath:wheels/*.json");
-            
-            for (org.springframework.core.io.Resource resource : resources) {
-                try (java.io.InputStreamReader reader = new java.io.InputStreamReader(resource.getInputStream())) {
-                    WheelTable table = gson.fromJson(reader, WheelTable.class);
-                    existingWheelsTable.getItems().add(table);
-                } catch (Exception e) {
-                    logger.error("Failed to load wheel: {}", resource.getFilename(), e);
-                }
+            Integer selectedPickSize = pickSizeCombo.getValue();
+            if (selectedPickSize == null) {
+                return;
             }
             
-            logger.info("Loaded {} existing wheels", existingWheelsTable.getItems().size());
+            poolSizeColumn.setSortType(javafx.scene.control.TableColumn.SortType.DESCENDING);
+            existingWheelsTable.getSortOrder().clear();
+            existingWheelsTable.getSortOrder().add(poolSizeColumn);
+            
+            java.nio.file.Path wheelsRoot = java.nio.file.Paths.get("wheels").toAbsolutePath();
+            if (!java.nio.file.Files.exists(wheelsRoot)) {
+                logger.warn("Wheels directory not found: {}", wheelsRoot);
+                return;
+            }
+            
+            java.util.List<WheelTable> wheelTables = new java.util.ArrayList<>();
+            
+            java.nio.file.Files.walk(wheelsRoot)
+                .filter(java.nio.file.Files::isRegularFile)
+                .filter(p -> p.toString().endsWith(".txt"))
+                .forEach(wheelFile -> {
+                    try {
+                        String path = wheelFile.toString();
+                        String pickSizeStr = path.contains("pick5") ? "5" : path.contains("pick6") ? "6" : path.contains("pick4") ? "4" : "5";
+                        int pickSize = Integer.parseInt(pickSizeStr);
+                        
+                        if (pickSize != selectedPickSize) {
+                            return;
+                        }
+                        
+                        String poolSizeStr = wheelFile.getParent().getFileName().toString();
+                        int poolSize = Integer.parseInt(poolSizeStr);
+                        
+                        String filename = wheelFile.getFileName().toString();
+                        String[] parts = filename.replace(".txt", "").split("_if_");
+                        int m = Integer.parseInt(parts[0]);
+                        int t = Integer.parseInt(parts[1]);
+                        
+                        java.util.List<String> lines = java.nio.file.Files.readAllLines(wheelFile);
+                        
+                        WheelTable table = new WheelTable();
+                        table.setPoolSize(poolSize);
+                        table.setPickSize(pickSize);
+                        table.setTotalLines(lines.size());
+                        table.setGuaranteeLevel(GuaranteeLevel.fromMandT(m, t, pickSize));
+                        table.setSource("File: " + wheelFile.getFileName());
+                        table.setVerified(true);
+                        
+                        wheelTables.add(table);
+                        
+                    } catch (Exception e) {
+                        logger.error("Failed to load wheel: {}", wheelFile, e);
+                    }
+                });
+            
+            existingWheelsTable.getItems().addAll(wheelTables);
+            
+            logger.info("Loaded {} existing wheels for Pick-{} from {}", 
+                       existingWheelsTable.getItems().size(), selectedPickSize, wheelsRoot);
+            
+            existingWheelsTable.sort();
+            existingWheelsTable.refresh();
             
         } catch (Exception e) {
             logger.error("Failed to load existing wheels", e);
@@ -267,35 +320,7 @@ public class WheelBuilderController {
     
     @FXML
     private void handleSaveWheel() {
-        if (generatedWheel == null) {
-            showError("No wheel to save");
-            return;
-        }
-        
-        try {
-            String filename = String.format("pick%d-%d-%s.json",
-                generatedWheel.getPickSize(),
-                generatedWheel.getPoolSize(),
-                generatedWheel.getGuaranteeLevel().name().toLowerCase().replace("_", ""));
-            
-            File wheelsDir = new File("src/main/resources/wheels");
-            if (!wheelsDir.exists()) {
-                wheelsDir.mkdirs();
-            }
-            
-            File outputFile = new File(wheelsDir, filename);
-            
-            try (FileWriter writer = new FileWriter(outputFile)) {
-                gson.toJson(generatedWheel, writer);
-            }
-            
-            showInfo("Wheel saved successfully to: " + outputFile.getPath());
-            logger.info("Wheel saved to: {}", outputFile.getAbsolutePath());
-            
-        } catch (Exception e) {
-            logger.error("Failed to save wheel", e);
-            showError("Failed to save wheel: " + e.getMessage());
-        }
+        showInfo("Wheels are automatically saved during generation to the wheels directory.");
     }
     
     @FXML

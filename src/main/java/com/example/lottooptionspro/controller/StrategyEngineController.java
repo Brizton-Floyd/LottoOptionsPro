@@ -9,6 +9,7 @@ import com.example.lottooptionspro.presenter.StrategyEnginePresenter;
 import com.example.lottooptionspro.service.AbbreviatedWheelService;
 import com.example.lottooptionspro.service.BetslipGenerationService;
 import com.example.lottooptionspro.service.PatternBasedWheelGenerator;
+import com.example.lottooptionspro.service.WinCheckService;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
@@ -26,10 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
@@ -81,6 +79,7 @@ public class StrategyEngineController implements StrategyEnginePresenter.Strateg
     private final AbbreviatedWheelService wheelService;
     private final BetslipGenerationService betslipService;
     private final PatternBasedWheelGenerator patternWheelGenerator;
+    private final WinCheckService winCheckService;
     private final FxWeaver fxWeaver;
     
     private ToggleGroup strategyBiasGroup;
@@ -89,16 +88,19 @@ public class StrategyEngineController implements StrategyEnginePresenter.Strateg
     private int currentPickSize = 6;
     private StrategyEngineResponse currentResponse;
     private List<int[]> currentWheeledCombinations;
+    private GuaranteeLevel currentGuarantee;
 
     public StrategyEngineController(StrategyEnginePresenter presenter, 
                                    AbbreviatedWheelService wheelService,
                                    BetslipGenerationService betslipService,
                                    PatternBasedWheelGenerator patternWheelGenerator,
+                                   WinCheckService winCheckService,
                                    FxWeaver fxWeaver) {
         this.presenter = presenter;
         this.wheelService = wheelService;
         this.betslipService = betslipService;
         this.patternWheelGenerator = patternWheelGenerator;
+        this.winCheckService = winCheckService;
         this.fxWeaver = fxWeaver;
     }
 
@@ -588,6 +590,7 @@ public class StrategyEngineController implements StrategyEnginePresenter.Strateg
             }
             
             currentWheeledCombinations = allCombinations;
+            currentGuarantee = guarantee;
             
             WheelGenerationResponse combinedResponse = new WheelGenerationResponse(
                 allCombinations,
@@ -619,10 +622,19 @@ public class StrategyEngineController implements StrategyEnginePresenter.Strateg
             response.getTotalLines(), response.getGuarantee().getDisplayName()));
         summaryLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2E7D32;");
         
-        Label instructionLabel = new Label("Click 'Generate Betslips' above to create printable bet slips");
+        Label instructionLabel = new Label("Click 'Generate Betslips' to create printable bet slips or 'Check Wins' to verify winning numbers");
         instructionLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #555;");
         
-        summaryBox.getChildren().addAll(summaryLabel, instructionLabel);
+        HBox actionButtons = new HBox(10);
+        actionButtons.setPadding(new Insets(5, 0, 0, 0));
+        
+        Button checkWinsButton = new Button("🎯 Check Wins");
+        checkWinsButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 15;");
+        checkWinsButton.setOnAction(e -> handleCheckWins());
+        
+        actionButtons.getChildren().add(checkWinsButton);
+        
+        summaryBox.getChildren().addAll(summaryLabel, instructionLabel, actionButtons);
         wheeledCombinationsPane.getChildren().add(summaryBox);
         
         Label spacer = new Label(" ");
@@ -693,5 +705,219 @@ public class StrategyEngineController implements StrategyEnginePresenter.Strateg
         if (balancedButton.isSelected()) return "balanced";
         if (conservativeButton.isSelected()) return "conservative";
         return "aggressive";
+    }
+    
+    public void handleCheckWins() {
+        if (currentWheeledCombinations == null || currentWheeledCombinations.isEmpty()) {
+            showError("No wheeled combinations available. Please generate a wheel first.");
+            return;
+        }
+        
+        Dialog<int[]> dialog = new Dialog<>();
+        dialog.setTitle("Check Winning Numbers");
+        dialog.setHeaderText("Enter the winning numbers to check against your wheeled tickets");
+        
+        ButtonType checkButtonType = new ButtonType("Check Wins", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(checkButtonType, ButtonType.CANCEL);
+        
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+        
+        GameConfiguration gameConfig = new GameConfiguration(currentState, currentGame);
+        int maxNumber = gameConfig.getMaxNumber();
+        
+        TextField[] numberFields = new TextField[currentPickSize];
+        for (int i = 0; i < currentPickSize; i++) {
+            Label label = new Label("Number " + (i + 1) + ":");
+            TextField textField = new TextField();
+            textField.setPromptText("1-" + maxNumber);
+            textField.setPrefWidth(80);
+            numberFields[i] = textField;
+            grid.add(label, 0, i);
+            grid.add(textField, 1, i);
+        }
+        
+        dialog.getDialogPane().setContent(grid);
+        
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == checkButtonType) {
+                try {
+                    int[] winningNumbers = new int[currentPickSize];
+                    for (int i = 0; i < currentPickSize; i++) {
+                        String text = numberFields[i].getText().trim();
+                        if (text.isEmpty()) {
+                            throw new IllegalArgumentException("Please enter all " + currentPickSize + " numbers");
+                        }
+                        winningNumbers[i] = Integer.parseInt(text);
+                    }
+                    return winningNumbers;
+                } catch (NumberFormatException e) {
+                    showError("Please enter valid numbers");
+                    return null;
+                }
+            }
+            return null;
+        });
+        
+        Optional<int[]> result = dialog.showAndWait();
+        result.ifPresent(winningNumbers -> {
+            showLoading(true);
+            Platform.runLater(() -> {
+                try {
+                    com.example.lottooptionspro.model.wincheck.WinCheckResult winResult = 
+                        winCheckService.checkWins(currentWheeledCombinations, winningNumbers, currentGuarantee);
+                    displayWinCheckResults(winResult);
+                } catch (Exception e) {
+                    showError("Error checking wins: " + e.getMessage());
+                    logger.error("Win check failed", e);
+                } finally {
+                    showLoading(false);
+                }
+            });
+        });
+    }
+    
+    private void displayWinCheckResults(com.example.lottooptionspro.model.wincheck.WinCheckResult result) {
+        Stage resultsStage = new Stage();
+        resultsStage.setTitle("Win Check Results");
+        resultsStage.initModality(Modality.APPLICATION_MODAL);
+        
+        VBox mainContainer = new VBox(15);
+        mainContainer.setPadding(new Insets(20));
+        mainContainer.setStyle("-fx-background-color: #f5f5f5;");
+        
+        Label titleLabel = new Label("🎯 Win Check Results");
+        titleLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+        
+        String winningNumbersStr = Arrays.stream(result.getWinningNumbers())
+            .mapToObj(n -> String.format("%02d", n))
+            .collect(Collectors.joining("-"));
+        Label winningLabel = new Label("Winning Numbers: " + winningNumbersStr);
+        winningLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2E7D32;");
+        
+        VBox summaryBox = new VBox(8);
+        summaryBox.setStyle("-fx-background-color: white; -fx-padding: 15; -fx-border-color: #ddd; -fx-border-radius: 5; -fx-background-radius: 5;");
+        
+        com.example.lottooptionspro.model.wincheck.WinCheckResult.WinSummary summary = result.getSummary();
+        
+        Label summaryTitle = new Label("Summary");
+        summaryTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        
+        GridPane summaryGrid = new GridPane();
+        summaryGrid.setHgap(20);
+        summaryGrid.setVgap(8);
+        
+        addSummaryRow(summaryGrid, 0, "Total Tickets:", String.valueOf(summary.getTotalTickets()));
+        addSummaryRow(summaryGrid, 1, "Winning Tickets:", String.valueOf(summary.getWinningTickets()));
+        
+        if (summary.getPerfectMatches() > 0) {
+            Label perfectLabel = new Label("🎊 JACKPOT! " + summary.getPerfectMatches() + " ticket(s) with " + currentPickSize + "/" + currentPickSize);
+            perfectLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #FF6F00;");
+            summaryGrid.add(perfectLabel, 0, 2, 2, 1);
+        }
+        
+        int row = summary.getPerfectMatches() > 0 ? 3 : 2;
+        if (summary.getMatch5() > 0) addSummaryRow(summaryGrid, row++, (currentPickSize - 1) + "/" + currentPickSize + " matches:", String.valueOf(summary.getMatch5()));
+        if (summary.getMatch4() > 0) addSummaryRow(summaryGrid, row++, (currentPickSize - 2) + "/" + currentPickSize + " matches:", String.valueOf(summary.getMatch4()));
+        if (summary.getMatch3() > 0) addSummaryRow(summaryGrid, row++, (currentPickSize - 3) + "/" + currentPickSize + " matches:", String.valueOf(summary.getMatch3()));
+        if (summary.getMatch2() > 0) addSummaryRow(summaryGrid, row++, "2/" + currentPickSize + " matches:", String.valueOf(summary.getMatch2()));
+        
+        if (summary.getGuaranteeMessage() != null && !summary.getGuaranteeMessage().isEmpty()) {
+            Label guaranteeLabel = new Label(summary.getGuaranteeMessage());
+            guaranteeLabel.setWrapText(true);
+            guaranteeLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: " + 
+                                   (summary.isGuaranteeVerified() ? "#2E7D32" : "#C62828") + ";");
+            summaryGrid.add(guaranteeLabel, 0, row, 2, 1);
+        }
+        
+        summaryBox.getChildren().addAll(summaryTitle, new Separator(), summaryGrid);
+        
+        ScrollPane matchesScrollPane = new ScrollPane();
+        matchesScrollPane.setFitToWidth(true);
+        matchesScrollPane.setPrefHeight(400);
+        
+        VBox matchesContainer = new VBox(10);
+        matchesContainer.setPadding(new Insets(10));
+        
+        Label matchesTitle = new Label("Winning Tickets (" + result.getMatches().size() + ")");
+        matchesTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        matchesContainer.getChildren().add(matchesTitle);
+        
+        for (com.example.lottooptionspro.model.wincheck.WinCheckResult.TicketMatch match : result.getMatches()) {
+            VBox ticketCard = createTicketMatchCard(match, result.getWinningNumbers());
+            matchesContainer.getChildren().add(ticketCard);
+        }
+        
+        matchesScrollPane.setContent(matchesContainer);
+        
+        Button closeButton = new Button("Close");
+        closeButton.setOnAction(e -> resultsStage.close());
+        closeButton.setStyle("-fx-font-size: 14px; -fx-padding: 10 30;");
+        
+        HBox buttonBox = new HBox(closeButton);
+        buttonBox.setAlignment(javafx.geometry.Pos.CENTER);
+        
+        mainContainer.getChildren().addAll(titleLabel, winningLabel, summaryBox, matchesScrollPane, buttonBox);
+        
+        Scene scene = new Scene(mainContainer, 600, 700);
+        resultsStage.setScene(scene);
+        resultsStage.show();
+        
+        logger.info("Displayed win check results: {} winning tickets", result.getMatches().size());
+    }
+    
+    private VBox createTicketMatchCard(com.example.lottooptionspro.model.wincheck.WinCheckResult.TicketMatch match, int[] winningNumbers) {
+        VBox card = new VBox(8);
+        card.setStyle("-fx-background-color: white; -fx-padding: 12; -fx-border-color: " + 
+                     getMatchBorderColor(match.getMatchCount()) + "; -fx-border-width: 2; " +
+                     "-fx-border-radius: 5; -fx-background-radius: 5;");
+        
+        Label headerLabel = new Label("Ticket #" + match.getTicketNumber() + " - " + 
+                                     match.getMatchCount() + "/" + currentPickSize + " matches");
+        headerLabel.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: " + 
+                           getMatchTextColor(match.getMatchCount()) + ";");
+        
+        FlowPane numbersPane = new FlowPane(5, 5);
+        Set<Integer> winningSet = Arrays.stream(winningNumbers).boxed().collect(Collectors.toSet());
+        
+        for (int num : match.getTicketNumbers()) {
+            Label numLabel = new Label(String.format("%02d", num));
+            boolean isWinning = winningSet.contains(num);
+            numLabel.setStyle("-fx-background-color: " + (isWinning ? "#4CAF50" : "#E0E0E0") + "; " +
+                            "-fx-text-fill: " + (isWinning ? "white" : "black") + "; " +
+                            "-fx-padding: 5 10; -fx-background-radius: 3; -fx-font-weight: " + 
+                            (isWinning ? "bold" : "normal") + ";");
+            numbersPane.getChildren().add(numLabel);
+        }
+        
+        card.getChildren().addAll(headerLabel, numbersPane);
+        return card;
+    }
+    
+    private String getMatchBorderColor(int matchCount) {
+        if (matchCount == currentPickSize) return "#FF6F00";
+        if (matchCount == currentPickSize - 1) return "#FBC02D";
+        if (matchCount == currentPickSize - 2) return "#4CAF50";
+        if (matchCount == currentPickSize - 3) return "#2196F3";
+        return "#9E9E9E";
+    }
+    
+    private String getMatchTextColor(int matchCount) {
+        if (matchCount == currentPickSize) return "#FF6F00";
+        if (matchCount == currentPickSize - 1) return "#F57C00";
+        if (matchCount == currentPickSize - 2) return "#388E3C";
+        if (matchCount == currentPickSize - 3) return "#1976D2";
+        return "#616161";
+    }
+    
+    private void addSummaryRow(GridPane grid, int row, String label, String value) {
+        Label labelNode = new Label(label);
+        labelNode.setStyle("-fx-font-weight: bold;");
+        Label valueNode = new Label(value);
+        valueNode.setStyle("-fx-font-size: 13px;");
+        grid.add(labelNode, 0, row);
+        grid.add(valueNode, 1, row);
     }
 }

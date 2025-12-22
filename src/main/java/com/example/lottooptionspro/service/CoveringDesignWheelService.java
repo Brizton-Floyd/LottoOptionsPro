@@ -13,43 +13,54 @@ public class CoveringDesignWheelService {
     
     private static final Logger logger = LoggerFactory.getLogger(CoveringDesignWheelService.class);
     private final PatternBasedWheelGenerator patternGenerator;
+    private final OptimizedWheelBuilder optimizedBuilder;
+    private final WheelPersistenceService persistenceService;
     
-    public CoveringDesignWheelService(PatternBasedWheelGenerator patternGenerator) {
+    public CoveringDesignWheelService(PatternBasedWheelGenerator patternGenerator,
+                                     OptimizedWheelBuilder optimizedBuilder,
+                                     WheelPersistenceService persistenceService) {
         this.patternGenerator = patternGenerator;
+        this.optimizedBuilder = optimizedBuilder;
+        this.persistenceService = persistenceService;
     }
     
-    public interface ProgressCallback {
-        void update(String message, double progress, int covered, int total, int lines);
-    }
-    
-    public List<int[]> constructWheel(WheelParameters params, ProgressCallback callback, AtomicBoolean cancelled) {
+    public List<int[]> constructWheel(WheelParameters params, WheelProgressCallback callback, AtomicBoolean cancelled) {
         params.validate();
         
-        logger.info("Constructing wheel for {}", params.getNotation());
+        logger.info("Loading pre-computed wheel for {}", params.getNotation());
         
         List<int[]> templateWheel = patternGenerator.generateFromTemplate(params);
         if (templateWheel != null) {
-            logger.info("Using pre-computed optimal template");
-            callback.update("Using optimal template wheel", 0.9, 0, 0, templateWheel.size());
+            logger.info("Using pre-computed wheel: {} lines", templateWheel.size());
+            callback.update("Loaded pre-computed wheel", 1.0, 0, 0, templateWheel.size());
             return templateWheel;
         }
         
-        if (params.isBalancedGuarantee() && params.isPrimePoolSize()) {
-            logger.info("Using Cyclic Shift method (balanced guarantee, prime pool)");
-            return constructCyclicShiftWheel(params, callback, cancelled);
-        }
-        
-        List<int[]> bibdWheel = tryBIBDConstruction(params, callback, cancelled);
-        if (bibdWheel != null) {
-            logger.info("Using BIBD Block Design method");
-            return bibdWheel;
-        }
-        
-        logger.info("Using Greedy algorithm (fallback)");
-        return constructGreedyWheel(params, callback, cancelled);
+        logger.warn("No pre-computed wheel found for {}. Use Wheel Builder to generate this wheel.", params.getNotation());
+        callback.update("No wheel available - use Wheel Builder to generate", 0.0, 0, 0, 0);
+        return null;
     }
     
-    private List<int[]> constructCyclicShiftWheel(WheelParameters params, ProgressCallback callback, AtomicBoolean cancelled) {
+    public List<int[]> buildAndSaveWheel(WheelParameters params, WheelProgressCallback callback, AtomicBoolean cancelled) {
+        params.validate();
+        
+        logger.info("Building new wheel for {}", params.getNotation());
+        
+        List<int[]> wheel = optimizedBuilder.buildOptimalWheel(params, callback, cancelled);
+        
+        if (!cancelled.get() && wheel != null && !wheel.isEmpty()) {
+            logger.info("Saving generated wheel to disk...");
+            boolean saved = persistenceService.saveWheel(params, wheel);
+            if (saved) {
+                logger.info("Wheel saved successfully: wheels/pick{}/{}/{}_if_{}.txt", 
+                           params.getK(), params.getV(), params.getM(), params.getT());
+            }
+        }
+        
+        return wheel;
+    }
+    
+    private List<int[]> constructCyclicShiftWheel(WheelParameters params, WheelProgressCallback callback, AtomicBoolean cancelled) {
         callback.update("Using Cyclic Shift method...", 0.1, 0, 0, 0);
         
         List<int[]> wheel = new ArrayList<>();
@@ -96,11 +107,11 @@ public class CoveringDesignWheelService {
         return seed;
     }
     
-    private List<int[]> tryBIBDConstruction(WheelParameters params, ProgressCallback callback, AtomicBoolean cancelled) {
+    private List<int[]> tryBIBDConstruction(WheelParameters params, WheelProgressCallback callback, AtomicBoolean cancelled) {
         return null;
     }
     
-    private List<int[]> constructTransversalDesign_15_5_3if5(ProgressCallback callback, AtomicBoolean cancelled) {
+    private List<int[]> constructTransversalDesign_15_5_3if5(WheelProgressCallback callback, AtomicBoolean cancelled) {
         callback.update("Using Transversal Design (15-5-3if5)...", 0.2, 0, 0, 0);
         
         List<int[]> wheel = new ArrayList<>();
@@ -125,7 +136,7 @@ public class CoveringDesignWheelService {
         return wheel;
     }
     
-    private List<int[]> constructBlockDesign_18_5_3if5(ProgressCallback callback, AtomicBoolean cancelled) {
+    private List<int[]> constructBlockDesign_18_5_3if5(WheelProgressCallback callback, AtomicBoolean cancelled) {
         callback.update("Using Block Design (18-5-3if5)...", 0.2, 0, 0, 0);
         
         List<int[]> wheel = new ArrayList<>();
@@ -163,7 +174,7 @@ public class CoveringDesignWheelService {
         return wheel;
     }
     
-    private List<int[]> constructBIBD_15_5_4if4(ProgressCallback callback, AtomicBoolean cancelled) {
+    private List<int[]> constructBIBD_15_5_4if4(WheelProgressCallback callback, AtomicBoolean cancelled) {
         callback.update("Using BIBD (15-5-4if4)...", 0.1, 0, 0, 0);
         
         List<int[]> wheel = new ArrayList<>();
@@ -207,7 +218,7 @@ public class CoveringDesignWheelService {
         return wheel;
     }
     
-    private List<int[]> constructGreedyWheel(WheelParameters params, ProgressCallback callback, AtomicBoolean cancelled) {
+    private List<int[]> constructGreedyWheel(WheelParameters params, WheelProgressCallback callback, AtomicBoolean cancelled) {
         callback.update("Generating all winning outcomes...", 0.05, 0, 0, 0);
         
         Set<Set<Integer>> requiredSubsets = generateRequiredSubsets(params, callback, cancelled);
@@ -257,7 +268,7 @@ public class CoveringDesignWheelService {
         return wheel;
     }
     
-    private Set<Set<Integer>> generateRequiredSubsets(WheelParameters params, ProgressCallback callback, AtomicBoolean cancelled) {
+    private Set<Set<Integer>> generateRequiredSubsets(WheelParameters params, WheelProgressCallback callback, AtomicBoolean cancelled) {
         Set<Set<Integer>> subsets = new HashSet<>();
         
         if (params.getT() == params.getM()) {

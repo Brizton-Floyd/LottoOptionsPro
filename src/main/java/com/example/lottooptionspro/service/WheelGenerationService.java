@@ -44,12 +44,12 @@ public class WheelGenerationService {
                 WheelParameters params = new WheelParameters(poolSize, pickSize, guaranteeLevel);
                 params.validate();
                 
-                progressCallback.update("Constructing wheel using covering design...", 0.05, 0, 0, 0);
+                progressCallback.update("Building optimal wheel...", 0.05, 0, 0, 0);
                 
-                CoveringDesignWheelService.ProgressCallback designCallback = 
+                WheelProgressCallback designCallback = 
                     (msg, prog, cov, tot, lines) -> progressCallback.update(msg, prog, cov, tot, lines);
                 
-                List<int[]> wheel = coveringDesignService.constructWheel(params, designCallback, cancelled);
+                List<int[]> wheel = coveringDesignService.buildAndSaveWheel(params, designCallback, cancelled);
                 
                 if (cancelled.get()) {
                     throw new RuntimeException("Generation cancelled");
