@@ -1014,9 +1014,38 @@ public class TemplateCreatorController implements TemplateCreatorView, ContextAw
 
     @Override
     public void displayImage(String imagePath) {
-        betslipImageView.setImage(new javafx.scene.image.Image(imagePath));
+        javafx.scene.image.Image image = new javafx.scene.image.Image(imagePath);
+        betslipImageView.setImage(image);
+        
+        // Sync drawingPane size with the actual displayed image size
+        // This ensures coordinates plot correctly when image is scaled
+        image.progressProperty().addListener((obs, oldProgress, newProgress) -> {
+            if (newProgress.doubleValue() >= 1.0) {
+                syncDrawingPaneWithImage();
+            }
+        });
+        
+        // If image is already loaded, sync immediately
+        if (image.getProgress() >= 1.0) {
+            syncDrawingPaneWithImage();
+        }
+        
         // Enable template controls once an image is loaded
         setTemplateControlsEnabled(true);
+    }
+    
+    private void syncDrawingPaneWithImage() {
+        if (betslipImageView.getImage() == null) return;
+        
+        // Get the actual displayed dimensions of the ImageView
+        double imageWidth = betslipImageView.getImage().getWidth();
+        double imageHeight = betslipImageView.getImage().getHeight();
+        
+        // Set drawingPane to match the image dimensions exactly
+        // This ensures coordinates saved at full image size plot correctly
+        drawingPane.setPrefSize(imageWidth, imageHeight);
+        drawingPane.setMinSize(imageWidth, imageHeight);
+        drawingPane.setMaxSize(imageWidth, imageHeight);
     }
 
     @Override
