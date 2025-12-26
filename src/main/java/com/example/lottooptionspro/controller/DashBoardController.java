@@ -72,6 +72,8 @@ public class DashBoardController implements GameInformation, DashboardView {
     private VBox segmentGridContainer;
     @FXML
     private VBox segmentRecommendationsContainer;
+    @FXML
+    private VBox gamesOutFrequencyContainer;
     
     // Trading Chart FXML fields
     @FXML
@@ -167,6 +169,7 @@ public class DashBoardController implements GameInformation, DashboardView {
 
     @Override
     public void setUpDrawPatternTable(List<DrawResultPattern> drawResultPatterns) {
+        setUpGamesOutFrequencyAnalysis(drawResultPatterns);
         data.clear();
         dateColumnTable.getColumns().clear();
         numberColumnsTable.getColumns().clear();
@@ -178,7 +181,32 @@ public class DashBoardController implements GameInformation, DashboardView {
         drawResultPatterns.forEach(pattern -> {
             ObservableList<Object> row = FXCollections.observableArrayList();
             row.add(pattern.getDrawDate());
-            pattern.getLotteryNumbers().forEach(lotteryNumber -> row.add(lotteryNumber.getGamesOut()));
+            
+            // Create a map from number to its draw position
+            // Only store position for numbers that were actually drawn (gamesOut == 0)
+            Map<Integer, Integer> numberToPosition = new HashMap<>();
+            List<LotteryNumber> lotteryNumbers = pattern.getLotteryNumbers();
+            
+            int drawPosition = 1;
+            for (LotteryNumber lotteryNumber : lotteryNumbers) {
+                if (lotteryNumber.getGamesOut() == 0) {
+                    // This number was drawn - store its position
+                    numberToPosition.put(lotteryNumber.getNumber(), drawPosition);
+                    drawPosition++;
+                }
+            }
+            
+            // Now add cells for each number in the range, storing gamesOut and position
+            for (LotteryNumber lotteryNumber : lotteryNumbers) {
+                Map<String, Integer> cellData = new HashMap<>();
+                cellData.put("gamesOut", lotteryNumber.getGamesOut());
+                cellData.put("number", lotteryNumber.getNumber());
+                // Only add position if this number was actually drawn
+                if (numberToPosition.containsKey(lotteryNumber.getNumber())) {
+                    cellData.put("position", numberToPosition.get(lotteryNumber.getNumber()));
+                }
+                row.add(cellData);
+            }
             data.add(row);
         });
 
@@ -198,10 +226,19 @@ public class DashBoardController implements GameInformation, DashboardView {
             TableColumn<ObservableList<Object>, Integer> column = new TableColumn<>("" + i);
             column.setSortable(false);
             column.setReorderable(false);
+            final int currentNumber = i;
             column.setCellValueFactory(param -> {
                 ObservableList<Object> values = param.getValue();
-                if (colIndex < values.size() && values.get(colIndex) != null) {
-                    return new SimpleIntegerProperty(Integer.parseInt(values.get(colIndex).toString())).asObject();
+                // Search through the row data to find the cell for this number
+                for (int idx = 1; idx < values.size(); idx++) {
+                    Object cellValue = values.get(idx);
+                    if (cellValue instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Integer> cellData = (Map<String, Integer>) cellValue;
+                        if (cellData.get("number") != null && cellData.get("number") == currentNumber) {
+                            return new SimpleIntegerProperty(cellData.get("gamesOut")).asObject();
+                        }
+                    }
                 }
                 return null;
             });
@@ -214,8 +251,57 @@ public class DashBoardController implements GameInformation, DashboardView {
                         setText(null);
                         setStyle("");
                     } else {
-                        setText(item == 0 ? "#" : item.toString());
-                        setStyle(item == 0 ? "-fx-text-fill: orange; -fx-font-weight: bold;" : "");
+                        if (item == 0) {
+                            // Number was hit - determine position and apply color
+                            setText("#");
+                            
+                            // Get the position from the cell data
+                            int rowIndex = getIndex();
+                            if (rowIndex >= 0 && rowIndex < data.size()) {
+                                ObservableList<Object> rowData = data.get(rowIndex);
+                                
+                                // Search for the cell data for this specific number
+                                Integer position = null;
+                                for (int idx = 1; idx < rowData.size(); idx++) {
+                                    Object cellValue = rowData.get(idx);
+                                    if (cellValue instanceof Map) {
+                                        @SuppressWarnings("unchecked")
+                                        Map<String, Integer> cellData = (Map<String, Integer>) cellValue;
+                                        if (cellData.get("number") != null && cellData.get("number") == currentNumber) {
+                                            position = cellData.get("position");
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if (position != null) {
+                                    // Apply different colors based on position
+                                    String color = getColorForPosition(position);
+                                    setStyle("-fx-text-fill: " + color + "; -fx-font-weight: bold;");
+                                } else {
+                                    // Fallback to orange if position data not available
+                                    setStyle("-fx-text-fill: orange; -fx-font-weight: bold;");
+                                }
+                            } else {
+                                setStyle("-fx-text-fill: orange; -fx-font-weight: bold;");
+                            }
+                        } else {
+                            setText(item.toString());
+                            setStyle("");
+                        }
+                    }
+                }
+                
+                private String getColorForPosition(int position) {
+                    // Define distinct colors for each draw position
+                    switch (position) {
+                        case 1: return "#FF4444";  // Red - 1st position
+                        case 2: return "#4444FF";  // Blue - 2nd position
+                        case 3: return "#44FF44";  // Green - 3rd position
+                        case 4: return "#FF44FF";  // Magenta - 4th position
+                        case 5: return "#FFAA00";  // Orange - 5th position
+                        case 6: return "#00FFFF";  // Cyan - 6th position
+                        default: return "orange";  // Fallback
                     }
                 }
             });
@@ -329,24 +415,481 @@ public class DashBoardController implements GameInformation, DashboardView {
         return column;
     }
 
+    private void setUpGamesOutFrequencyAnalysis(List<DrawResultPattern> drawResultPatterns) {
+        if (gamesOutFrequencyContainer == null || drawResultPatterns == null || drawResultPatterns.isEmpty()) {
+            return;
+        }
+        
+        gamesOutFrequencyContainer.getChildren().clear();
+        
+        // Get the most recent draw (last row)
+        DrawResultPattern latestDraw = drawResultPatterns.get(drawResultPatterns.size() - 1);
+        
+        // Calculate frequency of each games out value across all historical data
+        Map<Integer, Map<Integer, Integer>> numberToGamesOutFrequency = calculateGamesOutFrequency(drawResultPatterns);
+        
+        // Create header
+        Label headerLabel = new Label("Games Out Frequency Analysis");
+        headerLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 0 0 8 0;");
+        gamesOutFrequencyContainer.getChildren().add(headerLabel);
+        
+        // Create legend
+        HBox legendBox = new HBox(10);
+        legendBox.setAlignment(Pos.CENTER_LEFT);
+        legendBox.setStyle("-fx-padding: 0 0 10 0;");
+        
+        Label hotLabel = new Label("🔥 Hot (0-9)");
+        hotLabel.setStyle("-fx-text-fill: #FF4444; -fx-font-weight: bold; -fx-font-size: 11px;");
+        
+        Label warmLabel = new Label("⚡ Warm (10-19)");
+        warmLabel.setStyle("-fx-text-fill: #FFAA00; -fx-font-weight: bold; -fx-font-size: 11px;");
+        
+        Label coldLabel = new Label("❄️ Cold (20+)");
+        coldLabel.setStyle("-fx-text-fill: #4444FF; -fx-font-weight: bold; -fx-font-size: 11px;");
+        
+        legendBox.getChildren().addAll(hotLabel, warmLabel, coldLabel);
+        gamesOutFrequencyContainer.getChildren().add(legendBox);
+        
+        // Group numbers by position ranges (based on the fixed stratified strategy)
+        int min = latestDraw.getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).min().orElse(1);
+        int max = latestDraw.getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).max().orElse(54);
+        
+        // Determine range size for grouping
+        int totalNumbers = max - min + 1;
+        int rangeSize = 10; // Default to groups of 10
+        
+        // Create frequency display for each range vertically stacked
+        for (int rangeStart = min; rangeStart <= max; rangeStart += rangeSize) {
+            int rangeEnd = Math.min(rangeStart + rangeSize - 1, max);
+            // Calculate GO stats for this specific range
+            Map<Integer, GOValueStats> rangeGOStats = calculateGOValueStats(drawResultPatterns, rangeStart, rangeEnd);
+            VBox rangeBox = createVerticalRangeFrequencyBox(rangeStart, rangeEnd, latestDraw, numberToGamesOutFrequency, rangeGOStats);
+            gamesOutFrequencyContainer.getChildren().add(rangeBox);
+        }
+    }
+    
+    private Map<Integer, Map<Integer, Integer>> calculateGamesOutFrequency(List<DrawResultPattern> drawResultPatterns) {
+        Map<Integer, Map<Integer, Integer>> numberToGamesOutFrequency = new HashMap<>();
+        
+        // For each number, count how many times each games out value has occurred
+        for (DrawResultPattern pattern : drawResultPatterns) {
+            for (LotteryNumber lotteryNumber : pattern.getLotteryNumbers()) {
+                int number = lotteryNumber.getNumber();
+                int gamesOut = lotteryNumber.getGamesOut();
+                
+                numberToGamesOutFrequency.putIfAbsent(number, new HashMap<>());
+                Map<Integer, Integer> gamesOutFreq = numberToGamesOutFrequency.get(number);
+                gamesOutFreq.put(gamesOut, gamesOutFreq.getOrDefault(gamesOut, 0) + 1);
+            }
+        }
+        
+        return numberToGamesOutFrequency;
+    }
+    
+    private Map<Integer, GOValueStats> calculateGOValueStats(List<DrawResultPattern> drawResultPatterns, int rangeStart, int rangeEnd) {
+        Map<Integer, GOValueStats> goValueStats = new HashMap<>();
+        
+        if (drawResultPatterns.size() < 2) {
+            return goValueStats;
+        }
+        
+        // Get the current games out value for each number from the latest draw
+        DrawResultPattern latestDraw = drawResultPatterns.get(drawResultPatterns.size() - 1);
+        
+        // Collect all unique GO values in the current draw for this range
+        Set<Integer> currentGOValues = new HashSet<>();
+        for (LotteryNumber lotteryNumber : latestDraw.getLotteryNumbers()) {
+            if (lotteryNumber.getNumber() >= rangeStart && lotteryNumber.getNumber() <= rangeEnd) {
+                currentGOValues.add(lotteryNumber.getGamesOut());
+            }
+        }
+        
+        // For each unique GO value, calculate frequency and last occurrence
+        for (int targetGO : currentGOValues) {
+            int frequencyCount = 0;
+            int drawsAgo = -1; // -1 means not found yet
+            
+            // First pass: count all occurrences (forward through history)
+            for (int i = 1; i < drawResultPatterns.size(); i++) {
+                DrawResultPattern previousDraw = drawResultPatterns.get(i - 1);
+                DrawResultPattern currentDraw = drawResultPatterns.get(i);
+                
+                // Check each number in the range
+                for (int number = rangeStart; number <= rangeEnd; number++) {
+                    // Find this number in both draws
+                    LotteryNumber prevNumber = findNumberInDraw(previousDraw, number);
+                    LotteryNumber currNumber = findNumberInDraw(currentDraw, number);
+                    
+                    if (prevNumber != null && currNumber != null) {
+                        // Check if the number had targetGO in previous draw and was drawn (GO:0) in current draw
+                        if (prevNumber.getGamesOut() == targetGO && currNumber.getGamesOut() == 0) {
+                            frequencyCount++;
+                        }
+                    }
+                }
+            }
+            
+            // Second pass: find most recent occurrence (backward through history)
+            for (int i = drawResultPatterns.size() - 1; i >= 1; i--) {
+                DrawResultPattern previousDraw = drawResultPatterns.get(i - 1);
+                DrawResultPattern currentDraw = drawResultPatterns.get(i);
+                
+                boolean foundInThisPair = false;
+                
+                // Check each number in the range
+                for (int number = rangeStart; number <= rangeEnd; number++) {
+                    LotteryNumber prevNumber = findNumberInDraw(previousDraw, number);
+                    LotteryNumber currNumber = findNumberInDraw(currentDraw, number);
+                    
+                    if (prevNumber != null && currNumber != null) {
+                        if (prevNumber.getGamesOut() == targetGO && currNumber.getGamesOut() == 0) {
+                            foundInThisPair = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (foundInThisPair) {
+                    drawsAgo = drawResultPatterns.size() - 1 - i;
+                    break;
+                }
+            }
+            
+            // If not found in any previous transition, set drawsAgo to -1
+            if (drawsAgo == -1) {
+                drawsAgo = -1;
+            }
+            
+            goValueStats.put(targetGO, new GOValueStats(frequencyCount, drawsAgo));
+        }
+        
+        return goValueStats;
+    }
+    
+    private LotteryNumber findNumberInDraw(DrawResultPattern draw, int number) {
+        for (LotteryNumber ln : draw.getLotteryNumbers()) {
+            if (ln.getNumber() == number) {
+                return ln;
+            }
+        }
+        return null;
+    }
+    
+    // Helper class to store GO value statistics
+    private static class GOValueStats {
+        int frequencyCount;  // How many times this GO value has appeared
+        int drawsAgo;        // How many draws ago it last appeared
+        
+        GOValueStats(int frequencyCount, int drawsAgo) {
+            this.frequencyCount = frequencyCount;
+            this.drawsAgo = drawsAgo;
+        }
+    }
+    
+    private VBox createVerticalRangeFrequencyBox(int rangeStart, int rangeEnd, DrawResultPattern latestDraw,
+                                                 Map<Integer, Map<Integer, Integer>> numberToGamesOutFrequency,
+                                                 Map<Integer, GOValueStats> goValueStats) {
+        VBox rangeBox = new VBox(3);
+        rangeBox.setStyle("-fx-border-color: #999999; -fx-border-width: 2; -fx-padding: 10; -fx-background-color: #FFFFFF; -fx-border-radius: 8; -fx-background-radius: 8; -fx-spacing: 3;");
+        rangeBox.setMaxWidth(Double.MAX_VALUE);
+        
+        // Range header with hot/warm/cold summary
+        HBox headerBox = new HBox(10);
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Label rangeLabel = new Label("Range " + rangeStart + "-" + rangeEnd);
+        rangeLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #333333;");
+        
+        // Analyze current status for this range
+        List<NumberFrequencyInfo> rangeNumbers = new ArrayList<>();
+        
+        for (LotteryNumber lotteryNumber : latestDraw.getLotteryNumbers()) {
+            int number = lotteryNumber.getNumber();
+            if (number >= rangeStart && number <= rangeEnd) {
+                int currentGamesOut = lotteryNumber.getGamesOut();
+                Map<Integer, Integer> gamesOutFreq = numberToGamesOutFrequency.get(number);
+                
+                int frequency = gamesOutFreq != null ? gamesOutFreq.getOrDefault(currentGamesOut, 0) : 0;
+                int totalOccurrences = gamesOutFreq != null ? gamesOutFreq.values().stream().mapToInt(Integer::intValue).sum() : 1;
+                double frequencyPercent = totalOccurrences > 0 ? (frequency * 100.0 / totalOccurrences) : 0;
+                
+                // Get range-wide GO statistics for this number's current GO value
+                GOValueStats goStats = goValueStats.get(currentGamesOut);
+                int rangeFrequency = goStats != null ? goStats.frequencyCount : 0;
+                int drawsAgo = goStats != null ? goStats.drawsAgo : 0;
+                
+                rangeNumbers.add(new NumberFrequencyInfo(number, currentGamesOut, frequency, frequencyPercent, rangeFrequency, drawsAgo));
+            }
+        }
+        
+        // Sort by games out value (ascending) to show hot numbers first
+        rangeNumbers.sort((a, b) -> Integer.compare(a.currentGamesOut, b.currentGamesOut));
+        
+        // Count hot/warm/cold numbers
+        long hotCount = rangeNumbers.stream().filter(n -> n.currentGamesOut <= 9).count();
+        long warmCount = rangeNumbers.stream().filter(n -> n.currentGamesOut >= 10 && n.currentGamesOut <= 19).count();
+        long coldCount = rangeNumbers.stream().filter(n -> n.currentGamesOut >= 20).count();
+        
+        Label summaryLabel = new Label(String.format("🔥%d ⚡%d ❄️%d", hotCount, warmCount, coldCount));
+        summaryLabel.setStyle("-fx-font-size: 11px; -fx-font-weight: bold;");
+        
+        headerBox.getChildren().addAll(rangeLabel, summaryLabel);
+        rangeBox.getChildren().add(headerBox);
+        
+        // Show all numbers in the range
+        rangeNumbers.forEach(info -> {
+            HBox numberBox = new HBox(6);
+            numberBox.setAlignment(Pos.CENTER_LEFT);
+            
+            String zoneColor;
+            String zoneIcon;
+            if (info.currentGamesOut <= 9) {
+                zoneColor = "#FF4444";
+                zoneIcon = "🔥";
+            } else if (info.currentGamesOut <= 19) {
+                zoneColor = "#FFAA00";
+                zoneIcon = "⚡";
+            } else {
+                zoneColor = "#4444FF";
+                zoneIcon = "❄️";
+            }
+            
+            Label numberLabel = new Label(String.format("%s #%d", zoneIcon, info.number));
+            numberLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: " + zoneColor + "; -fx-font-size: 11px; -fx-min-width: 50;");
+            
+            Label gamesOutLabel = new Label("GO:" + info.currentGamesOut);
+            gamesOutLabel.setStyle("-fx-font-size: 11px; -fx-min-width: 45; -fx-font-weight: bold;");
+            
+            Label freqLabel = new Label(String.format("%.0f%%", info.frequencyPercent));
+            freqLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666666; -fx-font-weight: bold;");
+            
+            Label rangeFreqLabel = new Label(String.format("[%dx]", info.rangeFrequency));
+            rangeFreqLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #0066CC; -fx-font-weight: bold;");
+            rangeFreqLabel.setTooltip(new Tooltip("Times this GO value appeared in range"));
+            
+            Label drawsAgoLabel = new Label(String.format("(%dd)", info.drawsAgo));
+            drawsAgoLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #999999; -fx-font-style: italic;");
+            drawsAgoLabel.setTooltip(new Tooltip("Draws ago this GO value last appeared in range"));
+            
+            numberBox.getChildren().addAll(numberLabel, gamesOutLabel, freqLabel, rangeFreqLabel, drawsAgoLabel);
+            rangeBox.getChildren().add(numberBox);
+        });
+        
+        return rangeBox;
+    }
+    
+    private VBox createCompactRangeFrequencyBox(int rangeStart, int rangeEnd, DrawResultPattern latestDraw,
+                                                Map<Integer, Map<Integer, Integer>> numberToGamesOutFrequency) {
+        VBox rangeBox = new VBox(4);
+        rangeBox.setStyle("-fx-border-color: #999999; -fx-border-width: 2; -fx-padding: 10; -fx-background-color: #FFFFFF; -fx-border-radius: 8; -fx-background-radius: 8;");
+        rangeBox.setPrefWidth(Region.USE_COMPUTED_SIZE);
+        rangeBox.setMaxWidth(Double.MAX_VALUE);
+        
+        // Range header with hot/warm/cold summary inline
+        HBox headerBox = new HBox(10);
+        headerBox.setAlignment(Pos.CENTER_LEFT);
+        
+        Label rangeLabel = new Label("Range " + rangeStart + "-" + rangeEnd);
+        rangeLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #333333;");
+        
+        // Analyze current status for this range
+        List<NumberFrequencyInfo> rangeNumbers = new ArrayList<>();
+        
+        for (LotteryNumber lotteryNumber : latestDraw.getLotteryNumbers()) {
+            int number = lotteryNumber.getNumber();
+            if (number >= rangeStart && number <= rangeEnd) {
+                int currentGamesOut = lotteryNumber.getGamesOut();
+                Map<Integer, Integer> gamesOutFreq = numberToGamesOutFrequency.get(number);
+                
+                int frequency = gamesOutFreq != null ? gamesOutFreq.getOrDefault(currentGamesOut, 0) : 0;
+                int totalOccurrences = gamesOutFreq != null ? gamesOutFreq.values().stream().mapToInt(Integer::intValue).sum() : 1;
+                double frequencyPercent = totalOccurrences > 0 ? (frequency * 100.0 / totalOccurrences) : 0;
+                
+                rangeNumbers.add(new NumberFrequencyInfo(number, currentGamesOut, frequency, frequencyPercent, 0, 0));
+            }
+        }
+        
+        // Sort by games out value (ascending) to show hot numbers first
+        rangeNumbers.sort((a, b) -> Integer.compare(a.currentGamesOut, b.currentGamesOut));
+        
+        // Count hot/warm/cold numbers
+        long hotCount = rangeNumbers.stream().filter(n -> n.currentGamesOut <= 9).count();
+        long warmCount = rangeNumbers.stream().filter(n -> n.currentGamesOut >= 10 && n.currentGamesOut <= 19).count();
+        long coldCount = rangeNumbers.stream().filter(n -> n.currentGamesOut >= 20).count();
+        
+        Label summaryLabel = new Label(String.format("🔥%d ⚡%d ❄️%d", hotCount, warmCount, coldCount));
+        summaryLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        headerBox.getChildren().addAll(rangeLabel, summaryLabel);
+        rangeBox.getChildren().add(headerBox);
+        
+        // Show all numbers in the range
+        rangeNumbers.forEach(info -> {
+            HBox numberBox = new HBox(8);
+            numberBox.setAlignment(Pos.CENTER_LEFT);
+            
+            String zoneColor;
+            String zoneIcon;
+            if (info.currentGamesOut <= 9) {
+                zoneColor = "#FF4444";
+                zoneIcon = "🔥";
+            } else if (info.currentGamesOut <= 19) {
+                zoneColor = "#FFAA00";
+                zoneIcon = "⚡";
+            } else {
+                zoneColor = "#4444FF";
+                zoneIcon = "❄️";
+            }
+            
+            Label numberLabel = new Label(String.format("%s #%d", zoneIcon, info.number));
+            numberLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: " + zoneColor + "; -fx-font-size: 11px; -fx-min-width: 45;");
+            
+            Label gamesOutLabel = new Label("GO:" + info.currentGamesOut);
+            gamesOutLabel.setStyle("-fx-font-size: 11px; -fx-min-width: 40; -fx-font-weight: bold;");
+            
+            Label freqLabel = new Label(String.format("%.0f%%", info.frequencyPercent));
+            freqLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666666; -fx-font-weight: bold;");
+            
+            numberBox.getChildren().addAll(numberLabel, gamesOutLabel, freqLabel);
+            rangeBox.getChildren().add(numberBox);
+        });
+        
+        return rangeBox;
+    }
+    
+    private VBox createRangeFrequencyBox(int rangeStart, int rangeEnd, DrawResultPattern latestDraw,
+                                         Map<Integer, Map<Integer, Integer>> numberToGamesOutFrequency) {
+        VBox rangeBox = new VBox(5);
+        rangeBox.setStyle("-fx-border-color: #999999; -fx-border-width: 2; -fx-padding: 12; -fx-background-color: #FFFFFF; -fx-border-radius: 8; -fx-background-radius: 8;");
+        rangeBox.setMinWidth(200);
+        rangeBox.setPrefWidth(220);
+        
+        // Range header
+        Label rangeLabel = new Label("Range " + rangeStart + "-" + rangeEnd);
+        rangeLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #333333;");
+        rangeBox.getChildren().add(rangeLabel);
+        
+        // Analyze current status for this range
+        List<NumberFrequencyInfo> rangeNumbers = new ArrayList<>();
+        
+        for (LotteryNumber lotteryNumber : latestDraw.getLotteryNumbers()) {
+            int number = lotteryNumber.getNumber();
+            if (number >= rangeStart && number <= rangeEnd) {
+                int currentGamesOut = lotteryNumber.getGamesOut();
+                Map<Integer, Integer> gamesOutFreq = numberToGamesOutFrequency.get(number);
+                
+                // Calculate how often this specific games out value has occurred for this number
+                int frequency = gamesOutFreq != null ? gamesOutFreq.getOrDefault(currentGamesOut, 0) : 0;
+                int totalOccurrences = gamesOutFreq != null ? gamesOutFreq.values().stream().mapToInt(Integer::intValue).sum() : 1;
+                double frequencyPercent = totalOccurrences > 0 ? (frequency * 100.0 / totalOccurrences) : 0;
+                
+                rangeNumbers.add(new NumberFrequencyInfo(number, currentGamesOut, frequency, frequencyPercent, 0, 0));
+            }
+        }
+        
+        // Sort by games out value (ascending) to show hot numbers first
+        rangeNumbers.sort((a, b) -> Integer.compare(a.currentGamesOut, b.currentGamesOut));
+        
+        // Count hot/warm/cold numbers
+        long hotCount = rangeNumbers.stream().filter(n -> n.currentGamesOut <= 9).count();
+        long warmCount = rangeNumbers.stream().filter(n -> n.currentGamesOut >= 10 && n.currentGamesOut <= 19).count();
+        long coldCount = rangeNumbers.stream().filter(n -> n.currentGamesOut >= 20).count();
+        
+        // Summary label
+        Label summaryLabel = new Label(String.format("🔥%d ⚡%d ❄️%d", hotCount, warmCount, coldCount));
+        summaryLabel.setStyle("-fx-font-size: 13px; -fx-padding: 3 0 8 0; -fx-font-weight: bold;");
+        rangeBox.getChildren().add(summaryLabel);
+        
+        // Show top 5 numbers with best frequency in this range
+        rangeNumbers.stream().limit(5).forEach(info -> {
+            HBox numberBox = new HBox(5);
+            numberBox.setAlignment(Pos.CENTER_LEFT);
+            
+            String zoneColor;
+            String zoneIcon;
+            if (info.currentGamesOut <= 9) {
+                zoneColor = "#FF4444";
+                zoneIcon = "🔥";
+            } else if (info.currentGamesOut <= 19) {
+                zoneColor = "#FFAA00";
+                zoneIcon = "⚡";
+            } else {
+                zoneColor = "#4444FF";
+                zoneIcon = "❄️";
+            }
+            
+            Label numberLabel = new Label(String.format("%s #%d", zoneIcon, info.number));
+            numberLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: " + zoneColor + "; -fx-font-size: 12px; -fx-min-width: 50;");
+            
+            Label gamesOutLabel = new Label("GO:" + info.currentGamesOut);
+            gamesOutLabel.setStyle("-fx-font-size: 12px; -fx-min-width: 45; -fx-font-weight: bold;");
+            
+            Label freqLabel = new Label(String.format("%.0f%%", info.frequencyPercent));
+            freqLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #333333; -fx-font-weight: bold;");
+            
+            numberBox.getChildren().addAll(numberLabel, gamesOutLabel, freqLabel);
+            rangeBox.getChildren().add(numberBox);
+        });
+        
+        return rangeBox;
+    }
+    
+    private static class NumberFrequencyInfo {
+        int number;
+        int currentGamesOut;
+        int frequency;
+        double frequencyPercent;
+        int rangeFrequency;  // How many times this GO value appeared in the range
+        int drawsAgo;        // How many draws ago this GO value last appeared in the range
+        
+        NumberFrequencyInfo(int number, int currentGamesOut, int frequency, double frequencyPercent, int rangeFrequency, int drawsAgo) {
+            this.number = number;
+            this.currentGamesOut = currentGamesOut;
+            this.frequency = frequency;
+            this.frequencyPercent = frequencyPercent;
+            this.rangeFrequency = rangeFrequency;
+            this.drawsAgo = drawsAgo;
+        }
+    }
+    
     @Override
     public void setUpLegend() {
         legendContainer.getChildren().clear();
 
-        Label hitSymbol = new Label("#");
-        hitSymbol.setStyle("-fx-text-fill: orange; -fx-font-weight: bold; -fx-font-size: 14px;");
-
-        Label hitText = new Label("= Number Hit");
-        hitText.getStyleClass().add("legend-text");
-
+        // Create legend for position-based colors
+        Label legendTitle = new Label("# Symbol Colors by Draw Position:");
+        legendTitle.setStyle("-fx-font-weight: bold; -fx-padding: 0 10px 0 0;");
+        legendContainer.getChildren().add(legendTitle);
+        
+        // Determine how many positions to show based on game configuration
+        int positionCount = getGameNumberCount();
+        
+        // Add color legend for each position
+        String[] colors = {"#FF4444", "#4444FF", "#44FF44", "#FF44FF", "#FFAA00", "#00FFFF"};
+        String[] positionLabels = {"1st", "2nd", "3rd", "4th", "5th", "6th"};
+        
+        for (int i = 0; i < Math.min(positionCount, colors.length); i++) {
+            Label posSymbol = new Label("#");
+            posSymbol.setStyle("-fx-text-fill: " + colors[i] + "; -fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 0 2px 0 8px;");
+            
+            Label posText = new Label("= " + positionLabels[i] + " position");
+            posText.getStyleClass().add("legend-text");
+            
+            legendContainer.getChildren().addAll(posSymbol, posText);
+        }
+        
+        // Add separator and games out legend
+        Label separator = new Label("|");
+        separator.setStyle("-fx-padding: 0 10px 0 10px; -fx-text-fill: #999999;");
+        legendContainer.getChildren().add(separator);
+        
         Label gamesOut = new Label("1, 2, 3...");
         gamesOut.getStyleClass().add("legend-text");
-        gamesOut.setStyle("-fx-padding: 0 0 0 10px;");
-
+        
         Label gamesOutText = new Label("= Games Out Since Last Hit");
         gamesOutText.getStyleClass().add("legend-text");
-
-        legendContainer.getChildren().addAll(hitSymbol, hitText, gamesOut, gamesOutText);
+        
+        legendContainer.getChildren().addAll(gamesOut, gamesOutText);
     }
 
     @Override

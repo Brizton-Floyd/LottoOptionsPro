@@ -48,25 +48,35 @@
             </Button>
         </HBox>
 
-        <!-- Main draw history table container (grows vertically) -->
-        <HBox VBox.vgrow="ALWAYS" styleClass="table-container">
-            <TableView fx:id="dateColumnTable" prefWidth="120" minWidth="120" maxWidth="120" editable="true">
-                <columnResizePolicy>
-                    <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
-                </columnResizePolicy>
-                <columns>
-                    <!-- The "Draw Date" column will be added here by the controller -->
-                </columns>
-            </TableView>
-            <TableView fx:id="numberColumnsTable" HBox.hgrow="ALWAYS" editable="true">
-                <columns>
-                    <!-- The number columns will be added here by the controller -->
-                </columns>
-            </TableView>
+        <!-- Main content area with table on left and frequency analysis on right -->
+        <HBox VBox.vgrow="ALWAYS" spacing="10">
+            <!-- Left side: Draw history tables -->
+            <VBox VBox.vgrow="ALWAYS" HBox.hgrow="ALWAYS">
+                <HBox VBox.vgrow="ALWAYS" styleClass="table-container">
+                    <TableView fx:id="dateColumnTable" prefWidth="120" minWidth="120" maxWidth="120" editable="true">
+                        <columnResizePolicy>
+                            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                        </columnResizePolicy>
+                        <columns>
+                            <!-- The "Draw Date" column will be added here by the controller -->
+                        </columns>
+                    </TableView>
+                    <TableView fx:id="numberColumnsTable" HBox.hgrow="ALWAYS" editable="true">
+                        <columns>
+                            <!-- The number columns will be added here by the controller -->
+                        </columns>
+                    </TableView>
+                </HBox>
+                
+                <!-- Data Table Legend -->
+                <HBox fx:id="legendContainer" spacing="10" style="-fx-padding: 10 0 0 0;" alignment="CENTER_LEFT"/>
+            </VBox>
+            
+            <!-- Right side: Games Out Frequency Analysis -->
+            <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;" prefWidth="350" minWidth="300" maxWidth="400">
+                <VBox fx:id="gamesOutFrequencyContainer" spacing="5" style="-fx-padding: 0;" visible="true" managed="true"/>
+            </ScrollPane>
         </HBox>
-
-        <!-- Data Table Legend -->
-        <HBox fx:id="legendContainer" spacing="10" style="-fx-padding: 10 0 0 0;" alignment="CENTER_LEFT"/>
 
         <!-- Probability panes container (does not grow) -->
         <HBox fx:id="dynamicPanesContainer" spacing="10" />

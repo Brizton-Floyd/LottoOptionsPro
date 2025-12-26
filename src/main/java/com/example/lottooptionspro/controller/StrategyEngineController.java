@@ -164,8 +164,8 @@ public class StrategyEngineController implements StrategyEnginePresenter.Strateg
                 return;
             }
             
-            if (setCount < 1 || setCount > 10) {
-                showError("Set count must be between 1 and 10");
+            if (setCount < 1 || setCount > 50) {
+                showError("Set count must be between 1 and 50");
                 return;
             }
             
@@ -197,12 +197,14 @@ public class StrategyEngineController implements StrategyEnginePresenter.Strateg
             GameConfiguration gameConfig = new GameConfiguration(currentState, currentGame);
             int actualPickSize = gameConfig.getNumbersDrawn();
             if (actualPickSize != currentPickSize) {
-                logger.warn("Pick size mismatch detected. Current: {}, Actual from GameConfiguration: {}. Updating guarantee levels.",
+                logger.warn("Pick size mismatch detected. Current: {}, Actual from GameConfiguration: {}. Updating to correct pick size.",
                            currentPickSize, actualPickSize);
                 currentPickSize = actualPickSize;
                 refreshGuaranteeLevels();
             }
         }
+        
+        logger.info("Displaying results for Pick-{} game: {} - {}", currentPickSize, currentState, currentGame);
         
         displayEngineConstants(
             response.getEngineConstants().getAverageSkip(),
@@ -336,10 +338,19 @@ public class StrategyEngineController implements StrategyEnginePresenter.Strateg
     public void displayGeneratedSets(List<GeneratedSet> sets) {
         generatedSetsPane.getChildren().clear();
         
+        logger.info("Displaying {} generated sets for Pick-{} game", sets.size(), currentPickSize);
+        
         for (GeneratedSet set : sets) {
-            VBox setCard = createSetCard(set);
-            generatedSetsPane.getChildren().add(setCard);
+            try {
+                VBox setCard = createSetCard(set);
+                generatedSetsPane.getChildren().add(setCard);
+                logger.debug("Successfully created card for Set {}", set.getSetId());
+            } catch (Exception e) {
+                logger.error("Error creating set card for Set {}: {}", set.getSetId(), e.getMessage(), e);
+            }
         }
+        
+        logger.info("Finished displaying generated sets. Total cards added: {}", generatedSetsPane.getChildren().size());
     }
 
     @Override
@@ -401,23 +412,18 @@ public class StrategyEngineController implements StrategyEnginePresenter.Strateg
         int row = 0;
         
         if (trapStats.getPerfectMatch() != null) {
-            addStatRow(statsGrid, row++, String.format("%d/%d:", currentPickSize, currentPickSize), 
+            addStatRow(statsGrid, row++, trapStats.getPerfectMatch().getMatchDescription() + ":", 
                       formatMatchStatistic(trapStats.getPerfectMatch()));
         }
         
         if (trapStats.getMatchMinus1() != null) {
-            addStatRow(statsGrid, row++, String.format("%d/%d:", currentPickSize - 1, currentPickSize), 
+            addStatRow(statsGrid, row++, trapStats.getMatchMinus1().getMatchDescription() + ":", 
                       formatMatchStatistic(trapStats.getMatchMinus1()));
         }
         
         if (trapStats.getMatchMinus2() != null) {
-            addStatRow(statsGrid, row++, String.format("%d/%d:", currentPickSize - 2, currentPickSize), 
+            addStatRow(statsGrid, row++, trapStats.getMatchMinus2().getMatchDescription() + ":", 
                       formatMatchStatistic(trapStats.getMatchMinus2()));
-        }
-        
-        if (trapStats.getMatchMinus3() != null) {
-            addStatRow(statsGrid, row++, String.format("%d/%d:", currentPickSize - 3, currentPickSize), 
-                      formatMatchStatistic(trapStats.getMatchMinus3()));
         }
         
         addStatRow(statsGrid, row, "Avg Coverage:", String.format("%.2f", set.getSetPerformance().getAverageCoverage()));
