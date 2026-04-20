@@ -1,7 +1,7 @@
 package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.model.smart.*;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -18,19 +18,11 @@ public class SmartNumberGenerationService {
     private final WebClient smartGeneratorWebClient;
     private final WebClient lotteryConfigWebClient;
 
-    public SmartNumberGenerationService(@Value("${dashboard.base-url}") String dashboardBaseUrl, WebClient.Builder webClientBuilder) {
-        // Smart generation endpoints (v2) - port 8002
-        this.smartGeneratorWebClient = webClientBuilder
-                .baseUrl(dashboardBaseUrl)
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(256 * 1024 * 1024))
-                .build();
-
-        // Lottery configuration endpoints (v1) - port 8001
-        String configBaseUrl = dashboardBaseUrl.replace("8002", "8001");
-        this.lotteryConfigWebClient = webClientBuilder
-                .baseUrl(configBaseUrl)
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(256 * 1024 * 1024))
-                .build();
+    public SmartNumberGenerationService(
+            @Qualifier("analysisServiceWebClient") WebClient analysisServiceWebClient,
+            @Qualifier("statesServiceWebClient") WebClient statesServiceWebClient) {
+        this.smartGeneratorWebClient = analysisServiceWebClient;
+        this.lotteryConfigWebClient = statesServiceWebClient;
     }
 
     public Mono<SmartGenerationResponse> startGeneration(SmartGenerationRequest request) {

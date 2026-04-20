@@ -2,6 +2,7 @@ package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.models.LotteryGame;
 import com.example.lottooptionspro.models.LotteryState;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -19,13 +20,13 @@ import java.util.List;
 public class MainControllerService {
     private final WebClient webClient;
 
-    public MainControllerService(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8001/api/v1").build();
+    public MainControllerService(@Qualifier("statesServiceWebClient") WebClient statesServiceWebClient) {
+        this.webClient = statesServiceWebClient;
     }
 
     public Flux<LotteryState> fetchStateGames() {
         return webClient.get()
-                .uri("/states")
+                .uri("/api/v1/states")
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToFlux(StateResponse.class)
@@ -46,7 +47,7 @@ public class MainControllerService {
 
     private Flux<LotteryGame> fetchGamesForState(StateResponse.StateData stateData) {
         return webClient.get()
-                .uri("/states/{stateName}/games", stateData.getStateRegion())
+                .uri("/api/v1/states/{stateName}/games", stateData.getStateRegion())
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToFlux(LotteryGame.class);

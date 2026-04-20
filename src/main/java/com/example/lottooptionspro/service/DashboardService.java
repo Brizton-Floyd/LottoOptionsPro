@@ -3,8 +3,7 @@ package com.example.lottooptionspro.service;
 import com.example.lottooptionspro.model.dashboard.SegmentAnalysisResult;
 import com.example.lottooptionspro.model.response.EnhancedDashboardResponse;
 import com.floyd.model.response.DashboardResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -12,18 +11,12 @@ import reactor.core.publisher.Mono;
 @Service
 public class DashboardService {
     private final WebClient webClient;
-    private final String baseUrl;
     private final SegmentAnalysisService segmentAnalysisService;
 
-    @Autowired
-    public DashboardService(@Value("${dashboard.base-url}") String baseUrl, 
-                           SegmentAnalysisService segmentAnalysisService) {
-        this.baseUrl = baseUrl;
+    public DashboardService(@Qualifier("analysisServiceWebClient") WebClient analysisServiceWebClient,
+                            SegmentAnalysisService segmentAnalysisService) {
+        this.webClient = analysisServiceWebClient;
         this.segmentAnalysisService = segmentAnalysisService;
-        this.webClient = WebClient
-                .builder()
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(256 * 1024 * 1024)) // 256MB
-                .baseUrl(baseUrl).build();
     }
 
     public Mono<DashboardResponse> getDashboardData(String state, String game) {
