@@ -3,6 +3,8 @@ package com.example.lottooptionspro.service;
 import com.example.lottooptionspro.model.dashboard.SegmentAnalysisResult;
 import com.example.lottooptionspro.model.response.EnhancedDashboardResponse;
 import com.floyd.model.response.DashboardResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -10,6 +12,8 @@ import reactor.core.publisher.Mono;
 
 @Service
 public class DashboardService {
+    private static final Logger logger = LoggerFactory.getLogger(DashboardService.class);
+
     private final WebClient webClient;
     private final SegmentAnalysisService segmentAnalysisService;
 
@@ -46,7 +50,7 @@ public class DashboardService {
                 enhanced.setSegmentAnalysis(segmentAnalysis);
             }
         } catch (Exception e) {
-            System.err.println("Error generating segment analysis: " + e.getMessage());
+            logger.error("Error generating segment analysis: {}", e.getMessage(), e);
             enhanced.setSegmentAnalysisEnabled(false);
         }
         

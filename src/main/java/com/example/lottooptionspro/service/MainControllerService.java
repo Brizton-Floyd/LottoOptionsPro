@@ -2,6 +2,8 @@ package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.models.LotteryGame;
 import com.example.lottooptionspro.models.LotteryState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ import java.util.List;
 
 @Service
 public class MainControllerService {
+    private static final Logger logger = LoggerFactory.getLogger(MainControllerService.class);
     private final WebClient webClient;
 
     public MainControllerService(@Qualifier("statesServiceWebClient") WebClient statesServiceWebClient) {
@@ -36,7 +39,7 @@ public class MainControllerService {
                         .map(games -> new LotteryState(stateData.getStateRegion(), games)))
                 .retryWhen(Retry.backoff(10, Duration.ofSeconds(2))
                         .filter(throwable -> {
-                            System.out.println("Retrying due to: " + throwable.getClass().getName());
+                            logger.warn("Retrying due to: {}", throwable.getClass().getName());
                             return throwable instanceof ConnectException ||
                                     throwable instanceof WebClientResponseException ||
                                     throwable instanceof WebClientRequestException;

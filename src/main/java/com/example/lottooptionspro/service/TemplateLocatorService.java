@@ -1,5 +1,8 @@
 package com.example.lottooptionspro.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -14,6 +17,8 @@ import java.util.Optional;
  * Note: This is a utility class, not a Spring-managed bean.
  */
 public class TemplateLocatorService {
+
+    private static final Logger logger = LoggerFactory.getLogger(TemplateLocatorService.class);
 
     /**
      * Find a template file for the given state and game name.
@@ -37,16 +42,16 @@ public class TemplateLocatorService {
                 if (resource != null) {
                     File file = new File(resource.toURI());
                     if (file.exists() && file.isFile()) {
-                        System.out.println("Found template at: " + path);
+                        logger.debug("Found template at: {}", path);
                         return Optional.of(file);
                     }
                 }
             } catch (URISyntaxException e) {
-                System.err.println("Error converting resource URL to file: " + path);
+                logger.error("Error converting resource URL to file: {}", path, e);
             }
         }
-        
-        System.out.println("No template found for State: '" + stateName + "', Game: '" + gameName + "'");
+
+        logger.debug("No template found for State: '{}', Game: '{}'", stateName, gameName);
         return Optional.empty();
     }
 
@@ -78,10 +83,10 @@ public class TemplateLocatorService {
                     }
                 }
             } catch (URISyntaxException e) {
-                System.err.println("Error converting resource URL to file: " + path);
+                logger.error("Error converting resource URL to file: {}", path, e);
             }
         }
-        
+
         return matches;
     }
 
