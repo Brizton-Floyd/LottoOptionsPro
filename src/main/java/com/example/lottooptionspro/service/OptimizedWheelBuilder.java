@@ -1,6 +1,7 @@
 package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.model.wheel.WheelParameters;
+import com.example.lottooptionspro.util.CombinatoricsUtil;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -460,7 +461,10 @@ public class OptimizedWheelBuilder {
     }
     private int calculateTheoreticalMinimum(WheelParameters params, int uSize, int cSize) {
         int v = params.getV(); int k = params.getK(); int m = params.getM(); int t = params.getT();
-        long cov = 0; for (int i = m; i <= k; i++) cov += (long) binomialCoefficient(k, i) * binomialCoefficient(v - k, t - i);
+        long cov = 0;
+        for (int i = m; i <= k; i++) {
+            cov += CombinatoricsUtil.binomial(k, i) * CombinatoricsUtil.binomial(v - k, t - i);
+        }
         return (int) Math.ceil((double) uSize / Math.max(1, cov));
     }
     private boolean verifyWheelCoverage(List<int[]> wheel, Map<BitSet, Integer> map, BitSet[] matrix, int uSize) {
@@ -468,20 +472,20 @@ public class OptimizedWheelBuilder {
         for(int[] t : wheel) { Integer idx = map.get(arrayToBitSet(t)); if(idx!=null) { BitSet c = matrix[idx]; for(int i=c.nextSetBit(0); i>=0; i=c.nextSetBit(i+1)) counts[i]++; }}
         for(int c : counts) if(c==0) return false; return true;
     }
-    private double binomialCoefficient(int n, int k) {
-        if (k > n || k < 0) return 0;
-        if (k == 0 || k == n) return 1;
-        double result = 1; for (int i = 0; i < Math.min(k, n - k); i++) result = result * (n - i) / (i + 1); return result;
-    }
     private int[] bitSetToArray(BitSet bs) { return bs.stream().toArray(); }
     private BitSet arrayToBitSet(int[] ticket) { BitSet bs = new BitSet(); for (int num : ticket) bs.set(num); return bs; }
     private Set<Set<Integer>> generateUniverse(WheelParameters params, AtomicBoolean cancelled) {
-        Set<Set<Integer>> u = new HashSet<>(); List<int[]> c = generateAllCombinations(params.getV(), params.getT()); for (int[] i : c) { if (cancelled.get()) break; u.add(arrayToSet(i)); } return u;
+        Set<Set<Integer>> u = new HashSet<>();
+        List<int[]> c = zeroBasedCombinations(params.getV(), params.getT());
+        for (int[] i : c) { if (cancelled.get()) break; u.add(CombinatoricsUtil.arrayToSet(i)); }
+        return u;
     }
-    private List<int[]> generateCandidates(int v, int k) { return generateAllCombinations(v, k); }
+    private List<int[]> generateCandidates(int v, int k) { return zeroBasedCombinations(v, k); }
     private List<BitSet> convertUniverseToBitSet(Set<Set<Integer>> u, int v) { return u.stream().map(d -> { BitSet bs = new BitSet(v+1); for(int i:d) bs.set(i); return bs; }).collect(Collectors.toList()); }
     private List<BitSet> convertCandidatesToBitSet(List<int[]> c, int v) { return c.stream().map(t -> { BitSet bs = new BitSet(v+1); for(int i:t) bs.set(i); return bs; }).collect(Collectors.toList()); }
-    private List<int[]> generateAllCombinations(int n, int k) { List<int[]> r = new ArrayList<>(); generateCombinationsRecursive(n, k, 0, 0, new int[k], r); return r; }
-    private void generateCombinationsRecursive(int n, int k, int s, int i, int[] c, List<int[]> r) { if (i == k) { r.add(c.clone()); return; } for (int j = s; j <= n - k + i; j++) { c[i] = j; generateCombinationsRecursive(n, k, j + 1, i + 1, c, r); } }
-    private Set<Integer> arrayToSet(int[] a) { Set<Integer> s = new HashSet<>(); for (int i : a) s.add(i); return s; }
+
+    private static List<int[]> zeroBasedCombinations(int n, int k) {
+        return CombinatoricsUtil.generateAllCombinations(
+                IntStream.range(0, n).boxed().collect(Collectors.toList()), k);
+    }
 }

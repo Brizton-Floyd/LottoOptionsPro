@@ -1,6 +1,7 @@
 package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.model.wheel.*;
+import com.example.lottooptionspro.util.CombinatoricsUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -119,7 +120,7 @@ public class AbbreviatedWheelService {
         int n = numbers.size();
         
         if (n <= 7) {
-            return generateAllCombinations(numbers, 6);
+            return CombinatoricsUtil.generateAllCombinations(numbers, 6);
         }
         
         return generateGreedyCoveringWheel(numbers, 6, 5, 6);
@@ -147,7 +148,7 @@ public class AbbreviatedWheelService {
         int n = numbers.size();
         
         if (n <= 8) {
-            return generateAllCombinations(numbers, 5);
+            return CombinatoricsUtil.generateAllCombinations(numbers, 5);
         }
         
         return generateGreedyCoveringWheel(numbers, 5, 4, 5);
@@ -175,7 +176,7 @@ public class AbbreviatedWheelService {
         int n = numbers.size();
         
         if (n <= 7) {
-            return generateAllCombinations(numbers, 4);
+            return CombinatoricsUtil.generateAllCombinations(numbers, 4);
         }
         
         return generateGreedyCoveringWheel(numbers, 4, 3, 4);
@@ -204,7 +205,7 @@ public class AbbreviatedWheelService {
             return getOptimized9NumberFourIfSix(numbers);
         }
         
-        return generateAllCombinations(numbers, 6);
+        return CombinatoricsUtil.generateAllCombinations(numbers, 6);
     }
 
     private List<int[]> getOptimized7NumberFourIfSix(List<Integer> numbers) {
@@ -271,7 +272,7 @@ public class AbbreviatedWheelService {
             return getOptimized10NumberThreeIfFive(numbers);
         }
         
-        return generateAllCombinations(numbers, 5);
+        return CombinatoricsUtil.generateAllCombinations(numbers, 5);
     }
 
     private List<int[]> getOptimized7NumberThreeIfFive(List<Integer> numbers) {
@@ -363,7 +364,7 @@ public class AbbreviatedWheelService {
         int poolSize = numbers.size();
         
         if (poolSize <= pickSize + 3) {
-            return generateAllCombinations(numbers, pickSize);
+            return CombinatoricsUtil.generateAllCombinations(numbers, pickSize);
         }
         
         return generateGuaranteedCoveringWheel(numbers, pickSize, guaranteedMatches, requiredHits);
@@ -397,7 +398,7 @@ public class AbbreviatedWheelService {
     private Set<Set<Integer>> generateRequiredSubsets(List<Integer> numbers, int requiredHits, int guaranteedMatches) {
         Set<Set<Integer>> subsets = new HashSet<>();
         
-        List<int[]> hitCombinations = generateAllCombinations(numbers, requiredHits);
+        List<int[]> hitCombinations = CombinatoricsUtil.generateAllCombinations(numbers, requiredHits);
         
         for (int[] hitCombo : hitCombinations) {
             List<Integer> hitList = new ArrayList<>();
@@ -405,7 +406,7 @@ public class AbbreviatedWheelService {
                 hitList.add(num);
             }
             
-            List<int[]> matchSubsets = generateAllCombinations(hitList, guaranteedMatches);
+            List<int[]> matchSubsets = CombinatoricsUtil.generateAllCombinations(hitList, guaranteedMatches);
             for (int[] matchSubset : matchSubsets) {
                 Set<Integer> subset = new HashSet<>();
                 for (int num : matchSubset) {
@@ -424,7 +425,7 @@ public class AbbreviatedWheelService {
         int[] bestCombo = null;
         int maxNewCoverage = 0;
         
-        List<int[]> candidates = generateAllCombinations(numbers, pickSize);
+        List<int[]> candidates = CombinatoricsUtil.generateAllCombinations(numbers, pickSize);
         
         for (int[] candidate : candidates) {
             boolean alreadyExists = false;
@@ -461,91 +462,6 @@ public class AbbreviatedWheelService {
         
         return bestCombo;
     }
-
-    private int estimateRequiredLines(int poolSize, int pickSize, int guaranteedMatches, int requiredHits) {
-        double ratio = (double) poolSize / pickSize;
-        
-        if (pickSize == 6) {
-            if (guaranteedMatches == 4 && requiredHits == 6) {
-                return (int) Math.ceil(poolSize * 1.8);
-            } else if (guaranteedMatches == 4 && requiredHits == 5) {
-                return (int) Math.ceil(poolSize * 1.2);
-            } else if (guaranteedMatches == 4 && requiredHits == 4) {
-                return (int) Math.ceil(poolSize * 0.8);
-            }
-        } else if (pickSize == 5) {
-            if (guaranteedMatches == 3 && requiredHits == 5) {
-                return (int) Math.ceil(poolSize * 1.5);
-            } else if (guaranteedMatches == 4 && requiredHits == 5) {
-                return (int) Math.ceil(poolSize * 2.5);
-            }
-        } else if (pickSize == 4) {
-            if (guaranteedMatches == 3 && requiredHits == 4) {
-                return (int) Math.ceil(poolSize * 2.0);
-            } else if (guaranteedMatches == 2 && requiredHits == 4) {
-                return (int) Math.ceil(poolSize * 0.6);
-            }
-        }
-        
-        return (int) Math.ceil(poolSize * ratio);
-    }
-
-    private int[] generateBalancedCombination(List<Integer> numbers, int pickSize, List<int[]> existingWheel, Random random) {
-        Map<Integer, Integer> frequency = new HashMap<>();
-        for (Integer num : numbers) {
-            frequency.put(num, 0);
-        }
-        
-        for (int[] combo : existingWheel) {
-            for (int num : combo) {
-                frequency.put(num, frequency.getOrDefault(num, 0) + 1);
-            }
-        }
-        
-        List<Integer> sorted = new ArrayList<>(numbers);
-        sorted.sort(Comparator.comparingInt(frequency::get));
-        
-        int[] combination = new int[pickSize];
-        Set<Integer> selected = new HashSet<>();
-        
-        for (int i = 0; i < pickSize; i++) {
-            int rangeSize = Math.min(sorted.size() - selected.size(), pickSize * 2);
-            int idx = random.nextInt(rangeSize);
-            
-            int attempts = 0;
-            while (selected.contains(sorted.get(idx)) && attempts < 100) {
-                idx = random.nextInt(sorted.size());
-                attempts++;
-            }
-            
-            if (!selected.contains(sorted.get(idx))) {
-                combination[i] = sorted.get(idx);
-                selected.add(sorted.get(idx));
-            }
-        }
-        
-        Arrays.sort(combination);
-        return combination;
-    }
-
-    private List<int[]> generateAllCombinations(List<Integer> numbers, int k) {
-        List<int[]> result = new ArrayList<>();
-        generateCombinationsRecursive(numbers, k, 0, new int[k], 0, result);
-        return result;
-    }
-
-    private void generateCombinationsRecursive(List<Integer> numbers, int k, int start, int[] current, int index, List<int[]> result) {
-        if (index == k) {
-            result.add(current.clone());
-            return;
-        }
-        
-        for (int i = start; i <= numbers.size() - k + index; i++) {
-            current[index] = numbers.get(i);
-            generateCombinationsRecursive(numbers, k, i + 1, current, index + 1, result);
-        }
-    }
-
 
     public long estimateLineCount(int poolSize, int pickSize, GuaranteeLevel guarantee) {
         if (poolSize < 4 || poolSize > 27) {
