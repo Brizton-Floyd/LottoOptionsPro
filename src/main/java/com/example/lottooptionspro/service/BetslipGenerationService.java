@@ -27,7 +27,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,7 +36,6 @@ public class BetslipGenerationService {
 
     private static final float PAGE_PADDING = 20f;
     private static final float SCISSOR_LINE_SPACING = 20f;
-    private final Random random = new Random();
 
     public static class PdfGenerationResult {
         public final List<BufferedImage> images;
@@ -67,12 +67,12 @@ public class BetslipGenerationService {
     }
     
     // Cache for global option selection per generation request
-    private String cachedGlobalOptionSelection = null;
+    private final AtomicReference<String> cachedGlobalOptionSelection = new AtomicReference<>();
 
     public Mono<PdfGenerationResult> generatePdf(List<int[]> allNumberSets, String stateName, String gameName) {
         // Clear any cached selection from previous generation
-        cachedGlobalOptionSelection = null;
-        
+        cachedGlobalOptionSelection.set(null);
+
         return Mono.fromCallable(() -> loadTemplate(stateName, gameName))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(templateOptional -> {
@@ -85,9 +85,9 @@ public class BetslipGenerationService {
                     try {
                         // Get global option selection once before processing any images
                         if (template.getGlobalOptions() != null && !template.getGlobalOptions().isEmpty()) {
-                            cachedGlobalOptionSelection = getSelectedGlobalOption(template);
+                            cachedGlobalOptionSelection.set(getSelectedGlobalOption(template));
                         }
-                        
+
                         BufferedImage baseImage = ImageIO.read(new File(template.getImagePath()));
                         return createMultiPanelMarkedImages(allNumberSets, template, baseImage)
                                 .map(images -> new PdfGenerationResult(images, template));
@@ -143,18 +143,19 @@ public class BetslipGenerationService {
         }
         
         // Mark global options (e.g., Cash, Annuity, etc.)
-        if (template.getGlobalOptions() != null && !template.getGlobalOptions().isEmpty() && cachedGlobalOptionSelection != null) {
-            markGlobalOptions(g2d, template, cachedGlobalOptionSelection);
+        String selectedOption = cachedGlobalOptionSelection.get();
+        if (template.getGlobalOptions() != null && !template.getGlobalOptions().isEmpty() && selectedOption != null) {
+            markGlobalOptions(g2d, template, selectedOption);
         }
-        
+
         g2d.dispose();
         return newImage;
     }
 
     public Mono<ScaledPdfGenerationResult> generateScaledPdf(List<int[]> allNumberSets, String stateName, String gameName, int targetWidth, int targetHeight) {
         // Clear any cached selection from previous generation
-        cachedGlobalOptionSelection = null;
-        
+        cachedGlobalOptionSelection.set(null);
+
         return Mono.fromCallable(() -> loadTemplate(stateName, gameName))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(templateOptional -> {
@@ -167,9 +168,9 @@ public class BetslipGenerationService {
                     try {
                         // Get global option selection once before processing any images
                         if (template.getGlobalOptions() != null && !template.getGlobalOptions().isEmpty()) {
-                            cachedGlobalOptionSelection = getSelectedGlobalOption(template);
+                            cachedGlobalOptionSelection.set(getSelectedGlobalOption(template));
                         }
-                        
+
                         BufferedImage baseImage = ImageIO.read(new File(template.getImagePath()));
                         float scaleFactorX = (float) targetWidth / baseImage.getWidth();
                         float scaleFactorY = (float) targetHeight / baseImage.getHeight();
@@ -240,8 +241,9 @@ public class BetslipGenerationService {
         }
         
         // Mark scaled global options
-        if (template.getGlobalOptions() != null && !template.getGlobalOptions().isEmpty() && cachedGlobalOptionSelection != null) {
-            markScaledGlobalOptions(g2d, template, cachedGlobalOptionSelection, scaleFactorX, scaleFactorY);
+        String scaledSelectedOption = cachedGlobalOptionSelection.get();
+        if (template.getGlobalOptions() != null && !template.getGlobalOptions().isEmpty() && scaledSelectedOption != null) {
+            markScaledGlobalOptions(g2d, template, scaledSelectedOption, scaleFactorX, scaleFactorY);
         }
         
         g2d.dispose();
@@ -414,14 +416,14 @@ public class BetslipGenerationService {
         
         // Get all bonus number keys and select one randomly
         List<String> bonusKeys = new ArrayList<>(panel.getBonusNumbers().keySet());
-        String selectedKey = bonusKeys.get(random.nextInt(bonusKeys.size()));
-        
+        String selectedKey = bonusKeys.get(ThreadLocalRandom.current().nextInt(bonusKeys.size()));
+
         // Get the coordinate and mark it
         Coordinate coordinate = panel.getBonusNumbers().get(selectedKey);
         int x = coordinate.getX() - markWidth / 2;
         int y = coordinate.getY() - markHeight / 2;
         g2d.fillRect(x, y, markWidth, markHeight);
-        
+
         System.out.println("DEBUG: Marked random bonus number '" + selectedKey + "' at (" + x + "," + y + ") for panel " + panel.getPanelId());
     }
     
@@ -445,8 +447,8 @@ public class BetslipGenerationService {
         
         // Get all bonus number keys and select one randomly
         List<String> bonusKeys = new ArrayList<>(panel.getBonusNumbers().keySet());
-        String selectedKey = bonusKeys.get(random.nextInt(bonusKeys.size()));
-        
+        String selectedKey = bonusKeys.get(ThreadLocalRandom.current().nextInt(bonusKeys.size()));
+
         // Get the coordinate, scale it, and mark it
         Coordinate coordinate = panel.getBonusNumbers().get(selectedKey);
         int scaledX = Math.round(coordinate.getX() * scaleFactorX) - scaledMarkWidth / 2;

@@ -1,6 +1,7 @@
 package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.model.wheel.WheelParameters;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -17,10 +18,29 @@ public class OptimizedWheelBuilder {
     private static final Logger logger = LoggerFactory.getLogger(OptimizedWheelBuilder.class);
 
     private static final double REDUNDANCY_PENALTY = 0.0001;
+    private static final int SESSION_CACHE_MAX_ENTRIES = 50;
     private final int THREAD_COUNT = Runtime.getRuntime().availableProcessors();
     private final ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
-    private final Random random = new Random();
-    private final Map<String, List<int[]>> sessionCache = new ConcurrentHashMap<>();
+    private final Map<String, List<int[]>> sessionCache = Collections.synchronizedMap(
+            new LinkedHashMap<String, List<int[]>>(SESSION_CACHE_MAX_ENTRIES, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, List<int[]>> eldest) {
+                    return size() > SESSION_CACHE_MAX_ENTRIES;
+                }
+            });
+
+    @PreDestroy
+    public void shutdown() {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
 
     public List<int[]> buildOptimalWheel(WheelParameters params, WheelProgressCallback callback, AtomicBoolean cancelled) {
         params.validate();

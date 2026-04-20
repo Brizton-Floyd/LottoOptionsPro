@@ -41,9 +41,11 @@ public class SegmentAnalysisService {
         // Optimized batch processing for segment histories
         Map<String, SegmentGameOutHistory> histories = SegmentCalculator.buildSegmentHistories(segments, processedPatterns);
         
-        // Parallel processing for segment data population
+        // Sequential processing for segment data population — populateSegmentDataOptimized
+        // calls SegmentCalculator helpers that mutate the segment and are not documented
+        // as thread-safe, so avoid parallelStream here.
         final List<DrawResultPattern> finalProcessedPatterns = processedPatterns;
-        segments.parallelStream().forEach(segment -> {
+        segments.forEach(segment -> {
             SegmentGameOutHistory history = histories.get(segment.getSegmentName());
             if (history != null) {
                 populateSegmentDataOptimized(segment, history, finalProcessedPatterns);
