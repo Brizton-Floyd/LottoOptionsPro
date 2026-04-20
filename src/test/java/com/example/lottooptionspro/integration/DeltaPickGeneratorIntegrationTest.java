@@ -7,6 +7,7 @@ import com.example.lottooptionspro.service.DeltaPickGenerationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -27,7 +28,8 @@ class DeltaPickGeneratorIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        service = new DeltaPickGenerationService();
+        service = new DeltaPickGenerationService(
+                WebClient.builder().baseUrl("http://localhost:8002").build());
     }
 
     @Test
