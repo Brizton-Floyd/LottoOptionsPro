@@ -46,8 +46,8 @@ public class WheelVerificationService {
         result.setCoveragePercentage(coverage);
         result.setFailedCases(failedCases);
         
-        logger.info("Verification result: {} ({}/{} draws passed, {:.2f}% coverage)", 
-                   verified ? "PASS" : "FAIL", passedDraws, totalDraws, coverage);
+        logger.info("Verification result: {} ({}/{} draws passed, {}% coverage)",
+                   verified ? "PASS" : "FAIL", passedDraws, totalDraws, String.format("%.2f", coverage));
         
         if (!verified && failedCases.size() > 0) {
             logger.warn("First failed case: {}", Arrays.toString(failedCases.get(0)));

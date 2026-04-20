@@ -183,9 +183,9 @@ public class PositionTrendService {
         PositionTrendPoint lastPoint = points.get(points.size() - 1);
         indicators.putAll(lastPoint.getMovingAverages());
         
-        // Trend strength (average of recent trend strengths)
-        double avgTrendStrength = points.stream()
-            .limit(10) // Last 10 points
+        // Trend strength (average of most recent 10 trend strengths)
+        int fromIndex = Math.max(0, points.size() - 10);
+        double avgTrendStrength = points.subList(fromIndex, points.size()).stream()
             .mapToDouble(PositionTrendPoint::getTrendStrength)
             .average().orElse(0.0);
         indicators.put("TrendStrength", avgTrendStrength);

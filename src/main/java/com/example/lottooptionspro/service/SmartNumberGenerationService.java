@@ -22,14 +22,14 @@ public class SmartNumberGenerationService {
         // Smart generation endpoints (v2) - port 8002
         this.smartGeneratorWebClient = webClientBuilder
                 .baseUrl(dashboardBaseUrl)
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(2 * 1024 * 1024 * 1024))
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(256 * 1024 * 1024))
                 .build();
-        
+
         // Lottery configuration endpoints (v1) - port 8001
         String configBaseUrl = dashboardBaseUrl.replace("8002", "8001");
         this.lotteryConfigWebClient = webClientBuilder
                 .baseUrl(configBaseUrl)
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(2 * 1024 * 1024 * 1024))
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(256 * 1024 * 1024))
                 .build();
     }
 

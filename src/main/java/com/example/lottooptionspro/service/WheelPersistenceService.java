@@ -102,8 +102,8 @@ public class WheelPersistenceService {
         
         int lowerBound = computeLowerBound(params);
         double efficiency = 100.0 * (1.0 - (double)wheel.size() / lowerBound);
-        logger.info("Wheel efficiency: {} lines vs {} naive lower bound ({:.1f}% reduction)", 
-                   wheel.size(), lowerBound, efficiency);
+        logger.info("Wheel efficiency: {} lines vs {} naive lower bound ({}% reduction)",
+                   wheel.size(), lowerBound, String.format("%.1f", efficiency));
         
         return true;
     }

@@ -22,13 +22,15 @@ public class DashboardService {
         this.segmentAnalysisService = segmentAnalysisService;
         this.webClient = WebClient
                 .builder()
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(2 * 1024 * 1024 * 1024)) // 2GB
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(256 * 1024 * 1024)) // 256MB
                 .baseUrl(baseUrl).build();
     }
 
     public Mono<DashboardResponse> getDashboardData(String state, String game) {
         return webClient.get()
-                .uri("/api/v1/analysis/" + state + "/" + game + "/dashboard") // Inject arguments into the URL
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/analysis/{state}/{game}/dashboard")
+                        .build(state, game))
                 .retrieve()
                 .bodyToMono(DashboardResponse.class);
     }

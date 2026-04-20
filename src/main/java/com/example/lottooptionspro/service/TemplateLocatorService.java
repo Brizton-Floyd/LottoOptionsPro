@@ -174,17 +174,21 @@ public class TemplateLocatorService {
         if (input == null || input.isEmpty()) {
             return input;
         }
-        
+
         String[] words = input.split("\\s+");
         StringBuilder result = new StringBuilder();
-        
-        for (String word : words) {
+
+        for (int i = 0; i < words.length; i++) {
+            String word = words[i];
             if (!word.isEmpty()) {
+                if (result.length() > 0) {
+                    result.append(' ');
+                }
                 result.append(Character.toUpperCase(word.charAt(0)))
                       .append(word.substring(1).toLowerCase());
             }
         }
-        
+
         return result.toString();
     }
 }

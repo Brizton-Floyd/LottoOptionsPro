@@ -73,8 +73,8 @@ public class WheelGenerationService {
                 table.setVerified(verification.isVerified());
                 table.setPatterns(wheel);
                 
-                logger.info("Wheel generated: {} lines, verified: {}, coverage: {:.2f}%", 
-                           wheel.size(), verification.isVerified(), verification.getCoveragePercentage());
+                logger.info("Wheel generated: {} lines, verified: {}, coverage: {}%",
+                           wheel.size(), verification.isVerified(), String.format("%.2f", verification.getCoveragePercentage()));
                 
                 return table;
                 
