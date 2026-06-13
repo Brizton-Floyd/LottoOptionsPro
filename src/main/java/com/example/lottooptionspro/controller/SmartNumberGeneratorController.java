@@ -1504,11 +1504,19 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
     public void showResults(TicketGenerationResult result) {
         // Ensure UI updates happen on JavaFX Application Thread
         Platform.runLater(() -> {
+            System.out.println("=== UPDATE RESULTS CALLED ===");
+            System.out.println("Result has " + result.getTickets().size() + " tickets");
+            
             // Clear previous results to free memory
             clearPreviousResults();
             
             this.currentResult = result;
+            
+            System.out.println("Setting resultsSection visible...");
             resultsSection.setVisible(true);
+            resultsSection.setManaged(true);
+            System.out.println("resultsSection visible: " + resultsSection.isVisible());
+            System.out.println("resultsSection managed: " + resultsSection.isManaged());
             
             // Add CSS class for fade-in animation
             if (!resultsSection.getStyleClass().contains("loaded")) {
@@ -1528,49 +1536,91 @@ public class SmartNumberGeneratorController implements GameInformation, SmartNum
             updateTicketsTable(result.getTickets());
             updateStrategyAndInsights(result);
             
+            System.out.println("Tickets table items: " + generatedTicketsTable.getItems().size());
+            
             // Enable action buttons
             generateBetslipsButton.setDisable(false);
             exportCsvButton.setDisable(false);
             saveTicketsButton.setDisable(false);
             refreshAnalysisButton.setDisable(false);
             
-            // Auto-scroll to results table
-            scrollToResults();
+            // Force complete layout recalculation after all updates
+            Platform.runLater(() -> {
+                // Apply CSS and request layout on entire hierarchy
+                resultsSection.applyCss();
+                resultsGrid.applyCss();
+                contentHolder.applyCss();
+                mainScrollPane.applyCss();
+                
+                resultsSection.layout();
+                resultsGrid.layout();
+                contentHolder.layout();
+                mainScrollPane.layout();
+                
+                // Request layout on parent scene if available
+                if (mainScrollPane.getScene() != null) {
+                    mainScrollPane.getScene().getRoot().applyCss();
+                    mainScrollPane.getScene().getRoot().layout();
+                }
+                
+                System.out.println("Forced complete layout recalculation");
+                
+                // Auto-scroll to results table after layout is complete
+                scrollToResults();
+            });
         });
     }
     
     private void scrollToResults() {
+        System.out.println("scrollToResults() called");
+        System.out.println("mainScrollPane null? " + (mainScrollPane == null));
+        System.out.println("resultsSection null? " + (resultsSection == null));
+        
         if (mainScrollPane != null && resultsSection != null) {
-            // Use Platform.runLater to ensure the UI is fully updated before scrolling
+            // Wait for layout to complete before scrolling
             Platform.runLater(() -> {
-                try {
-                    // Get the position of the results section within the content
-                    double resultsSectionY = resultsSection.getLayoutY();
-                    double contentHolderHeight = contentHolder.getHeight();
-                    double scrollPaneHeight = mainScrollPane.getViewportBounds().getHeight();
-                    
-                    // Calculate the scroll position to bring the results section into view
-                    // We want to scroll so the results section is near the top of the visible area
-                    double scrollPosition = resultsSectionY / (contentHolderHeight - scrollPaneHeight);
-                    
-                    // Ensure scroll position is within bounds [0, 1]
-                    scrollPosition = Math.max(0, Math.min(1, scrollPosition));
-                    
-                    // Perform the scroll with a small delay for smooth UX
-                    Timeline scrollTimeline = new Timeline(
-                        new KeyFrame(Duration.millis(300),
-                            new KeyValue(mainScrollPane.vvalueProperty(), scrollPosition, Interpolator.EASE_OUT))
-                    );
-                    scrollTimeline.play();
-                    
-                    System.out.println("Auto-scrolling to results section at position: " + scrollPosition);
-                    
-                } catch (Exception e) {
-                    System.err.println("Error during auto-scroll: " + e.getMessage());
-                    // Fallback: simple scroll to bottom
-                    mainScrollPane.setVvalue(1.0);
-                }
+                Platform.runLater(() -> {
+                    try {
+                        System.out.println("Inside double Platform.runLater");
+                        
+                        // Request layout to ensure all components are sized
+                        contentHolder.layout();
+                        
+                        // Get the actual position after layout
+                        double resultsSectionY = resultsSection.getBoundsInParent().getMinY();
+                        double contentHolderHeight = contentHolder.getHeight();
+                        double scrollPaneHeight = mainScrollPane.getViewportBounds().getHeight();
+                        
+                        System.out.println("resultsSectionY: " + resultsSectionY);
+                        System.out.println("contentHolderHeight: " + contentHolderHeight);
+                        System.out.println("scrollPaneHeight: " + scrollPaneHeight);
+                        
+                        if (contentHolderHeight > scrollPaneHeight) {
+                            // Calculate scroll position to show results section at top of viewport
+                            double scrollPosition = resultsSectionY / (contentHolderHeight - scrollPaneHeight);
+                            scrollPosition = Math.max(0, Math.min(1, scrollPosition));
+                            
+                            System.out.println("Calculated scroll position: " + scrollPosition);
+                            
+                            // Smooth scroll animation
+                            Timeline scrollTimeline = new Timeline(
+                                new KeyFrame(Duration.millis(400),
+                                    new KeyValue(mainScrollPane.vvalueProperty(), scrollPosition, Interpolator.EASE_BOTH))
+                            );
+                            scrollTimeline.play();
+                            
+                            System.out.println("Auto-scrolling to results section at position: " + scrollPosition);
+                        } else {
+                            System.out.println("Content not taller than viewport - no scroll needed");
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error during auto-scroll: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                });
             });
+        } else {
+            System.out.println("scrollToResults() - mainScrollPane or resultsSection is null, cannot scroll");
         }
     }
     

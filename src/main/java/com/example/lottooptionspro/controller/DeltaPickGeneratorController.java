@@ -804,12 +804,24 @@ public class DeltaPickGeneratorController implements GameInformation, DeltaPickG
     private void loadFromCache() {
         DeltaSelectionCache cache = deltaCache.getCache();
         
-        // Set mode
+        logger.info("Loading from cache - Mode: {}, Positions: {}", 
+            cache.getMode(), cache.getPositionSelections().keySet());
+        
+        // Set mode first
         String mode = cache.getMode().toString();
         deltaModeComboBox.setValue(mode);
         
+        // Regenerate fields with correct mode prefix
+        regenerateDeltaInputFields();
+        
+        logger.info("Delta input fields after regeneration: {}", deltaInputFields.keySet());
+        
         // Populate fields
-        cache.getPositionSelections().forEach((position, values) -> {
+        int populatedCount = 0;
+        for (Map.Entry<String, ObservableList<Integer>> entry : cache.getPositionSelections().entrySet()) {
+            String position = entry.getKey();
+            ObservableList<Integer> values = entry.getValue();
+            
             TextField field = deltaInputFields.get(position);
             if (field != null) {
                 String valuesText = values.stream()
@@ -819,11 +831,15 @@ public class DeltaPickGeneratorController implements GameInformation, DeltaPickG
                 
                 // Add visual indicator (green border for cached)
                 field.setStyle("-fx-border-color: #4CAF50; -fx-border-width: 2px;");
+                populatedCount++;
+                logger.info("Populated field {} with values: {}", position, valuesText);
+            } else {
+                logger.warn("No field found for position: {}", position);
             }
-        });
+        }
         
-        logger.info("Loaded {} positions from cache", cache.getFilledPositions());
-        showInfo("Loaded delta selections from cache");
+        logger.info("Loaded {} of {} positions from cache", populatedCount, cache.getFilledPositions());
+        showInfo(String.format("Loaded %d delta selections from cache", populatedCount));
     }
     
     @FXML

@@ -155,7 +155,6 @@
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter-engine</artifactId>
-			<version>5.8.1</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -170,6 +169,16 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<!-- Integration tests (@Tag("integration")) require a live API server at
+					     localhost:8002 and must not run in the unit-test phase. Run them
+					     explicitly with: mvn test -Dgroups=integration (server up). -->
+					<excludedGroups>integration</excludedGroups>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

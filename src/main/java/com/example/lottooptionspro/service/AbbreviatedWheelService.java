@@ -34,8 +34,8 @@ public class AbbreviatedWheelService {
         List<int[]> templateWheel = patternWheelGenerator.generateFromTemplate(params);
         
         List<int[]> combinations;
-        if (templateWheel != null) {
-            logger.info("Using pre-computed wheel: {}-{}-{}-{} ({} lines)", 
+        if (templateWheel != null && !templateWheel.isEmpty()) {
+            logger.info("Using pre-computed wheel: {}-{}-{}-{} ({} lines)",
                        params.getV(), params.getK(), params.getT(), params.getM(), templateWheel.size());
             combinations = applyPatterns(config.getNumbers(), templateWheel.toArray(new int[0][]));
         } else {

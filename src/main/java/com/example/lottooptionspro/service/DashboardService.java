@@ -35,7 +35,14 @@ public class DashboardService {
     public Mono<EnhancedDashboardResponse> getEnhancedDashboardData(String state, String game) {
         return getDashboardData(state, game)
                 .map(this::enhanceWithSegmentAnalysis)
-                .onErrorReturn(createEmptyEnhancedResponse());
+                // Do NOT silently swallow the failure: log the real cause (404, decode error,
+                // dropped connection, etc.) with state/game context, then degrade gracefully to
+                // an empty response so the UI does not crash. Previously onErrorReturn hid the
+                // cause entirely, making failures look like a downstream NullPointerException.
+                .onErrorResume(e -> {
+                    logger.error("Dashboard API call failed for {}/{}: {}", state, game, e.toString(), e);
+                    return Mono.just(createEmptyEnhancedResponse());
+                });
     }
     
     private EnhancedDashboardResponse enhanceWithSegmentAnalysis(DashboardResponse originalResponse) {

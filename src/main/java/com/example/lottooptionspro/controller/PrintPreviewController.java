@@ -96,22 +96,33 @@ public class PrintPreviewController implements PrintPreviewView {
     public boolean showPrintDialog() {
         PrinterJob printerJob = PrinterJob.createPrinterJob();
         if (printerJob != null) {
-            boolean showDialog = printerJob.showPrintDialog(printPagesContainer.getScene().getWindow());
+            // Configure page layout for landscape orientation
+            javafx.print.PageLayout pageLayout = printerJob.getPrinter().createPageLayout(
+                javafx.print.Paper.NA_LETTER,
+                javafx.print.PageOrientation.LANDSCAPE,
+                javafx.print.Printer.MarginType.DEFAULT
+            );
+            printerJob.getJobSettings().setPageLayout(pageLayout);
+            
+            boolean showDialog = printerJob.showPageSetupDialog(printPagesContainer.getScene().getWindow());
             if (showDialog) {
-                // Print each page
-                boolean success = true;
-                for (Node child : printPagesContainer.getChildren()) {
-                    if (child instanceof ImageView) {
-                        ImageView imageView = (ImageView) child;
-                        boolean printed = printerJob.printPage(imageView);
-                        if (!printed) {
-                            success = false;
-                            break;
+                showDialog = printerJob.showPrintDialog(printPagesContainer.getScene().getWindow());
+                if (showDialog) {
+                    // Print each page from the preview container
+                    boolean success = true;
+                    for (Node child : printPagesContainer.getChildren()) {
+                        if (child instanceof ImageView) {
+                            ImageView imageView = (ImageView) child;
+                            boolean printed = printerJob.printPage(imageView);
+                            if (!printed) {
+                                success = false;
+                                break;
+                            }
                         }
                     }
+                    printerJob.endJob();
+                    return success;
                 }
-                printerJob.endJob();
-                return success;
             }
         }
         return false;
