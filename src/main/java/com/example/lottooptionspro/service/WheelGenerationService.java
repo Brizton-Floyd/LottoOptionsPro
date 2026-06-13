@@ -27,29 +27,21 @@ public class WheelGenerationService {
         this.verificationService = verificationService;
     }
     
-    @FunctionalInterface
-    public interface ProgressCallback {
-        void update(String message, double progress, int subsetsCovered, int totalSubsets, int linesGenerated);
-    }
-    
     public CompletableFuture<WheelTable> generateWheelWithProgress(
-            int poolSize, 
-            int pickSize, 
+            int poolSize,
+            int pickSize,
             GuaranteeLevel guaranteeLevel,
-            ProgressCallback progressCallback,
+            WheelProgressCallback progressCallback,
             AtomicBoolean cancelled) {
-        
+
         return CompletableFuture.supplyAsync(() -> {
             try {
                 WheelParameters params = new WheelParameters(poolSize, pickSize, guaranteeLevel);
                 params.validate();
-                
+
                 progressCallback.update("Building optimal wheel...", 0.05, 0, 0, 0);
-                
-                WheelProgressCallback designCallback = 
-                    (msg, prog, cov, tot, lines) -> progressCallback.update(msg, prog, cov, tot, lines);
-                
-                List<int[]> wheel = coveringDesignService.buildAndSaveWheel(params, designCallback, cancelled);
+
+                List<int[]> wheel = coveringDesignService.buildAndSaveWheel(params, progressCallback, cancelled);
                 
                 if (cancelled.get()) {
                     throw new RuntimeException("Generation cancelled");
@@ -73,8 +65,8 @@ public class WheelGenerationService {
                 table.setVerified(verification.isVerified());
                 table.setPatterns(wheel);
                 
-                logger.info("Wheel generated: {} lines, verified: {}, coverage: {:.2f}%", 
-                           wheel.size(), verification.isVerified(), verification.getCoveragePercentage());
+                logger.info("Wheel generated: {} lines, verified: {}, coverage: {}%",
+                           wheel.size(), verification.isVerified(), String.format("%.2f", verification.getCoveragePercentage()));
                 
                 return table;
                 

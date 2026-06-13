@@ -354,6 +354,11 @@ public class RangeAnalysisController implements RangeAnalysisView, GameInformati
             }
             updatingCheckboxes = false;
             
+            // Update position selector dropdown after checkboxes are generated
+            if (positionSelectorCombo != null && deltaModeComboBox != null) {
+                setupPositionSelector();
+            }
+            
             logger.debug("Regenerated {} position checkboxes, preserved selection for positions: {}", 
                         numbersDrawn, currentlySelected);
         });

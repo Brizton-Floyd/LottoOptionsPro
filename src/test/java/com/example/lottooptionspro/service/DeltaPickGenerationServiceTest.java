@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -29,7 +30,7 @@ class DeltaPickGenerationServiceTest {
 
     @BeforeEach
     void setUp() {
-        sut = new DeltaPickGenerationService();
+        sut = new DeltaPickGenerationService(WebClient.builder().baseUrl("http://localhost:8002").build());
         gson = new Gson();
     }
 
@@ -220,7 +221,8 @@ class DeltaPickGenerationServiceTest {
     @Test
     void testServiceCreation() {
         // Arrange & Act
-        DeltaPickGenerationService service = new DeltaPickGenerationService();
+        DeltaPickGenerationService service = new DeltaPickGenerationService(
+                WebClient.builder().baseUrl("http://localhost:8002").build());
 
         // Assert
         assertNotNull(service, "Service should be created successfully");

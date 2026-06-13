@@ -1,6 +1,7 @@
 package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.model.wheel.WheelParameters;
+import com.example.lottooptionspro.util.CombinatoricsUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 public class WheelPersistenceService {
@@ -102,8 +105,8 @@ public class WheelPersistenceService {
         
         int lowerBound = computeLowerBound(params);
         double efficiency = 100.0 * (1.0 - (double)wheel.size() / lowerBound);
-        logger.info("Wheel efficiency: {} lines vs {} naive lower bound ({:.1f}% reduction)", 
-                   wheel.size(), lowerBound, efficiency);
+        logger.info("Wheel efficiency: {} lines vs {} naive lower bound ({}% reduction)",
+                   wheel.size(), lowerBound, String.format("%.1f", efficiency));
         
         return true;
     }
@@ -127,9 +130,11 @@ public class WheelPersistenceService {
     private Set<Set<Integer>> generateUniverse(WheelParameters params) {
         Set<Set<Integer>> universe = new HashSet<>();
         
-        List<int[]> tCombos = generateAllCombinations(params.getV(), params.getT());
+        List<int[]> tCombos = CombinatoricsUtil.generateAllCombinations(
+                IntStream.range(0, params.getV()).boxed().collect(Collectors.toList()),
+                params.getT());
         for (int[] tCombo : tCombos) {
-            universe.add(arrayToSet(tCombo));
+            universe.add(CombinatoricsUtil.arrayToSet(tCombo));
         }
         
         return universe;
@@ -160,74 +165,16 @@ public class WheelPersistenceService {
     }
     
     private int computeLowerBound(WheelParameters params) {
-        int universeSize;
+        long universeSize;
         if (params.getT() == params.getM()) {
-            universeSize = binomial(params.getV(), params.getM());
+            universeSize = CombinatoricsUtil.binomial(params.getV(), params.getM());
         } else {
-            universeSize = binomial(params.getV(), params.getT()) * binomial(params.getT(), params.getM());
+            universeSize = CombinatoricsUtil.binomial(params.getV(), params.getT())
+                    * CombinatoricsUtil.binomial(params.getT(), params.getM());
         }
-        
-        int coveragePerTicket = binomial(params.getK(), params.getM());
-        
+
+        long coveragePerTicket = CombinatoricsUtil.binomial(params.getK(), params.getM());
+
         return (int) Math.ceil((double) universeSize / coveragePerTicket);
-    }
-    
-    private List<int[]> generateAllCombinations(int n, int k) {
-        List<int[]> result = new ArrayList<>();
-        int[] combo = new int[k];
-        generateCombinationsRecursive(n, k, 0, 0, combo, result);
-        return result;
-    }
-    
-    private void generateCombinationsRecursive(int n, int k, int start, int index, int[] combo, List<int[]> result) {
-        if (index == k) {
-            result.add(combo.clone());
-            return;
-        }
-        
-        for (int i = start; i <= n - k + index; i++) {
-            combo[index] = i;
-            generateCombinationsRecursive(n, k, i + 1, index + 1, combo, result);
-        }
-    }
-    
-    private List<int[]> generateCombinationsFromArray(int[] array, int k) {
-        List<int[]> result = new ArrayList<>();
-        int[] combo = new int[k];
-        generateFromArrayRecursive(array, k, 0, 0, combo, result);
-        return result;
-    }
-    
-    private void generateFromArrayRecursive(int[] array, int k, int start, int index, int[] combo, List<int[]> result) {
-        if (index == k) {
-            result.add(combo.clone());
-            return;
-        }
-        
-        for (int i = start; i <= array.length - k + index; i++) {
-            combo[index] = array[i];
-            generateFromArrayRecursive(array, k, i + 1, index + 1, combo, result);
-        }
-    }
-    
-    private Set<Integer> arrayToSet(int[] array) {
-        Set<Integer> set = new HashSet<>();
-        for (int num : array) {
-            set.add(num);
-        }
-        return set;
-    }
-    
-    private int binomial(int n, int k) {
-        if (k > n - k) {
-            k = n - k;
-        }
-        
-        long result = 1;
-        for (int i = 0; i < k; i++) {
-            result = result * (n - i) / (i + 1);
-        }
-        
-        return (int) result;
     }
 }

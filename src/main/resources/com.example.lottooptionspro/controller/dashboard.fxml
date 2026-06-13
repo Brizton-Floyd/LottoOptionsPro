@@ -35,6 +35,11 @@
                     <Tooltip text="Toggle position trend analysis"/>
                 </tooltip>
             </Button>
+            <Button fx:id="patternAnalysisBtn" text="Pattern Analysis" onAction="#handleTogglePatternAnalysis" styleClass="nav-button">
+                <tooltip>
+                    <Tooltip text="Toggle between Frequency and Pattern Analysis"/>
+                </tooltip>
+            </Button>
             <Region HBox.hgrow="ALWAYS" />
             <Button fx:id="removeBtn" text="&lt;" onAction="#handleRemoveRow" minWidth="30" prefWidth="30" prefHeight="30" minHeight="30" styleClass="nav-button">
                 <tooltip>
@@ -80,6 +85,13 @@
 
         <!-- Probability panes container (does not grow) -->
         <HBox fx:id="dynamicPanesContainer" spacing="10" />
+        
+        <!-- Pattern Analysis Container (initially hidden) -->
+        <VBox fx:id="patternAnalysisContainer" spacing="10" style="-fx-padding: 10 0 0 0;" visible="false" managed="false" maxHeight="600">
+            <ScrollPane fitToWidth="true" style="-fx-background-color: transparent;" prefHeight="550" maxHeight="550">
+                <VBox fx:id="patternAnalysisContent" spacing="5" style="-fx-padding: 10;"/>
+            </ScrollPane>
+        </VBox>
 
         <!-- Trading Chart Analysis Container (initially hidden) -->
         <VBox fx:id="tradingChartContainer" spacing="10" style="-fx-padding: 10 0 0 0;" visible="false" managed="false" VBox.vgrow="ALWAYS">

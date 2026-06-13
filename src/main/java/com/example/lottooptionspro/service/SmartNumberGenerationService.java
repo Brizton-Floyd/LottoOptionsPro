@@ -1,7 +1,9 @@
 package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.model.smart.*;
-import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -15,22 +17,16 @@ import java.util.List;
 @Service
 public class SmartNumberGenerationService {
 
+    private static final Logger logger = LoggerFactory.getLogger(SmartNumberGenerationService.class);
+
     private final WebClient smartGeneratorWebClient;
     private final WebClient lotteryConfigWebClient;
 
-    public SmartNumberGenerationService(@Value("${dashboard.base-url}") String dashboardBaseUrl, WebClient.Builder webClientBuilder) {
-        // Smart generation endpoints (v2) - port 8002
-        this.smartGeneratorWebClient = webClientBuilder
-                .baseUrl(dashboardBaseUrl)
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(2 * 1024 * 1024 * 1024))
-                .build();
-        
-        // Lottery configuration endpoints (v1) - port 8001
-        String configBaseUrl = dashboardBaseUrl.replace("8002", "8001");
-        this.lotteryConfigWebClient = webClientBuilder
-                .baseUrl(configBaseUrl)
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(2 * 1024 * 1024 * 1024))
-                .build();
+    public SmartNumberGenerationService(
+            @Qualifier("analysisServiceWebClient") WebClient analysisServiceWebClient,
+            @Qualifier("statesServiceWebClient") WebClient statesServiceWebClient) {
+        this.smartGeneratorWebClient = analysisServiceWebClient;
+        this.lotteryConfigWebClient = statesServiceWebClient;
     }
 
     public Mono<SmartGenerationResponse> startGeneration(SmartGenerationRequest request) {
@@ -48,7 +44,7 @@ public class SmartNumberGenerationService {
                 .retrieve()
                 .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {})
                 .onErrorResume(error -> {
-                    System.err.println("SSE connection failed: " + error.getMessage());
+                    logger.error("SSE connection failed: {}", error.getMessage());
                     return Flux.empty();
                 });
     }
@@ -60,10 +56,10 @@ public class SmartNumberGenerationService {
                 .onStatus(
                     status -> status.is5xxServerError(),
                     response -> {
-                        System.err.println("Server error (5xx) when fetching results for session: " + sessionId);
+                        logger.error("Server error (5xx) when fetching results for session: {}", sessionId);
                         return response.bodyToMono(String.class)
                                 .flatMap(body -> {
-                                    System.err.println("Error response body: " + body);
+                                    logger.error("Error response body: {}", body);
                                     return Mono.error(new RuntimeException("Server error while fetching results. Session: " + sessionId + ". Response: " + body));
                                 });
                     }
@@ -71,10 +67,10 @@ public class SmartNumberGenerationService {
                 .onStatus(
                     status -> status.is4xxClientError(),
                     response -> {
-                        System.err.println("Client error (4xx) when fetching results for session: " + sessionId);
+                        logger.error("Client error (4xx) when fetching results for session: {}", sessionId);
                         return response.bodyToMono(String.class)
                                 .flatMap(body -> {
-                                    System.err.println("Error response body: " + body);
+                                    logger.error("Error response body: {}", body);
                                     if (response.statusCode().value() == 404) {
                                         return Mono.error(new RuntimeException("Session not found or expired: " + sessionId));
                                     }
@@ -92,10 +88,10 @@ public class SmartNumberGenerationService {
                 .onStatus(
                     status -> status.is5xxServerError(),
                     response -> {
-                        System.err.println("Server error (5xx) when fetching full analysis from: " + fullAnalysisEndpoint);
+                        logger.error("Server error (5xx) when fetching full analysis from: {}", fullAnalysisEndpoint);
                         return response.bodyToMono(String.class)
                                 .flatMap(body -> {
-                                    System.err.println("Error response body: " + body);
+                                    logger.error("Error response body: {}", body);
                                     return Mono.error(new RuntimeException("Server error while fetching full analysis. Endpoint: " + fullAnalysisEndpoint + ". Response: " + body));
                                 });
                     }
@@ -103,10 +99,10 @@ public class SmartNumberGenerationService {
                 .onStatus(
                     status -> status.is4xxClientError(),
                     response -> {
-                        System.err.println("Client error (4xx) when fetching full analysis from: " + fullAnalysisEndpoint);
+                        logger.error("Client error (4xx) when fetching full analysis from: {}", fullAnalysisEndpoint);
                         return response.bodyToMono(String.class)
                                 .flatMap(body -> {
-                                    System.err.println("Error response body: " + body);
+                                    logger.error("Error response body: {}", body);
                                     return Mono.error(new RuntimeException("Invalid request for full analysis. Endpoint: " + fullAnalysisEndpoint + ". Response: " + body));
                                 });
                     }
@@ -144,17 +140,17 @@ public class SmartNumberGenerationService {
     }
 
     public Mono<String> testApiConnectivity() {
-        System.out.println("Testing API connectivity...");
-        System.out.println("Smart Generator API (port 8002): " + smartGeneratorWebClient.mutate().build().toString());
-        System.out.println("Lottery Config API (port 8001): " + lotteryConfigWebClient.mutate().build().toString());
-        
+        logger.info("Testing API connectivity...");
+        logger.debug("Smart Generator API: {}", smartGeneratorWebClient.mutate().build());
+        logger.debug("Lottery Config API: {}", lotteryConfigWebClient.mutate().build());
+
         return getGenerationStatistics()
-                .doOnSuccess(stats -> System.out.println("✅ Smart Generator API reachable"))
-                .doOnError(error -> System.err.println("❌ Smart Generator API unreachable: " + error.getMessage()))
+                .doOnSuccess(stats -> logger.info("Smart Generator API reachable"))
+                .doOnError(error -> logger.error("Smart Generator API unreachable: {}", error.getMessage()))
                 .onErrorReturn("API Unreachable")
                 .then(getAllLotteryConfigurations()
-                        .doOnSuccess(configs -> System.out.println("✅ Lottery Config API reachable, " + configs.size() + " configs found"))
-                        .doOnError(error -> System.err.println("❌ Lottery Config API unreachable: " + error.getMessage()))
+                        .doOnSuccess(configs -> logger.info("Lottery Config API reachable, {} configs found", configs.size()))
+                        .doOnError(error -> logger.error("Lottery Config API unreachable: {}", error.getMessage()))
                         .onErrorReturn(java.util.Collections.emptyList())
                         .map(configs -> "APIs tested")
                 );

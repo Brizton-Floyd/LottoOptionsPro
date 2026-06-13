@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Service for managing delta selections across views using JavaFX observable properties.
@@ -26,7 +27,7 @@ public class DeltaSelectionCacheService {
     private static final int CACHE_FRESHNESS_MINUTES = 30;
     
     private final DeltaSelectionCache cache = new DeltaSelectionCache();
-    private final List<CacheUpdateListener> listeners = new ArrayList<>();
+    private final List<CacheUpdateListener> listeners = new CopyOnWriteArrayList<>();
     
     public DeltaSelectionCacheService() {
         // Listen to map changes

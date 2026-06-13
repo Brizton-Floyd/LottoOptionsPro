@@ -2,6 +2,7 @@ package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.model.strategyengine.StrategyEngineRequest;
 import com.example.lottooptionspro.model.strategyengine.StrategyEngineResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -10,13 +11,10 @@ import reactor.core.publisher.Mono;
 public class StrategyEngineService {
 
     private final WebClient webClient;
-    private static final String BASE_URL = "http://localhost:8002";
     private static final String GENERATE_POOLS_ENDPOINT = "/api/v1/analysis/dsh/generate-pools";
 
-    public StrategyEngineService() {
-        this.webClient = WebClient.builder()
-                .baseUrl(BASE_URL)
-                .build();
+    public StrategyEngineService(@Qualifier("analysisServiceWebClient") WebClient analysisServiceWebClient) {
+        this.webClient = analysisServiceWebClient;
     }
 
     public Mono<StrategyEngineResponse> generatePools(StrategyEngineRequest request) {

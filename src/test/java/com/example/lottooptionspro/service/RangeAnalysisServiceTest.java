@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.Arrays;
 import java.util.List;
@@ -18,7 +19,7 @@ class RangeAnalysisServiceTest {
 
     @BeforeEach
     void setUp() {
-        rangeAnalysisService = new RangeAnalysisService();
+        rangeAnalysisService = new RangeAnalysisService(WebClient.builder().build());
     }
 
     @Test

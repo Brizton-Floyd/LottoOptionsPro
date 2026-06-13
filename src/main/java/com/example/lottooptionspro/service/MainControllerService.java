@@ -2,6 +2,9 @@ package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.models.LotteryGame;
 import com.example.lottooptionspro.models.LotteryState;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -17,15 +20,16 @@ import java.util.List;
 
 @Service
 public class MainControllerService {
+    private static final Logger logger = LoggerFactory.getLogger(MainControllerService.class);
     private final WebClient webClient;
 
-    public MainControllerService(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8001/api/v1").build();
+    public MainControllerService(@Qualifier("statesServiceWebClient") WebClient statesServiceWebClient) {
+        this.webClient = statesServiceWebClient;
     }
 
     public Flux<LotteryState> fetchStateGames() {
         return webClient.get()
-                .uri("/states")
+                .uri("/api/v1/states")
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToFlux(StateResponse.class)
@@ -35,7 +39,7 @@ public class MainControllerService {
                         .map(games -> new LotteryState(stateData.getStateRegion(), games)))
                 .retryWhen(Retry.backoff(10, Duration.ofSeconds(2))
                         .filter(throwable -> {
-                            System.out.println("Retrying due to: " + throwable.getClass().getName());
+                            logger.warn("Retrying due to: {}", throwable.getClass().getName());
                             return throwable instanceof ConnectException ||
                                     throwable instanceof WebClientResponseException ||
                                     throwable instanceof WebClientRequestException;
@@ -46,7 +50,7 @@ public class MainControllerService {
 
     private Flux<LotteryGame> fetchGamesForState(StateResponse.StateData stateData) {
         return webClient.get()
-                .uri("/states/{stateName}/games", stateData.getStateRegion())
+                .uri("/api/v1/states/{stateName}/games", stateData.getStateRegion())
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToFlux(LotteryGame.class);

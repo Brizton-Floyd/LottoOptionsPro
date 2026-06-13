@@ -6,6 +6,8 @@ import com.example.lottooptionspro.model.dashboard.SegmentGameOutHistory;
 import com.example.lottooptionspro.util.SegmentCalculator;
 import com.floyd.model.dashboard.DrawResultPattern;
 import com.floyd.model.dashboard.LotteryNumber;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -15,6 +17,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class SegmentAnalysisService {
+    private static final Logger logger = LoggerFactory.getLogger(SegmentAnalysisService.class);
     private static final int DEFAULT_SEGMENT_SIZE = 10;
     
     public SegmentAnalysisResult analyzeSegments(List<DrawResultPattern> drawResultPatterns) {
@@ -41,9 +44,11 @@ public class SegmentAnalysisService {
         // Optimized batch processing for segment histories
         Map<String, SegmentGameOutHistory> histories = SegmentCalculator.buildSegmentHistories(segments, processedPatterns);
         
-        // Parallel processing for segment data population
+        // Sequential processing for segment data population — populateSegmentDataOptimized
+        // calls SegmentCalculator helpers that mutate the segment and are not documented
+        // as thread-safe, so avoid parallelStream here.
         final List<DrawResultPattern> finalProcessedPatterns = processedPatterns;
-        segments.parallelStream().forEach(segment -> {
+        segments.forEach(segment -> {
             SegmentGameOutHistory history = histories.get(segment.getSegmentName());
             if (history != null) {
                 populateSegmentDataOptimized(segment, history, finalProcessedPatterns);
@@ -105,14 +110,16 @@ public class SegmentAnalysisService {
         segment.setRecommendedGamesOut(recommendations);
         
         // Calculate optimal number selections for hot and normal groups
-        System.out.println("SegmentAnalysisService - Calculating optimal numbers for segment: " + segment.getSegmentName());
+        logger.debug("Calculating optimal numbers for segment: {}", segment.getSegmentName());
         List<Integer> optimalHotNumbers = SegmentCalculator.calculateOptimalHotNumbers(segment, history);
         segment.setOptimalHotNumbers(optimalHotNumbers);
-        System.out.println("SegmentAnalysisService - Set " + (optimalHotNumbers != null ? optimalHotNumbers.size() : 0) + " optimal hot numbers for " + segment.getSegmentName());
-        
+        logger.debug("Set {} optimal hot numbers for {}",
+                optimalHotNumbers != null ? optimalHotNumbers.size() : 0, segment.getSegmentName());
+
         List<Integer> optimalNormalNumbers = SegmentCalculator.calculateOptimalNormalNumbers(segment, history);
         segment.setOptimalNormalNumbers(optimalNormalNumbers);
-        System.out.println("SegmentAnalysisService - Set " + (optimalNormalNumbers != null ? optimalNormalNumbers.size() : 0) + " optimal normal numbers for " + segment.getSegmentName());
+        logger.debug("Set {} optimal normal numbers for {}",
+                optimalNormalNumbers != null ? optimalNormalNumbers.size() : 0, segment.getSegmentName());
         
         // Calculate prediction accuracy statistics
         SegmentCalculator.calculatePredictionAccuracy(segment, history);

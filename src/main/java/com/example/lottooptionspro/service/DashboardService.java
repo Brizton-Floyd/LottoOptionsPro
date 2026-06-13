@@ -3,32 +3,31 @@ package com.example.lottooptionspro.service;
 import com.example.lottooptionspro.model.dashboard.SegmentAnalysisResult;
 import com.example.lottooptionspro.model.response.EnhancedDashboardResponse;
 import com.floyd.model.response.DashboardResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @Service
 public class DashboardService {
+    private static final Logger logger = LoggerFactory.getLogger(DashboardService.class);
+
     private final WebClient webClient;
-    private final String baseUrl;
     private final SegmentAnalysisService segmentAnalysisService;
 
-    @Autowired
-    public DashboardService(@Value("${dashboard.base-url}") String baseUrl, 
-                           SegmentAnalysisService segmentAnalysisService) {
-        this.baseUrl = baseUrl;
+    public DashboardService(@Qualifier("analysisServiceWebClient") WebClient analysisServiceWebClient,
+                            SegmentAnalysisService segmentAnalysisService) {
+        this.webClient = analysisServiceWebClient;
         this.segmentAnalysisService = segmentAnalysisService;
-        this.webClient = WebClient
-                .builder()
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(2 * 1024 * 1024 * 1024)) // 2GB
-                .baseUrl(baseUrl).build();
     }
 
     public Mono<DashboardResponse> getDashboardData(String state, String game) {
         return webClient.get()
-                .uri("/api/v1/analysis/" + state + "/" + game + "/dashboard") // Inject arguments into the URL
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/v1/analysis/{state}/{game}/dashboard")
+                        .build(state, game))
                 .retrieve()
                 .bodyToMono(DashboardResponse.class);
     }
@@ -36,7 +35,14 @@ public class DashboardService {
     public Mono<EnhancedDashboardResponse> getEnhancedDashboardData(String state, String game) {
         return getDashboardData(state, game)
                 .map(this::enhanceWithSegmentAnalysis)
-                .onErrorReturn(createEmptyEnhancedResponse());
+                // Do NOT silently swallow the failure: log the real cause (404, decode error,
+                // dropped connection, etc.) with state/game context, then degrade gracefully to
+                // an empty response so the UI does not crash. Previously onErrorReturn hid the
+                // cause entirely, making failures look like a downstream NullPointerException.
+                .onErrorResume(e -> {
+                    logger.error("Dashboard API call failed for {}/{}: {}", state, game, e.toString(), e);
+                    return Mono.just(createEmptyEnhancedResponse());
+                });
     }
     
     private EnhancedDashboardResponse enhanceWithSegmentAnalysis(DashboardResponse originalResponse) {
@@ -51,7 +57,7 @@ public class DashboardService {
                 enhanced.setSegmentAnalysis(segmentAnalysis);
             }
         } catch (Exception e) {
-            System.err.println("Error generating segment analysis: " + e.getMessage());
+            logger.error("Error generating segment analysis: {}", e.getMessage(), e);
             enhanced.setSegmentAnalysisEnabled(false);
         }
         

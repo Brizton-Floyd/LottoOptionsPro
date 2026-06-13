@@ -274,19 +274,19 @@
             </VBox>
 
             <!-- Results Dashboard - 2x2 Grid Layout -->
-            <VBox fx:id="resultsSection" spacing="15" visible="false" styleClass="results-section">
+            <VBox fx:id="resultsSection" spacing="15" visible="false" managed="false" styleClass="results-section" maxWidth="Infinity">
                 <!-- Quick Status Bar -->
                 <Label fx:id="resultsSummaryLabel" text="" styleClass="results-summary"/>
                 
                 <!-- 2x2 Grid Dashboard -->
-                <GridPane fx:id="resultsGrid" styleClass="results-dashboard" hgap="16" vgap="16">
+                <GridPane fx:id="resultsGrid" styleClass="results-dashboard" hgap="16" vgap="16" maxWidth="Infinity">
                     <columnConstraints>
-                        <ColumnConstraints hgrow="ALWAYS" prefWidth="50"/>
-                        <ColumnConstraints hgrow="ALWAYS" prefWidth="50"/>
+                        <ColumnConstraints hgrow="ALWAYS" percentWidth="50"/>
+                        <ColumnConstraints hgrow="ALWAYS" percentWidth="50"/>
                     </columnConstraints>
                     <rowConstraints>
-                        <RowConstraints vgrow="ALWAYS"/>
-                        <RowConstraints vgrow="ALWAYS"/>
+                        <RowConstraints/>
+                        <RowConstraints/>
                     </rowConstraints>
 
                     <!-- TOP LEFT: Performance Dashboard -->

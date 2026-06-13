@@ -1,11 +1,14 @@
 package com.example.lottooptionspro.service;
 
 import com.example.lottooptionspro.model.wheel.WheelParameters;
+import com.example.lottooptionspro.util.CombinatoricsUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Service
 public class WheelVerificationService {
@@ -15,12 +18,14 @@ public class WheelVerificationService {
     public VerificationResult verify(List<int[]> wheel, WheelParameters params) {
         logger.info("Verifying wheel: {} lines for {}", wheel.size(), params.getNotation());
         
-        int totalDraws = binomial(params.getV(), params.getT());
+        int totalDraws = (int) CombinatoricsUtil.binomial(params.getV(), params.getT());
         int passedDraws = 0;
         int failedDraws = 0;
         List<int[]> failedCases = new ArrayList<>();
         
-        List<int[]> allDraws = generateAllCombinations(params.getV(), params.getT());
+        List<int[]> allDraws = CombinatoricsUtil.generateAllCombinations(
+                IntStream.range(0, params.getV()).boxed().collect(Collectors.toList()),
+                params.getT());
         
         for (int[] draw : allDraws) {
             boolean hasMatch = checkDrawAgainstWheel(draw, wheel, params.getM());
@@ -46,8 +51,8 @@ public class WheelVerificationService {
         result.setCoveragePercentage(coverage);
         result.setFailedCases(failedCases);
         
-        logger.info("Verification result: {} ({}/{} draws passed, {:.2f}% coverage)", 
-                   verified ? "PASS" : "FAIL", passedDraws, totalDraws, coverage);
+        logger.info("Verification result: {} ({}/{} draws passed, {}% coverage)",
+                   verified ? "PASS" : "FAIL", passedDraws, totalDraws, String.format("%.2f", coverage));
         
         if (!verified && failedCases.size() > 0) {
             logger.warn("First failed case: {}", Arrays.toString(failedCases.get(0)));
@@ -91,38 +96,6 @@ public class WheelVerificationService {
         }
         
         return mappedWheel;
-    }
-    
-    private List<int[]> generateAllCombinations(int n, int k) {
-        List<int[]> result = new ArrayList<>();
-        int[] combo = new int[k];
-        generateCombinationsRecursive(n, k, 0, 0, combo, result);
-        return result;
-    }
-    
-    private void generateCombinationsRecursive(int n, int k, int start, int index, int[] combo, List<int[]> result) {
-        if (index == k) {
-            result.add(combo.clone());
-            return;
-        }
-        
-        for (int i = start; i <= n - k + index; i++) {
-            combo[index] = i;
-            generateCombinationsRecursive(n, k, i + 1, index + 1, combo, result);
-        }
-    }
-    
-    private int binomial(int n, int k) {
-        if (k > n - k) {
-            k = n - k;
-        }
-        
-        long result = 1;
-        for (int i = 0; i < k; i++) {
-            result = result * (n - i) / (i + 1);
-        }
-        
-        return (int) result;
     }
     
     public static class VerificationResult {

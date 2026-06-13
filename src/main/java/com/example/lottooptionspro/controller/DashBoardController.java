@@ -41,6 +41,7 @@ import reactor.core.publisher.Mono;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -57,7 +58,7 @@ public class DashBoardController implements GameInformation, DashboardView {
     @FXML
     private TableView<ObservableList<Object>> numberColumnsTable;
     @FXML
-    private Button addBtn, removeBtn, segmentViewBtn, tradingChartBtn, refreshChartBtn;
+    private Button addBtn, removeBtn, segmentViewBtn, tradingChartBtn, refreshChartBtn, patternAnalysisBtn;
     @FXML
     private HBox dynamicPanesContainer;
     @FXML
@@ -74,6 +75,10 @@ public class DashBoardController implements GameInformation, DashboardView {
     private VBox segmentRecommendationsContainer;
     @FXML
     private VBox gamesOutFrequencyContainer;
+    @FXML
+    private VBox patternAnalysisContainer;
+    @FXML
+    private VBox patternAnalysisContent;
     
     // Trading Chart FXML fields
     @FXML
@@ -100,6 +105,9 @@ public class DashBoardController implements GameInformation, DashboardView {
     // Trading Chart state
     private boolean tradingChartViewActive = false;
     private TradingStyleChart currentTradingChart;
+    
+    // Pattern Analysis state
+    private boolean patternAnalysisViewActive = false;
     
     private PositionTrendService positionTrendService;
 
@@ -169,6 +177,18 @@ public class DashBoardController implements GameInformation, DashboardView {
 
     @Override
     public void setUpDrawPatternTable(List<DrawResultPattern> drawResultPatterns) {
+        // Guard against a null/empty list (e.g. the dashboard call failed or the game has no
+        // draws). Clear any stale state and bail out instead of NPE-ing on new ArrayList<>(null).
+        if (drawResultPatterns == null || drawResultPatterns.isEmpty()) {
+            System.err.println("setUpDrawPatternTable: no draw patterns to display (null or empty) — nothing rendered");
+            data.clear();
+            dateColumnTable.getColumns().clear();
+            numberColumnsTable.getColumns().clear();
+            this.originalDrawPatterns = new ArrayList<>();
+            this.currentViewDrawPatterns = new ArrayList<>();
+            return;
+        }
+
         setUpGamesOutFrequencyAnalysis(drawResultPatterns);
         data.clear();
         dateColumnTable.getColumns().clear();
@@ -970,6 +990,9 @@ public class DashBoardController implements GameInformation, DashboardView {
         
         // Update segment analysis for the new current draw
         refreshSegmentAnalysisForCurrentDraw();
+        
+        // Update frequency analysis for the new current draw
+        refreshFrequencyAnalysisForCurrentDraw();
     }
 
     @FXML
@@ -989,6 +1012,9 @@ public class DashBoardController implements GameInformation, DashboardView {
         
         // Update segment analysis for the new current draw
         refreshSegmentAnalysisForCurrentDraw();
+        
+        // Update frequency analysis for the new current draw
+        refreshFrequencyAnalysisForCurrentDraw();
     }
     
     private void refreshSegmentAnalysisForCurrentDraw() {
@@ -1011,6 +1037,36 @@ public class DashBoardController implements GameInformation, DashboardView {
             }
         } catch (Exception e) {
             System.err.println("Error refreshing segment analysis: " + e.getMessage());
+        }
+    }
+    
+    private void refreshFrequencyAnalysisForCurrentDraw() {
+        // Convert current table data back to DrawResultPattern format for frequency/pattern analysis
+        try {
+            System.out.println("refreshFrequencyAnalysisForCurrentDraw called");
+            List<DrawResultPattern> currentDrawPatterns = convertTableDataToDrawPatterns();
+            System.out.println("Converted patterns: " + currentDrawPatterns.size());
+            
+            if (!currentDrawPatterns.isEmpty()) {
+                // Always refresh frequency analysis (right side panel)
+                System.out.println("Refreshing frequency analysis...");
+                Platform.runLater(() -> {
+                    System.out.println("setUpGamesOutFrequencyAnalysis executing on JavaFX thread");
+                    setUpGamesOutFrequencyAnalysis(currentDrawPatterns);
+                    System.out.println("setUpGamesOutFrequencyAnalysis completed");
+                });
+                
+                // If pattern analysis is active, also refresh it
+                if (patternAnalysisViewActive) {
+                    System.out.println("Pattern analysis active - refreshing pattern analysis too");
+                    refreshPatternAnalysis();
+                }
+            } else {
+                System.out.println("No patterns to refresh - list is empty");
+            }
+        } catch (Exception e) {
+            System.err.println("Error refreshing frequency/pattern analysis: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -1721,6 +1777,14 @@ public class DashBoardController implements GameInformation, DashboardView {
         refreshTradingChart();
     }
     
+    @FXML
+    public void handleTogglePatternAnalysis(ActionEvent event) {
+        System.out.println("Pattern Analysis button clicked! Current state: " + patternAnalysisViewActive);
+        patternAnalysisViewActive = !patternAnalysisViewActive;
+        System.out.println("New state: " + patternAnalysisViewActive);
+        togglePatternAnalysisView();
+    }
+    
     private void handlePositionChange() {
         if (tradingChartViewActive && positionSelector.getValue() != null) {
             refreshTradingChart();
@@ -1816,5 +1880,476 @@ public class DashBoardController implements GameInformation, DashboardView {
             System.err.println("Error refreshing trading chart: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+    
+    // ======================== PATTERN ANALYSIS METHODS ========================
+    
+    private void togglePatternAnalysisView() {
+        System.out.println("togglePatternAnalysisView called - patternAnalysisViewActive: " + patternAnalysisViewActive);
+        Platform.runLater(() -> {
+            if (patternAnalysisViewActive) {
+                System.out.println("Showing Pattern Analysis view");
+                // Hide probability panes
+                dynamicPanesContainer.setVisible(false);
+                dynamicPanesContainer.setManaged(false);
+                
+                // Show pattern analysis container
+                patternAnalysisContainer.setVisible(true);
+                patternAnalysisContainer.setManaged(true);
+                
+                patternAnalysisBtn.setText("Show Probability Panes");
+                refreshPatternAnalysis();
+            } else {
+                System.out.println("Showing Probability Panes");
+                // Hide pattern analysis
+                patternAnalysisContainer.setVisible(false);
+                patternAnalysisContainer.setManaged(false);
+                
+                // Show probability panes
+                dynamicPanesContainer.setVisible(true);
+                dynamicPanesContainer.setManaged(true);
+                
+                patternAnalysisBtn.setText("Pattern Analysis");
+            }
+        });
+    }
+    
+    private void refreshPatternAnalysis() {
+        try {
+            System.out.println("refreshPatternAnalysis called - converting table data...");
+            List<DrawResultPattern> currentDrawPatterns = convertTableDataToDrawPatterns();
+            System.out.println("Converted patterns count: " + currentDrawPatterns.size());
+            
+            if (!currentDrawPatterns.isEmpty()) {
+                // Limit to most recent 500 draws for performance
+                final List<DrawResultPattern> limitedPatterns;
+                if (currentDrawPatterns.size() > 500) {
+                    limitedPatterns = currentDrawPatterns.subList(
+                        currentDrawPatterns.size() - 500, 
+                        currentDrawPatterns.size()
+                    );
+                    System.out.println("Limited to most recent 500 draws for performance");
+                } else {
+                    limitedPatterns = currentDrawPatterns;
+                }
+                
+                // Show loading indicator immediately
+                Platform.runLater(() -> {
+                    if (patternAnalysisContent != null) {
+                        patternAnalysisContent.getChildren().clear();
+                        Label loadingLabel = new Label("⏳ Calculating patterns from " + limitedPatterns.size() + " draws...");
+                        loadingLabel.setStyle("-fx-font-size: 16px; -fx-padding: 40; -fx-text-fill: #0066CC; -fx-font-weight: bold;");
+                        patternAnalysisContent.getChildren().add(loadingLabel);
+                    }
+                });
+                
+                System.out.println("Starting background thread for pattern calculation with " + limitedPatterns.size() + " draws...");
+                // Run pattern calculation in background thread to prevent UI freeze
+                new Thread(() -> {
+                    try {
+                        System.out.println("Background thread started!");
+                        // Calculate patterns in background
+                        System.out.println("Calculating pattern statistics...");
+                        Map<String, PatternStats> patternStatsMap = calculatePatternStatistics(limitedPatterns);
+                        System.out.println("Pattern statistics calculated: " + patternStatsMap.size() + " unique patterns");
+                        
+                        System.out.println("Calculating current pattern...");
+                        String currentPattern = calculatePatternString(limitedPatterns, limitedPatterns.size() - 1);
+                        System.out.println("Current pattern: " + currentPattern);
+                        
+                        // Update UI on JavaFX thread
+                        System.out.println("Updating UI...");
+                        Platform.runLater(() -> {
+                            displayPatternAnalysis(limitedPatterns, patternStatsMap, currentPattern);
+                        });
+                    } catch (Exception e) {
+                        System.err.println("Error calculating pattern analysis: " + e.getMessage());
+                        e.printStackTrace();
+                        Platform.runLater(() -> {
+                            if (patternAnalysisContent != null) {
+                                patternAnalysisContent.getChildren().clear();
+                                Label errorLabel = new Label("❌ Error: " + e.getMessage());
+                                errorLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: red; -fx-padding: 20;");
+                                patternAnalysisContent.getChildren().add(errorLabel);
+                            }
+                        });
+                    }
+                }).start();
+            } else {
+                System.out.println("No patterns to analyze - list is empty!");
+            }
+        } catch (Exception e) {
+            System.err.println("Error refreshing pattern analysis: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void setUpPatternAnalysis(List<DrawResultPattern> drawResultPatterns) {
+        if (gamesOutFrequencyContainer == null || drawResultPatterns == null || drawResultPatterns.size() < 2) {
+            System.out.println("Pattern analysis skipped - container: " + (gamesOutFrequencyContainer != null) + 
+                             ", patterns: " + (drawResultPatterns != null ? drawResultPatterns.size() : "null"));
+            return;
+        }
+        
+        System.out.println("Starting pattern analysis with " + drawResultPatterns.size() + " draws");
+        
+        // Show loading indicator
+        Platform.runLater(() -> {
+            gamesOutFrequencyContainer.getChildren().clear();
+            Label loadingLabel = new Label("Calculating patterns...");
+            loadingLabel.setStyle("-fx-font-size: 14px; -fx-padding: 20;");
+            gamesOutFrequencyContainer.getChildren().add(loadingLabel);
+        });
+        
+        // Run pattern calculation in background thread to prevent UI freeze
+        new Thread(() -> {
+            try {
+                System.out.println("Calculating pattern statistics...");
+                // Calculate patterns in background
+                Map<String, PatternStats> patternStatsMap = calculatePatternStatistics(drawResultPatterns);
+                System.out.println("Found " + patternStatsMap.size() + " unique patterns");
+                
+                String currentPattern = calculatePatternString(drawResultPatterns, drawResultPatterns.size() - 1);
+                System.out.println("Current pattern: " + currentPattern);
+                
+                // Update UI on JavaFX thread
+                Platform.runLater(() -> {
+                    System.out.println("Displaying pattern analysis...");
+                    displayPatternAnalysis(drawResultPatterns, patternStatsMap, currentPattern);
+                });
+            } catch (Exception e) {
+                System.err.println("Error calculating pattern analysis: " + e.getMessage());
+                e.printStackTrace();
+                Platform.runLater(() -> {
+                    gamesOutFrequencyContainer.getChildren().clear();
+                    Label errorLabel = new Label("Error calculating patterns: " + e.getMessage());
+                    errorLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: red; -fx-padding: 20;");
+                    gamesOutFrequencyContainer.getChildren().add(errorLabel);
+                });
+            }
+        }).start();
+    }
+    
+    private void displayPatternAnalysis(List<DrawResultPattern> drawResultPatterns, 
+                                        Map<String, PatternStats> patternStatsMap, 
+                                        String currentPattern) {
+        if (patternAnalysisContent == null) {
+            return;
+        }
+        
+        patternAnalysisContent.getChildren().clear();
+        
+        // Create header
+        Label headerLabel = new Label("Pattern String Analysis");
+        headerLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 16px; -fx-padding: 5 0 10 0;");
+        patternAnalysisContent.getChildren().add(headerLabel);
+        
+        // Display current pattern
+        if (currentPattern != null && !currentPattern.isEmpty()) {
+            VBox currentPatternBox = new VBox(5);
+            currentPatternBox.setStyle("-fx-border-color: #4444FF; -fx-border-width: 2; -fx-padding: 10; -fx-background-color: #F0F0FF; -fx-border-radius: 8; -fx-background-radius: 8;");
+            
+            Label currentLabel = new Label("Current Pattern:");
+            currentLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px;");
+            
+            Label patternLabel = new Label(currentPattern);
+            patternLabel.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #4444FF;");
+            
+            PatternStats currentStats = patternStatsMap.get(currentPattern);
+            if (currentStats != null) {
+                Label statsLabel = new Label(String.format("Frequency: %dx | Last seen: %d draws ago", 
+                    currentStats.frequency, currentStats.drawsAgo));
+                statsLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666666;");
+                currentPatternBox.getChildren().addAll(currentLabel, patternLabel, statsLabel);
+            } else {
+                currentPatternBox.getChildren().addAll(currentLabel, patternLabel);
+            }
+            
+            patternAnalysisContent.getChildren().add(currentPatternBox);
+        }
+        
+        // Display top 5 predicted patterns for next draw
+        Label predictedLabel = new Label("🔮 Top 5 Predicted Patterns for Next Draw:");
+        predictedLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-padding: 15 0 5 0; -fx-text-fill: #FF6600;");
+        patternAnalysisContent.getChildren().add(predictedLabel);
+        
+        List<String> predictedPatterns = calculateTopPredictedPatterns(drawResultPatterns, patternStatsMap, 5);
+        
+        VBox predictionsBox = new VBox(5);
+        predictionsBox.setStyle("-fx-padding: 5; -fx-background-color: #FFF8F0; -fx-border-color: #FF6600; -fx-border-width: 2; -fx-border-radius: 8; -fx-background-radius: 8;");
+        
+        for (int i = 0; i < predictedPatterns.size(); i++) {
+            String pattern = predictedPatterns.get(i);
+            PatternStats stats = patternStatsMap.get(pattern);
+            
+            HBox predictionRow = new HBox(10);
+            predictionRow.setAlignment(Pos.CENTER_LEFT);
+            predictionRow.setStyle("-fx-padding: 8; -fx-background-color: #FFFFFF; -fx-border-radius: 5; -fx-background-radius: 5;");
+            
+            Label rankLabel = new Label("#" + (i + 1));
+            rankLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #FF6600; -fx-min-width: 30;");
+            
+            Label patternText = new Label(pattern);
+            patternText.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-min-width: 120; -fx-text-fill: #333333;");
+            
+            if (stats != null) {
+                Label freqLabel = new Label(String.format("Freq: %dx", stats.frequency));
+                freqLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #0066CC; -fx-min-width: 70;");
+                
+                Label agoLabel = new Label(String.format("(%d draws ago)", stats.drawsAgo));
+                agoLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #999999; -fx-font-style: italic;");
+                
+                predictionRow.getChildren().addAll(rankLabel, patternText, freqLabel, agoLabel);
+            } else {
+                predictionRow.getChildren().addAll(rankLabel, patternText);
+            }
+            
+            predictionsBox.getChildren().add(predictionRow);
+        }
+        
+        patternAnalysisContent.getChildren().add(predictionsBox);
+        
+        // Display all patterns sorted by frequency
+        Label allPatternsLabel = new Label("All Patterns (sorted by frequency):");
+        allPatternsLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 15 0 5 0;");
+        patternAnalysisContent.getChildren().add(allPatternsLabel);
+        
+        VBox patternsBox = new VBox(5);
+        patternsBox.setStyle("-fx-padding: 5;");
+        
+        // Sort patterns by frequency (descending)
+        List<Map.Entry<String, PatternStats>> sortedPatterns = patternStatsMap.entrySet().stream()
+            .sorted((e1, e2) -> Integer.compare(e2.getValue().frequency, e1.getValue().frequency))
+            .collect(Collectors.toList());
+        
+        for (Map.Entry<String, PatternStats> entry : sortedPatterns) {
+            String pattern = entry.getKey();
+            PatternStats stats = entry.getValue();
+            
+            HBox patternRow = new HBox(10);
+            patternRow.setAlignment(Pos.CENTER_LEFT);
+            patternRow.setStyle("-fx-border-color: #CCCCCC; -fx-border-width: 1; -fx-padding: 8; -fx-background-color: #FFFFFF; -fx-border-radius: 5; -fx-background-radius: 5;");
+            
+            Label patternText = new Label(pattern);
+            patternText.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-min-width: 100; -fx-text-fill: #333333;");
+            
+            Label freqLabel = new Label(String.format("Freq: %dx", stats.frequency));
+            freqLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #0066CC; -fx-min-width: 70;");
+            
+            Label agoLabel = new Label(String.format("(%d draws ago)", stats.drawsAgo));
+            agoLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #999999; -fx-font-style: italic;");
+            
+            patternRow.getChildren().addAll(patternText, freqLabel, agoLabel);
+            patternsBox.getChildren().add(patternRow);
+        }
+        
+        patternAnalysisContent.getChildren().add(patternsBox);
+    }
+    
+    private Map<String, PatternStats> calculatePatternStatistics(List<DrawResultPattern> drawResultPatterns) {
+        Map<String, PatternStats> patternStatsMap = new HashMap<>();
+        
+        // Start from index 1 because we need to look back 1 draw
+        for (int i = 1; i < drawResultPatterns.size(); i++) {
+            String pattern = calculatePatternString(drawResultPatterns, i);
+            
+            if (pattern != null && !pattern.isEmpty()) {
+                PatternStats stats = patternStatsMap.get(pattern);
+                if (stats == null) {
+                    stats = new PatternStats();
+                    stats.frequency = 0;
+                    stats.drawsAgo = -1;
+                    patternStatsMap.put(pattern, stats);
+                }
+                
+                stats.frequency++;
+                
+                // Update drawsAgo (most recent occurrence)
+                if (stats.drawsAgo == -1) {
+                    stats.drawsAgo = drawResultPatterns.size() - 1 - i;
+                }
+            }
+        }
+        
+        return patternStatsMap;
+    }
+    
+    private String calculatePatternString(List<DrawResultPattern> drawResultPatterns, int currentDrawIndex) {
+        if (currentDrawIndex < 1 || currentDrawIndex >= drawResultPatterns.size()) {
+            return null;
+        }
+        
+        DrawResultPattern previousDraw = drawResultPatterns.get(currentDrawIndex - 1);
+        DrawResultPattern currentDraw = drawResultPatterns.get(currentDrawIndex);
+        
+        // Get the numbers that were drawn in the current draw (GO:0)
+        List<LotteryNumber> drawnNumbers = currentDraw.getLotteryNumbers().stream()
+            .filter(ln -> ln.getGamesOut() == 0)
+            .sorted(Comparator.comparingInt(LotteryNumber::getNumber))
+            .collect(Collectors.toList());
+        
+        if (drawnNumbers.isEmpty()) {
+            return null;
+        }
+        
+        // Determine range size
+        int min = currentDraw.getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).min().orElse(1);
+        int max = currentDraw.getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).max().orElse(54);
+        int rangeSize = 10;
+        
+        // Pre-calculate GO stats for all ranges once (optimization)
+        List<DrawResultPattern> historicalData = drawResultPatterns.subList(0, currentDrawIndex);
+        Map<String, Map<Integer, GOValueStats>> rangeStatsCache = new HashMap<>();
+        
+        for (int rangeStart = min; rangeStart <= max; rangeStart += rangeSize) {
+            int rangeEnd = Math.min(rangeStart + rangeSize - 1, max);
+            String rangeKey = rangeStart + "-" + rangeEnd;
+            rangeStatsCache.put(rangeKey, calculateGOValueStats(historicalData, rangeStart, rangeEnd));
+        }
+        
+        // For each drawn number, find its GO value in the previous draw and get the first digit of the frequency count
+        List<String> patternDigits = new ArrayList<>();
+        
+        for (LotteryNumber drawnNumber : drawnNumbers) {
+            int number = drawnNumber.getNumber();
+            
+            // Find this number in the previous draw to get its GO value
+            LotteryNumber prevNumber = previousDraw.getLotteryNumbers().stream()
+                .filter(ln -> ln.getNumber() == number)
+                .findFirst()
+                .orElse(null);
+            
+            if (prevNumber != null) {
+                int goValue = prevNumber.getGamesOut();
+                
+                // Determine which range this number belongs to
+                int rangeStart = ((number - min) / rangeSize) * rangeSize + min;
+                int rangeEnd = Math.min(rangeStart + rangeSize - 1, max);
+                String rangeKey = rangeStart + "-" + rangeEnd;
+                
+                // Get cached GO value stats for this range
+                Map<Integer, GOValueStats> goValueStats = rangeStatsCache.get(rangeKey);
+                
+                // Get the frequency count for this GO value
+                GOValueStats stats = goValueStats != null ? goValueStats.get(goValue) : null;
+                int frequencyCount = stats != null ? stats.frequencyCount : 0;
+                
+                // Get the first digit
+                String firstDigit = frequencyCount > 0 ? String.valueOf(frequencyCount).substring(0, 1) : "0";
+                patternDigits.add(firstDigit);
+            }
+        }
+        
+        return String.join("-", patternDigits);
+    }
+    
+    private List<String> calculateTopPredictedPatterns(List<DrawResultPattern> drawResultPatterns, 
+                                                        Map<String, PatternStats> patternStatsMap, 
+                                                        int topN) {
+        if (drawResultPatterns == null || drawResultPatterns.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // Get the latest draw to determine ranges
+        DrawResultPattern latestDraw = drawResultPatterns.get(drawResultPatterns.size() - 1);
+        
+        // Determine range size
+        int min = latestDraw.getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).min().orElse(1);
+        int max = latestDraw.getLotteryNumbers().stream().mapToInt(LotteryNumber::getNumber).max().orElse(54);
+        int rangeSize = 10;
+        
+        // For each range, find the GO value with the highest hit rate
+        List<String> predictedDigits = new ArrayList<>();
+        
+        for (int rangeStart = min; rangeStart <= max; rangeStart += rangeSize) {
+            int rangeEnd = Math.min(rangeStart + rangeSize - 1, max);
+            
+            // Get GO value stats for this range
+            Map<Integer, GOValueStats> goValueStats = calculateGOValueStats(drawResultPatterns, rangeStart, rangeEnd);
+            
+            // Find the GO value with the highest frequency count (most likely to hit)
+            int bestGO = -1;
+            int bestFrequency = -1;
+            
+            for (Map.Entry<Integer, GOValueStats> entry : goValueStats.entrySet()) {
+                int goValue = entry.getKey();
+                GOValueStats stats = entry.getValue();
+                
+                if (stats.frequencyCount > bestFrequency) {
+                    bestFrequency = stats.frequencyCount;
+                    bestGO = goValue;
+                }
+            }
+            
+            // Get the first digit of the frequency count for this GO value
+            if (bestGO >= 0 && bestFrequency > 0) {
+                String firstDigit = String.valueOf(bestFrequency).substring(0, 1);
+                predictedDigits.add(firstDigit);
+            } else {
+                predictedDigits.add("0");
+            }
+        }
+        
+        // Build predicted pattern from digits
+        if (predictedDigits.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        String predictedPattern = String.join("-", predictedDigits);
+        
+        // Create variations of the predicted pattern and rank by historical frequency
+        List<String> candidates = new ArrayList<>();
+        candidates.add(predictedPattern);
+        
+        // Add similar patterns (patterns that differ by 2 or fewer digits)
+        for (Map.Entry<String, PatternStats> entry : patternStatsMap.entrySet()) {
+            String pattern = entry.getKey();
+            if (!candidates.contains(pattern) && isSimilarPattern(predictedPattern, pattern)) {
+                candidates.add(pattern);
+            }
+        }
+        
+        // Sort candidates by a combination of similarity to prediction and historical frequency
+        candidates.sort((p1, p2) -> {
+            PatternStats stats1 = patternStatsMap.get(p1);
+            PatternStats stats2 = patternStatsMap.get(p2);
+            
+            int freq1 = stats1 != null ? stats1.frequency : 0;
+            int freq2 = stats2 != null ? stats2.frequency : 0;
+            
+            // Boost the predicted pattern significantly
+            if (p1.equals(predictedPattern)) freq1 += 1000;
+            if (p2.equals(predictedPattern)) freq2 += 1000;
+            
+            // Sort by frequency descending
+            return Integer.compare(freq2, freq1);
+        });
+        
+        // Return top N
+        return candidates.stream().limit(topN).collect(Collectors.toList());
+    }
+    
+    private boolean isSimilarPattern(String pattern1, String pattern2) {
+        if (pattern1 == null || pattern2 == null) return false;
+        
+        String[] digits1 = pattern1.split("-");
+        String[] digits2 = pattern2.split("-");
+        
+        if (digits1.length != digits2.length) return false;
+        
+        int differences = 0;
+        for (int i = 0; i < digits1.length; i++) {
+            if (!digits1[i].equals(digits2[i])) {
+                differences++;
+            }
+        }
+        
+        // Similar if 2 or fewer digits differ
+        return differences <= 2;
+    }
+    
+    private static class PatternStats {
+        int frequency;
+        int drawsAgo;
     }
 }

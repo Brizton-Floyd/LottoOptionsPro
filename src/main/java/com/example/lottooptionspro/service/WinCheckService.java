@@ -85,9 +85,18 @@ public class WinCheckService {
     private boolean verifyGuarantee(int[] winningNumbers, List<int[]> wheelTickets, GuaranteeLevel guarantee) {
         int requiredHits = guarantee.getRequiredHits();
         int guaranteedMatches = guarantee.getGuaranteedMatches();
-        
+
         Set<Integer> winningSet = Arrays.stream(winningNumbers).boxed().collect(Collectors.toSet());
-        
+
+        Set<Integer> wheelPool = wheelTickets.stream()
+                .flatMap(ticket -> Arrays.stream(ticket).boxed())
+                .collect(Collectors.toSet());
+        long hitsInPool = winningSet.stream().filter(wheelPool::contains).count();
+
+        if (hitsInPool < requiredHits) {
+            return false;
+        }
+
         for (int[] ticket : wheelTickets) {
             int matchCount = 0;
             for (int num : ticket) {
@@ -95,12 +104,12 @@ public class WinCheckService {
                     matchCount++;
                 }
             }
-            
+
             if (matchCount >= guaranteedMatches) {
                 return true;
             }
         }
-        
+
         return false;
     }
     

@@ -4,6 +4,7 @@ import com.example.lottooptionspro.model.wheel.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -16,7 +17,9 @@ class AbbreviatedWheelServiceTest {
 
     @BeforeEach
     void setUp() {
-        sut = new AbbreviatedWheelService();
+        WheelTableService wheelTableService = Mockito.mock(WheelTableService.class);
+        PatternBasedWheelGenerator patternWheelGenerator = Mockito.mock(PatternBasedWheelGenerator.class);
+        sut = new AbbreviatedWheelService(wheelTableService, patternWheelGenerator);
     }
 
     @Test
@@ -214,11 +217,15 @@ class AbbreviatedWheelServiceTest {
     void testGetAvailableGuarantees_Pick6_Success() {
         GuaranteeLevel[] result = GuaranteeLevel.getAvailableGuaranteesForPickSize(6);
 
-        assertEquals(4, result.length);
+        assertEquals(8, result.length);
         assertTrue(Arrays.asList(result).contains(GuaranteeLevel.FIVE_IF_SIX));
         assertTrue(Arrays.asList(result).contains(GuaranteeLevel.FOUR_IF_SIX));
         assertTrue(Arrays.asList(result).contains(GuaranteeLevel.FOUR_IF_FIVE));
         assertTrue(Arrays.asList(result).contains(GuaranteeLevel.FOUR_IF_FOUR));
+        assertTrue(Arrays.asList(result).contains(GuaranteeLevel.THREE_IF_SIX));
+        assertTrue(Arrays.asList(result).contains(GuaranteeLevel.THREE_IF_FIVE_P6));
+        assertTrue(Arrays.asList(result).contains(GuaranteeLevel.THREE_IF_FOUR_P6));
+        assertTrue(Arrays.asList(result).contains(GuaranteeLevel.THREE_IF_THREE_P6));
     }
 
     @Test
@@ -226,11 +233,12 @@ class AbbreviatedWheelServiceTest {
     void testGetAvailableGuarantees_Pick5_Success() {
         GuaranteeLevel[] result = GuaranteeLevel.getAvailableGuaranteesForPickSize(5);
 
-        assertEquals(4, result.length);
+        assertEquals(5, result.length);
         assertTrue(Arrays.asList(result).contains(GuaranteeLevel.FOUR_IF_FIVE_P5));
         assertTrue(Arrays.asList(result).contains(GuaranteeLevel.FOUR_IF_FOUR_P5));
         assertTrue(Arrays.asList(result).contains(GuaranteeLevel.THREE_IF_FIVE));
         assertTrue(Arrays.asList(result).contains(GuaranteeLevel.THREE_IF_FOUR_P5));
+        assertTrue(Arrays.asList(result).contains(GuaranteeLevel.THREE_IF_THREE_P5));
     }
 
     @Test
